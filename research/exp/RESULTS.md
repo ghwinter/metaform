@@ -2,6 +2,9 @@
 
 2026-10-19 · Code: `domain_a.py`, `domain_prior.py` · fully reproducible (fixed seeds)
 
+> **Note.** Command transcripts quoted below are verbatim run records from an earlier build whose
+> CLI printed Chinese; the current build prints English. They are kept unedited on purpose.
+
 ## 0 One-sentence conclusion
 
 **Asking "which object" is almost worthless; what is valuable is "when to stop asking about objects and start changing the vocabulary."**

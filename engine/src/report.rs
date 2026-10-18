@@ -187,12 +187,12 @@ mod tests {
             round: 0,
             reliability: 1.0,
             answer: false,
-            reason: "探测 4：与 0 撞车".into(),
+            reason: "probe 4 collides with 0".into(),
         };
         crate::ledger::append(&dir.join(".metaform/ledger.tsv"), &e);
         let md = render(&dir);
         assert!(md.contains("## Recent evidence"), "{md}");
-        assert!(md.contains("探测 4：与 0 撞车"), "{md}");
+        assert!(md.contains("probe 4 collides with 0"), "{md}");
         assert!(md.contains("L1 case 4 by probe → no"), "{md}");
         let _ = std::fs::remove_dir_all(&dir);
     }
