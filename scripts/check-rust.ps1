@@ -1,23 +1,23 @@
 <#
 .SYNOPSIS
-    跑 Rust 测试，并断言"通过数 == 期望数、失败 0、忽略 0"。
+    Run the Rust tests and assert "passed == expected, 0 failed, 0 ignored".
 
 .DESCRIPTION
-    `cargo test` 只有在测试失败时才返回非零。若某个测试被 #[ignore] 掉、或整个测试模块
-    被 cfg 掉，输出仍是绿的。所以这里把数字固定住：通过数必须等于 -Expected，
-    且 ignored 必须为 0。
+    `cargo test` returns non-zero only when a test fails. If a test is #[ignore]d, or an entire
+    test module is cfg'd out, the output still looks green. So this pins the numbers: passed must
+    equal -Expected, and ignored must be 0.
 
-    日志写到 engine/last-test.log。
+    The log is written to engine/last-test.log.
 
-    退出码：
-      0  通过数符合期望、0 失败、0 忽略
-      1  不满足
+    Exit codes:
+      0  the pass count matches the expectation, 0 failed, 0 ignored
+      1  not satisfied
 
 .PARAMETER Expected
-    期望通过数（默认 63：41 个内核 + 22 个 CLI/台账/场景/MCP/plan/report/score 测试）。
+    Expected pass count (default 63: 41 kernel + 22 CLI/ledger/scenario/MCP/plan/report/score tests).
 
 .PARAMETER Manifest
-    Cargo.toml 路径。
+    Cargo.toml path.
 #>
 [CmdletBinding()]
 param(

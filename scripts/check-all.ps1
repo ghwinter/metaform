@@ -1,25 +1,25 @@
 <#
 .SYNOPSIS
-    一条命令跑完五套"有断言"的检查：Lean 形式化、Rust 内核测试、定理证伪、双语对齐、论文数字回归。
+    Run all five assertion-bearing checks with one command: Lean formalization, Rust kernel tests, theorem falsification, bilingual alignment, and paper-number regression.
 
 .DESCRIPTION
-    - check-lean：有 warning 就失败
-    - check-rust：通过数必须等于期望值、ignored 必须为 0
-    - verify_claims.py：论文里的关键数字与实测值的差必须在容差内
+    - check-lean: fail on any warning
+    - check-rust: the pass count must equal the expected value, and ignored must be 0
+    - verify_claims.py: key numbers in the paper must match measured values within tolerance
 
-    任何一项失败，整体失败。
+    If any check fails, the whole run fails.
 
 .PARAMETER SkipLean
-    跳过 Lean（冷启动约 25 s）。
+    Skip Lean (about 25 s from a cold start).
 
 .PARAMETER SkipExperiments
-    跳过 Python 回归（约 3 s）。
+    Skip the Python regression (about 3 s).
 
 .PARAMETER RustExpected
-    Rust 期望通过数（默认 63）。
+    Expected Rust pass count (default 63).
 
 .PARAMETER Python
-    Python 解释器路径（本机没有可用的 `python`，默认用 harness 自带运行时）。
+    Python interpreter path (this machine has no usable `python`; defaults to the runtime bundled with the harness).
 #>
 [CmdletBinding()]
 param(

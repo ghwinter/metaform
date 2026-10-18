@@ -1,20 +1,20 @@
 <#
 .SYNOPSIS
-    证明四套门是活的：故意制造失败，确认它们真的会红。
+    Prove the four gates are alive: create failures on purpose and confirm they really turn red.
 
 .DESCRIPTION
-    "检查通过" 有两种可能：真的没问题，或者根本没在检查。
-    这个脚本对每套门做一次负向测试，要求它们按预期失败：
+    "The check passed" has two possible meanings: there really is no problem, or nothing is being
+    checked at all. This script runs one negative test per gate and requires each to fail as expected:
 
-      lean    造一个带未使用变量的文件 → 期望退出码 2（有 warning）
-      rust    把期望通过数写成 999    → 期望退出码 1
-      claims  把 gain 的期望值改成 2.5 → 期望退出码 1
-      ops     把 probe.early_correct 改成 true → 期望退出码 1
+      lean    create a file with an unused variable -> expect exit code 2 (warning)
+      rust    set the expected pass count to 999    -> expect exit code 1
+      claims  change the expected value of gain to 2.5 -> expect exit code 1
+      ops     change probe.early_correct to true    -> expect exit code 1
 
-    四套都按预期失败，才算"门是活的"。
+    Only when all four fail as expected are the gates "alive".
 
 .PARAMETER Python
-    Python 解释器路径。
+    Python interpreter path.
 #>
 [CmdletBinding()]
 param(
@@ -25,7 +25,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $results = @()
 
-# --- 1. Lean：制造 warning ---
+# --- 1. Lean: force a warning ---
 $warnFile = Join-Path $root 'research\lean\_warncheck.lean'
 'def unused (x : Nat) : Nat := 1' | Set-Content -Path $warnFile -Encoding utf8
 try {
@@ -37,11 +37,11 @@ finally {
 }
 $results += [pscustomobject]@{ Gate = 'lean / warning file'; Got = $code; Want = 2 }
 
-# --- 2. Rust：错误的期望值 ---
+# --- 2. Rust: wrong expected count ---
 & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'check-rust.ps1') -Expected 999 | Out-Null
 $results += [pscustomobject]@{ Gate = 'rust / wrong expected'; Got = $LASTEXITCODE; Want = 1 }
 
-# --- 3. 数字回归：篡改期望值 ---
+# --- 3. Number regression: tamper with an expected value ---
 Push-Location (Join-Path $root 'research\exp')
 try {
     & $Python verify_claims.py --tamper gain=2.5 | Out-Null
@@ -50,7 +50,7 @@ try {
 finally { Pop-Location }
 $results += [pscustomobject]@{ Gate = 'claims / tampered gain'; Got = $code; Want = 1 }
 
-# --- 3b. 成本律：故意弄坏一个实测点 ---
+# --- 3b. Cost law: deliberately break one measured point ---
 Push-Location (Join-Path $root 'research\exp')
 try {
     & $Python verify_claims.py --tamper-cost | Out-Null
@@ -59,7 +59,7 @@ try {
 finally { Pop-Location }
 $results += [pscustomobject]@{ Gate = 'claims / tampered cost law'; Got = $code; Want = 1 }
 
-# --- 3c. ops 数字：故意改错期望值 ---
+# --- 3c. ops numbers: deliberately use a wrong expected value ---
 Push-Location (Join-Path $root 'research\exp')
 try {
     & $Python verify_claims.py --tamper-ops | Out-Null
@@ -68,7 +68,7 @@ try {
 finally { Pop-Location }
 $results += [pscustomobject]@{ Gate = 'claims / tampered ops number'; Got = $code; Want = 1 }
 
-# --- 4. 探测演示：篡改 early_correct（无撞车 ≠ 正确） ---
+# --- 4. Probe demo: tamper with early_correct (no collision != correct) ---
 $fake = Join-Path $env:TEMP "fake_ops_$PID.cmd"
 @'
 @echo off

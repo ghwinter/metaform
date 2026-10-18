@@ -1,43 +1,42 @@
-# 域 A 实验结果（合成形式背景）
+# Domain A experimental results (synthetic formal context)
 
-2026-10-19 · 代码：`domain_a.py`、`domain_prior.py` · 全部可复现（seed 固定）
+2026-10-19 · Code: `domain_a.py`, `domain_prior.py` · fully reproducible (fixed seeds)
 
-## 0 一句话结论
+## 0 One-sentence conclusion
 
-**问"哪个对象"几乎不值钱；值钱的是"什么时候不再问对象、开始换词汇"。**
-原命题 C3（信息增益选题显著优于随机）在均匀后验下是**假的**，已降级为负结果。
+**Asking "which object" is almost worthless; what is valuable is "when to stop asking about objects and start changing the vocabulary."**
+The original proposition C3 (information-gain question selection is significantly better than random) is **false** under a uniform posterior and has been downgraded to a negative result.
 
-## 1 v1（旧设定，已作废）
+## 1 v1 (old setup, retired)
 
-10 对象 × 6 属性，假设类 = 任意布尔组合：
+10 objects × 6 attributes, hypothesis class = arbitrary Boolean combinations:
 
-| 策略 | 平均提问数 |
+| Strategy | Mean number of questions |
 |---|---|
-| 信息增益 | 5.41 |
-| 随机 | 8.74 |
+| Information gain | 5.41 |
+| Random | 8.74 |
 
-当时写成 "1.62×"。问题：在"任意布尔组合"下，候选集是按签名类分解的**乘积空间**，
-每个未定类问一次即可，任何能切开的问题都恰好值 1 bit。差距只来自"随机会重复问已经确定的类"。
+It was written as "1.62×" at the time. The problem: under "arbitrary Boolean combinations" the candidate set is a **product space** decomposed by signature class, so asking one question per undetermined class suffices, and any question that splits the set is worth exactly 1 bit. The gap comes only from the fact that "random repeats questions about classes that are already determined."
 
-## 2 v2：收紧假设类，并加去冗余基线
+## 2 v2: tighten the hypothesis class and add a redundancy-removal baseline
 
-300 实例，12 对象 × 8 属性，隐藏目标 = 第 9 个属性的外延；初始词汇缺该属性。
+300 instances, 12 objects × 8 attributes; the hidden target is the extension of the 9th attribute, which the initial vocabulary lacks.
 
-**E4（T2 的经验版）**：V₀ 内一致假设为空 **300/300（100%）**。
+**E4 (the empirical version of T2)**: the set of hypotheses consistent within V₀ is empty **300/300 (100%)**.
 
-**E2 假设类 = 任意布尔组合（乘积空间）**
+**E2 hypothesis class = arbitrary Boolean combinations (product space)**
 
-| 策略 | 平均提问数 | 命中 |
+| Strategy | Mean questions | Hits |
 |---|---|---|
 | gain | 7.78 | 300/300 |
 | balance | 7.78 | 300/300 |
-| **rand_inf**（只在有信息的问题里随机） | **7.78** | 300/300 |
+| **rand_inf** (random only among informative questions) | **7.78** | 300/300 |
 | random | 11.30 | 300/300 |
 | first | 11.38 | 300/300 |
 
-**E1 假设类 = ≤2 文字合取**
+**E1 hypothesis class = conjunctions of ≤2 literals**
 
-| 策略 | 平均提问数 | 命中 |
+| Strategy | Mean questions | Hits |
 |---|---|---|
 | gain | 1.96 | 300/300 |
 | balance | 1.81 | 300/300 |
@@ -45,30 +44,30 @@
 | random | 6.09 | 300/300 |
 | first | 5.77 | 300/300 |
 
-**E3 预算 = 3 次提问的命中率（合取类）**：gain/balance 100%，rand_inf 98%，random 25%，first 30%。
+**E3 hit rate with a budget of 3 questions (conjunction class)**: gain/balance 100%, rand_inf 98%, random 25%, first 30%.
 
-### 关键发现
+### Key finding
 
-`rand_inf` 与 `gain` 完全持平（7.78 vs 7.78；1.86 vs 1.96）。也就是说：
-**全部收益来自"不要问没有信息的问题"，而不是"选得更聪明"。**
-在均匀后验下，凡是能切开候选集的问题都值同样多的比特，选哪个都一样。
+`rand_inf` ties `gain` exactly (7.78 vs 7.78; 1.86 vs 1.96). In other words:
+**the entire benefit comes from "do not ask uninformative questions", not from "choosing more cleverly".**
+Under a uniform posterior, every question that splits the candidate set is worth the same number of bits, so which one you pick does not matter.
 
-## 3 E5：加先验后，选题才开始有点用
+## 3 E5: after adding a prior, question selection starts to help a little
 
-先验 p(S) ∝ 2^-|S|（越短的合取越可能），后验不再均匀。
+Prior p(S) ∝ 2^-|S| (shorter conjunctions are more likely), so the posterior is no longer uniform.
 
 | k | gain_w | balance | rand_inf |
 |---|---|---|---|
 | 2 | **1.63** | 1.86 | 1.87 |
 | 3 | **1.79** | 2.04 | 1.87 |
 
-只有 ~9–13% 的提升。**贝叶斯主动学习在这个域里是个弱杠杆。**
+Only a ~9–13% improvement. **Bayesian active learning is a weak lever in this domain.**
 
-## 3.5 T6 的经验版：更多例子只会暴露词汇不足
+## 3.5 Empirical version of T6: more examples only expose vocabulary insufficiency
 
-400 实例，14 对象 × 8 属性，a* 不在 V₀；每个 k 抽 20 次样本（共 8000 次/行）。
+400 instances, 14 objects × 8 attributes, a* not in V₀; 20 samples per k (8000 runs per row).
 
-| 例子数 k | P(V₀ 内一致假设为空) |
+| Number of examples k | P(no consistent hypothesis within V₀) |
 |---|---|
 | 1 | 2.5% |
 | 2 | 2.3% |
@@ -78,15 +77,14 @@
 | 8 | 93.3% |
 | 10 | 98.7% |
 
-读法：例子里一旦出现"正负例签名相同"的撞车，V₀ 就彻底失效；更多例子只会让撞车更容易发生。
-**所以"再多给几个例子"不是修复手段，是暴露手段。**（k=1..3 偏低，是因为 ≤2 文字合取在稀疏样本上
-仍能凑出"恰好覆盖"的假设——这本身也是 T4 说的容量效应。）
+Reading: once the examples contain a collision where "a positive and a negative example share the same signature", V₀ fails completely; more examples only make collisions more likely.
+**So "give it a few more examples" is not a fix, it is an exposure method.** (k=1..3 are low because, on sparse samples, a conjunction of ≤2 literals can still find a hypothesis that "happens to cover" them — this is itself the capacity effect described by T4.)
 
-## 3.6 成本实验：总额由"提议质量"决定，停止规则是二阶项
+## 3.6 Cost experiment: the total is determined by "proposal quality"; the stopping rule is a second-order term
 
-单缺失谓词模型：对象查询成本 1，提议成本 r，提议命中概率 q，300 实例。
+Single-missing-predicate model: object query cost 1, proposal cost r, proposal hit probability q, 300 instances.
 
-| q | r | ask_first | propose_first | 差 |
+| q | r | ask_first | propose_first | Difference |
 |---|---|---|---|---|
 | 0.125 | 5 | 46.74 | 49.44 | +5.8% |
 | 0.125 | 20 | 173.26 | 168.33 | −2.8% |
@@ -95,83 +93,83 @@
 | 0.500 | 5 | 19.56 | 19.74 | +0.9% |
 | 0.500 | 100 | 206.06 | 209.73 | +1.8% |
 
-**读法**：
+**Reading**:
 
-1. 总成本横跨 **20 → 884（44×）**，几乎完全由 r/q 决定。
-2. 两种停止规则的差 **始终在 ±6% 以内，且符号会翻**（低 q 高 r 时 propose_first 略好，高 q 时 ask_first 略好）——在噪声范围内。
-3. 结论：**调度/停止规则是二阶项；真正的一阶项是"提议命中率 q"和"提议单价 r"。**
+1. Total cost spans **20 → 884 (44×)**, almost entirely determined by r/q.
+2. The difference between the two stopping rules **always stays within ±6%, and its sign flips** (propose_first is slightly better at low q and high r, ask_first is slightly better at high q) — within noise.
+3. Conclusion: **scheduling/stopping rules are second-order terms; the real first-order terms are "proposal hit rate q" and "proposal unit cost r".**
 
-所以 C3′ 的准确表述不是"词汇层代价主导"，而是：**所有工程投入应当压在提议生成上**（提高 q、降低 r），
-而不是压在控制器上。控制器只需要一条规则：候选集空就换词，换完再问。
+So the accurate statement of C3′ is not "vocabulary-level cost dominates" but: **all engineering effort should go into proposal generation** (raise q, lower r),
+not into the controller. The controller needs only one rule: when the candidate set is empty, change the vocabulary; then ask again.
 
-## 3.7 域 C：真实代码行为当 oracle
+## 3.7 Domain C: real code behavior as the oracle
 
-被测函数：`merge_intervals`（合并重叠区间，非法输入抛异常）。
-12 个测试用例；隐藏不变量 = **输出比输入短**（发生过合并）。
-谓词是输入的可执行特征；oracle 真的跑一遍函数。
+Function under test: `merge_intervals` (merges overlapping intervals; invalid input raises).
+12 test cases; the hidden invariant is **the output is shorter than the input** (a merge happened).
+Predicates are executable features of the input; the oracle actually runs the function.
 
-初始词汇 6 个特征（`empty / single / has_negative / long / sorted / width_gt3`），**故意不含**
-"存在重叠或相接的区间对"。种子样本 +3、−2 在 6 个特征上签名相同 → `insufficient`（T2 触发）。
+The initial vocabulary has 6 features (`empty / single / has_negative / long / sorted / width_gt3`) and **deliberately omits**
+"there exists a pair of overlapping or touching intervals". The seed samples +3 and −2 have identical signatures on the 6 features → `insufficient` (T2 triggers).
 
-跑出来的轨迹（`domain_c.py`）：
+The resulting trace (`domain_c.py`):
 
-| 步骤 | 状态 |
+| Step | Status |
 |---|---|
-| 提议 `all_positive`（诱饵） | insufficient |
-| 提议 `max_len_2`（诱饵） | insufficient |
-| 提议 `small_gap`（诱饵） | insufficient |
-| 提议 `overlap` | undetermined |
-| 8 次成员查询 | identified |
+| propose `all_positive` (decoy) | insufficient |
+| propose `max_len_2` (decoy) | insufficient |
+| propose `small_gap` (decoy) | insufficient |
+| propose `overlap` | undetermined |
+| 8 membership queries | identified |
 
-诱导外延 == 隐藏目标（6 个正例，完全一致）。成本（提议单价 20）：4×20 + 8 = **88**；
-若第一个就提议对，则是 **28** —— 3.1× 的差距完全由提议顺序造成。
+The induced extension == the hidden target (6 positives, identical). Cost (proposal unit price 20): 4×20 + 8 = **88**;
+if the first proposal were correct, it would be **28** — the 3.1× gap is entirely due to proposal order.
 
-三个诱饵的共同点：它们在撞车那一对（`[(1,3),(2,4)]` vs `[(1,2),(3,4)]`）上取相同值，
-所以**不可能**改变签名，状态原样不变。这正是 T2 的工程含义：错谓词不是"帮助小"，是**零帮助**。
+What the three decoys share: they take the same value on the colliding pair (`[(1,3),(2,4)]` vs `[(1,2),(3,4)]`),
+so they **cannot** change the signature, and the state stays exactly as it was. This is the engineering meaning of T2: a wrong predicate is not "a little help", it is **zero help**.
 
-## 3.8 域 B：Lean 当 oracle（慢、可信、要批处理）
+## 3.8 Domain B: Lean as the oracle (slow, trustworthy, needs batching)
 
-对象 = 11..31 的 21 个整数；隐藏概念 = **素数**。
-oracle = `lean check.lean`（无 Mathlib，纯核心，2.5 s）一次算完全表；
-文件里还用 `decide` **证明**了"在该区间上素数 ⟺ 与 30 互素"。
+Objects = the 21 integers 11..31; hidden concept = **prime**.
+Oracle = `lean check.lean` (no Mathlib, pure core, 2.5 s) computes the whole table in one run;
+the file also uses `decide` to **prove** that "on this interval, prime ⟺ coprime to 30".
 
-| 步骤 | 状态 |
+| Step | Status |
 |---|---|
-| seed +11 / −25（V₀ 签名相同） | insufficient |
-| 提议 `odd`（在 11 与 25 上同为真） | insufficient |
-| 提议 `coprime30` | undetermined |
-| 5 次查询 | identified，**外延 == 素数列** |
+| seed +11 / −25 (same V₀ signature) | insufficient |
+| propose `odd` (true on both 11 and 25) | insufficient |
+| propose `coprime30` | undetermined |
+| 5 queries | identified, **extension == the prime sequence** |
 
-成本对照：批处理 1 次 = **2.5 s**；若逐查询调用 = 5 × 2.5 = **12.6 s**。
+Cost comparison: one batched call = **2.5 s**; per-query invocation = 5 × 2.5 = **12.6 s**.
 
-两个工程结论：
+Two engineering conclusions:
 
-1. **慢 oracle 必须批处理**，而且批处理天然适合"一次拿全表"——引擎只消费表，不消费进程。
-2. **诱饵要按"是否劈开撞车对"筛选**，不能凭语义想象。第一版里 `gt_11` 看着无害，
-   实际把 11 与 25 劈开了，于是状态先变成 undetermined，随后在别处重新撞车退回 insufficient。
-   这说明"局部可分 ≠ 全局充分"，而状态机自己会发现这件事——不需要额外检测器。
+1. **A slow oracle must be batched**, and batching naturally fits "fetch the whole table at once" — the engine consumes tables, not processes.
+2. **Decoys must be filtered by "does it split a colliding pair"**, not by semantic intuition. In the first version, `gt_11` looked harmless,
+   but it actually split 11 and 25, so the state first became undetermined and then collided elsewhere and fell back to insufficient.
+   This shows that "locally separable ≠ globally sufficient", and the state machine discovers it on its own — no extra detector is needed.
 
-## 3.9 贪心覆盖 vs 随机 vs 最优
+## 3.9 Greedy cover vs random vs optimal
 
-200 个实例，每个 3 正例 × 3 反例（9 对撞车），10 个随机候选谓词。
+200 instances, each with 3 positives × 3 negatives (9 colliding pairs), 10 random candidate predicates.
 
-| 策略 | 平均所需谓词数 |
+| Strategy | Mean number of predicates needed |
 |---|---|
-| 最优（暴力枚举） | 1.87 |
-| 贪心（每步选覆盖最多） | **2.10** |
-| 随机顺序 | 4.30 |
+| Optimal (brute force) | 1.87 |
+| Greedy (pick the most covering at each step) | **2.10** |
+| Random order | 4.30 |
 
-- **贪心比最优多 12%**，与集合覆盖的 `H_n` 近似一致；
-- **随机要 2.05 倍**于贪心。
+- **Greedy needs 12% more than optimal**, consistent with the `H_n` approximation for set cover;
+- **Random needs 2.05×** greedy.
 
-含义：T7 说"词汇够用 ⟺ 覆盖穷尽叉积"，这条一旦成立，提议就从"想个好谓词"变成"解一个集合覆盖"，
-而后者有现成算法与可证的近似比。`qde cover` 是同一件事的命令行版本（`engine/src/main.rs`）。
+Implication: T7 says "the vocabulary is sufficient ⟺ the cover exhausts the cross product"; once that holds, proposal changes from "think of a good predicate" into "solve a set cover",
+and the latter has ready-made algorithms and provable approximation ratios. `qde cover` is the command-line version of the same thing (`engine/src/main.rs`).
 
-## 3.10 噪声 oracle：T2 从判定变成统计
+## 3.10 Noisy oracle: T2 goes from a decision to a statistic
 
-oracle 每次回答以概率 ε 翻转；同一对象问 r 次取多数。200 trials，12 对象、4 属性、8 例子。
+Each oracle answer flips with probability ε; the same object is asked r times and the majority wins. 200 trials, 12 objects, 4 attributes, 8 examples.
 
-| ε | r | A 假触发 | B 漏检 |
+| ε | r | A false trigger | B missed detection |
 |---|---|---|---|
 | 0.05 | 1 | 4.0% | 0.0% |
 | 0.05 | 5 | 0.0% | 0.0% |
@@ -182,19 +180,19 @@ oracle 每次回答以概率 ε 翻转；同一对象问 r 次取多数。200 tr
 | 0.30 | 1 | 12.0% | 20.5% |
 | 0.30 | 5 | 8.0% | 8.2% |
 
-- **A 假触发**：词汇本来够用，噪声在同一等价类里造出"正负并存" → 误报 insufficient。
-- **B 漏检**：词汇真的不够，噪声把冲突抹平 → 该报不报。
-- 重复 5 次多数投票在 ε ≤ 0.2 时把两者压到 ≤0.5%；ε=0.3 时仍有 ~8% 的地板。
+- **A false trigger**: the vocabulary was sufficient, but noise creates "positive and negative together" inside one equivalence class → a false report of insufficient.
+- **B missed detection**: the vocabulary really is insufficient, but noise smooths the conflict away → no report when one is due.
+- Repeating 5 times with majority vote pushes both below 0.5% when ε ≤ 0.2; at ε=0.3 there is still a floor of ~8%.
 
-工程结论：**关键判定要重复问**，重复次数由噪声率定；`Option<bool>` 该升级成带票数的三态。
+Engineering conclusion: **critical decisions must be asked repeatedly**, with the repetition count set by the noise rate; `Option<bool>` should be upgraded to a three-state value carrying vote counts.
 
-## 3.11 完整循环 + θ 门：默认值取 3
+## 3.11 Full loop + θ gate: default is 3
 
-每轮对一批对象各问一次；每答以概率 ε 翻转；θ = 确证所需票差。
-规则：种子也要确认到 θ；类里只要还有"投过票但未达 θ"的成员就不算已决；冲突先复核 2 轮再换词表。
-提议池 = [诱饵, 诱饵, 正确]，所以"提议"均值 3.00、"浪费"均值 2.00 是满分行为。
+Each round asks a batch of objects once; each answer flips with probability ε; θ = the vote gap required for confirmation.
+Rules: seeds must also be confirmed to θ; a class is not decided while any member has "voted but not reached θ"; conflicts are rechecked for 2 rounds before the vocabulary is changed.
+Proposal pool = [decoy, decoy, correct], so a mean of 3.00 proposals and 2.00 wasted is perfect behavior.
 
-| ε | θ | 成功 | 轮数 | 提议 | 浪费 |
+| ε | θ | Success | Rounds | Proposals | Wasted |
 |---|---|---|---|---|---|
 | 0.0 | 1 | 1.00 | 6.0 | 3.00 | 2.00 |
 | 0.0 | 3 | 1.00 | 10.0 | 3.00 | 2.00 |
@@ -205,25 +203,25 @@ oracle 每次回答以概率 ε 翻转；同一对象问 r 次取多数。200 tr
 | 0.2 | 3 | **0.83** | 20.9 | 2.96 | 1.97 |
 | 0.2 | 5 | 0.99 | 32.0 | 3.00 | 2.00 |
 
-读法：
+Reading:
 
-1. **θ=1 在噪声下是灾难**（ε=0.1 只有 25% 成功）——它会提前"认定"并交出一个错误外延。
-2. **θ 从 1 升到 3，成功率从 0.25 跳到 0.98**，代价是轮数从 5.7 涨到 15.6（约 2.7×）。
-3. 继续升到 5 只再把 0.98 推到 1.00（ε=0.2 时 0.83→0.99），轮数再涨 1.4×。
+1. **θ=1 is a disaster under noise** (only 25% success at ε=0.1) — it "decides" early and hands over a wrong extension.
+2. **Raising θ from 1 to 3 jumps success from 0.25 to 0.98**, at the cost of rounds going from 5.7 to 15.6 (about 2.7×).
+3. Raising it further to 5 only pushes 0.98 to 1.00 (0.83→0.99 at ε=0.2) and adds another 1.4× in rounds.
 
-补测 ε=0.3（同一批实例、同一 seed）：θ=1 是 **0.02 / 4.3 轮**，θ=3 是 **0.40 / 30.0 轮**，
-θ=5 是 **0.83 / 49.7 轮**。噪声到三成时，θ=5 也只是把成功率做到八成——这是多数投票错误率的地板，
-不是阈值能解决的问题。论文 Figure 2 右图用的就是这四列。
+An additional run at ε=0.3 (same instances, same seeds): θ=1 gives **0.02 / 4.3 rounds**, θ=3 gives **0.40 / 30.0 rounds**,
+θ=5 gives **0.83 / 49.7 rounds**. At 30% noise, θ=5 only reaches 80% success — that is the floor of majority-vote error,
+not something a threshold can fix. The right panel of Figure 2 in the paper uses these four columns.
 
-**默认值定为 θ=3**（`qde need` 的缺省参数）。经验规则：`θ ≈ 2 + 10ε`，即 ε≤0.1 用 3，ε≈0.2 用 4–5。
-这条判断是我自己下的，依据是上表——0.25 → 0.98 是数量级差别，而 0.98 → 1.00 只是收尾。
+**The default is θ=3** (the default argument of `qde need`). Rule of thumb: `θ ≈ 2 + 10ε`, i.e. use 3 for ε≤0.1 and 4–5 for ε≈0.2.
+This judgment is mine, based on the table above — 0.25 → 0.98 is an order-of-magnitude difference, while 0.98 → 1.00 is just cleanup.
 
-## 3.12 自适应 θ：被否决
+## 3.12 Adaptive θ: rejected
 
-策略：从 3 开始，确认冲突后 +1（上限 6），连续 5 轮无冲突 −1（下限 3）。
-150 实例，其余与 §3.11 相同。
+Strategy: start at 3, +1 after a confirmed conflict (cap 6), −1 after 5 consecutive conflict-free rounds (floor 3).
+150 instances; everything else as in §3.11.
 
-| ε | 策略 | 成功 | 轮数 | 提议 |
+| ε | Strategy | Success | Rounds | Proposals |
 |---|---|---|---|---|
 | 0.10 | fixed3 | 0.98 | 15.2 | 3.00 |
 | 0.10 | fixed5 | 1.00 | 21.9 | 3.00 |
@@ -232,80 +230,80 @@ oracle 每次回答以概率 ε 翻转；同一对象问 r 次取多数。200 tr
 | 0.20 | fixed5 | 1.00 | 31.6 | 3.00 |
 | 0.20 | adapt | 0.94 | 28.2 | 2.94 |
 
-**结论：自适应被两个固定值夹住，没有占优。**
+**Conclusion: adaptive θ is squeezed between the two fixed values and does not dominate.**
 
-- ε=0.1：多花 44% 轮数（21.9 vs 15.2）只换来 0.01 的成功率；
-- ε=0.2：省 11% 轮数，但成功率 0.94 < 1.00。
+- ε=0.1: spends 44% more rounds (21.9 vs 15.2) for 0.01 more success;
+- ε=0.2: saves 11% of rounds, but success is 0.94 < 1.00.
 
-所以维持原来的规则：**θ 由估计的 ε 直接选**（ε≤0.1 → 3，ε≥0.2 → 5），不做在线自适应。
-自适应唯一的优点是"不用估 ε"，但估 ε 有更便宜的办法：投票里的少数票比例就是 ε 的直接估计。
+So the original rule stands: **choose θ directly from the estimated ε** (ε≤0.1 → 3, ε≥0.2 → 5), with no online adaptation.
+The only advantage of adaptation is "no need to estimate ε", but there is a cheaper way to estimate ε: the minority-vote fraction in the votes is a direct estimate of ε.
 
-## 3.13 用估出来的 ε 选 θ：够用，但只在 ε≤0.2
+## 3.13 Choosing θ from estimated ε: good enough, but only for ε≤0.2
 
-`true` = 拿真实 ε 映射 θ（作弊上界）；`hat` = 用少数票比例均值；`hat_q` = 用 75 分位。
-映射表同 §3.11（≤0.1→3，≥0.2→5，否则 4）。
+`true` = map the true ε to θ (cheating upper bound); `hat` = use the mean minority-vote fraction; `hat_q` = use the 75th percentile.
+The mapping table is the same as §3.11 (≤0.1→3, ≥0.2→5, otherwise 4).
 
-| ε | true 成功 / 轮数 | hat | hat_q |
+| ε | true success / rounds | hat | hat_q |
 |---|---|---|---|
 | 0.05 | 1.00 / 12.5 | 0.99 / 13.2 | **1.00 / 13.2** |
 | 0.10 | 0.99 / 15.5 | 0.99 / 16.3 | 0.99 / 17.3 |
 | 0.20 | 0.97 / 31.4 | 0.96 / **25.9** | **0.98 / 28.5** |
 | 0.30 | 0.87 / 48.0 | 0.80 / 45.9 | 0.77 / 51.5 |
 
-结论：
+Conclusion:
 
-1. **ε≤0.2 时估计器够用**：与作弊上界差 ≤1 个百分点，ε=0.2 时还便宜 15% 轮数。
-2. **ε=0.3 时开始失真**（0.87 → 0.80/0.77）。此时 θ 已顶到上限 5，估计误差直接变成
-   误判；这个区间需要换更强的聚合（逐对象后验）而不是调分位数。
-3. `hat_q` 在低噪声更好、高噪声更差，**没有一个分位数在所有点都占优**，所以内核保留简单的均值。
+1. **The estimator is good enough for ε≤0.2**: within 1 percentage point of the cheating upper bound, and 15% cheaper in rounds at ε=0.2.
+2. **It starts to distort at ε=0.3** (0.87 → 0.80/0.77). θ has already hit the cap of 5, so estimation error turns directly into
+   misjudgment; this regime needs stronger aggregation (per-object posteriors) rather than a different quantile.
+3. `hat_q` is better at low noise and worse at high noise; **no single quantile dominates at every point**, so the kernel keeps the simple mean.
 
-## 3.14 逐对象 Beta 后验：也没修好，反而更慢
+## 3.14 Per-object Beta posteriors: also not fixed, and slower
 
-每对象票数 (y,n) 给后验 Beta(y+1,n+1)；整数参数下有闭式
-`P(p>0.5) = Σ_{k≤y} C(n,k)/2^n`（n = y+n+1）。
-强标签判据：`P ≥ 1-δ`（δ=0.05）。
+Each object's votes (y,n) give the posterior Beta(y+1,n+1); for integer parameters there is a closed form
+`P(p>0.5) = Σ_{k≤y} C(n,k)/2^n` (n = y+n+1).
+Strong-label criterion: `P ≥ 1-δ` (δ=0.05).
 
-| ε | θ=3 | θ=5 | 后验 δ=0.05 |
+| ε | θ=3 | θ=5 | Posterior δ=0.05 |
 |---|---|---|---|
 | 0.10 | 0.98 / 15.2 | **1.00 / 21.9** | 0.99 / 23.6 |
 | 0.20 | 0.83 / 21.2 | **0.97 / 31.5** | 0.96 / 38.7 |
 | 0.30 | 0.45 / 28.9 | **0.85 / 49.1** | 0.81 / 76.8 |
 
-**结论：后验门输了。** 每一档都比 θ=5 慢，ε=0.3 时还更差（0.81 vs 0.85）。
+**Conclusion: the posterior gate loses.** It is slower than θ=5 at every level, and worse at ε=0.3 (0.81 vs 0.85).
 
-原因不是实现问题：δ=0.05 要求每个对象都被追问到很高置信度，轮数翻倍；而每一轮追加的票
-本身也是噪声，**轮数越长，某些对象被噪声翻盘的机会越多**。在 ε=0.3 下，多数投票的错误率
-本来就压不下去（9 票时的多数错误率仍接近 10%），继续加票只是把暴露时间拉长。
+The cause is not an implementation problem: δ=0.05 requires every object to be questioned to very high confidence, doubling the rounds; and the votes added each round
+are themselves noisy, so **the longer the run, the more chances some object has to be flipped by noise**. At ε=0.3 the majority-vote error rate
+cannot be pushed down anyway (with 9 votes the majority error rate is still close to 10%), so adding votes only extends the exposure time.
 
-### 这条线的总结（连续两个负结果）
+### Summary of this line (two negative results in a row)
 
-- 自适应 θ（§3.12）：被固定值夹住，删。
-- 逐对象后验（本节的 §3.14）：更慢更差，删。
-- 留下的规则很简单：**θ 由估出来的 ε 选（3 或 5），ε≤0.2 有效**。
+- Adaptive θ (§3.12): squeezed by fixed values; removed.
+- Per-object posteriors (§3.14 in this section): slower and worse; removed.
+- The surviving rule is simple: **choose θ from the estimated ε (3 or 5); valid for ε≤0.2**.
 
-要再往上走，方向不是调阈值，而是 (a) 问更有信息量的对象（当前只问"每类一个代表"），
-或 (b) 对噪声建模（全局 EM 估标签错误，而不是逐对象加票）。
+To go further, the direction is not tuning thresholds but (a) asking more informative objects (currently only "one representative per class"),
+or (b) modeling the noise (global EM to estimate label errors rather than adding votes per object).
 
-## 3.15 提议器接口（离线）：从请求到覆盖率
+## 3.15 Proposer interface (offline): from request to coverage
 
-`proposer.py` 把"撞车对 + 对象描述 + 已有谓词"打成 JSON 请求；模型返回候选谓词的**可执行表达式**；
-脚本逐个求值，统计它覆盖了几对撞车。域 C 里现有 6 个特征下只有 **4 对**真正撞车。
+`proposer.py` packs "colliding pairs + object descriptions + existing predicates" into a JSON request; the model returns **executable expressions**
+for candidate predicates; the script evaluates each one and counts how many colliding pairs it covers. In domain C, under the existing 6 features only **4 pairs** actually collide.
 
-| 候选 | 覆盖 | 说明 |
+| Candidate | Coverage | Note |
 |---|---|---|
-| `overlap_or_touch` | **4/4** | 相交或端点相接 → 唯一能解的子问题 |
-| `width_exceeds_gap` | 2/4 | 只抓真重叠，漏掉端点相接 |
-| `has_repeated_endpoint` | 2/4 | 只抓相接，漏掉真重叠 |
-| `input_has_three_or_more` | **0/4** | 相关性，不是定义——零帮助 |
+| `overlap_or_touch` | **4/4** | overlap or endpoint touch → the only solvable subproblem |
+| `width_exceeds_gap` | 2/4 | catches true overlaps only, misses endpoint touching |
+| `has_repeated_endpoint` | 2/4 | catches touching only, misses true overlaps |
+| `input_has_three_or_more` | **0/4** | correlation, not a definition — zero help |
 
-覆盖率直接就是 T7 集合覆盖的输入：`cover` 拿这四行就能算出该采纳谁。
+Coverage is directly the input to the T7 set cover: given these four rows, `cover` can compute which one to adopt.
 
-**诚实边界**：本轮响应是作者代填的（`responses_domain_c.json`），没有真 API。
-所以这验证的是**接口与评分管线**，不是模型提议质量；换成真调用只需替换 `load_responses`。
+**Honest boundary**: the responses in this round were filled in by the author (`responses_domain_c.json`), with no real API.
+So this validates the **interface and scoring pipeline**, not model proposal quality; switching to a real call only requires replacing `load_responses`.
 
-## 3.16 端到端：提议器 → qde → 采纳
+## 3.16 End to end: proposer → qde → adoption
 
-`proposer.py --pool-out --scenario-out` 现在能直接生成 `qde` 的场景与候选池。域 C 一次完整运行：
+`proposer.py --pool-out --scenario-out` can now directly generate a `qde` scenario and candidate pool. One full run on domain C:
 
 ```
 {"status":"INSUFFICIENT","action":"PROPOSE","theta":3,"colliding_pairs":[[3,2]],"pending":[]}
@@ -315,101 +313,101 @@ cover: overlap_or_touch 劈开 1/1 对
 {"status":"UNDETERMINED","action":"ASK","theta":3,"classes":10,...}
 ```
 
-三件事被这条链路同时验证：
+Three things are validated at once by this chain:
 
-1. **提议**：模型给的四个候选里，只有 `overlap_or_touch` 覆盖全部撞车对；
-2. **采纳**：`cover` 用 T7 的覆盖数选中它，加进词汇后等价类从 8 个变 10 个（真被劈开了）；
-3. **状态推进**：`INSUFFICIENT` → `UNDETERMINED`，动作从 `PROPOSE` 变成 `ASK`。
+1. **Proposal**: of the four candidates from the model, only `overlap_or_touch` covers all colliding pairs;
+2. **Adoption**: `cover` selects it by the T7 coverage count, and after adding it to the vocabulary the number of equivalence classes goes from 8 to 10 (it really splits them);
+3. **State progression**: `INSUFFICIENT` → `UNDETERMINED`, and the action changes from `PROPOSE` to `ASK`.
 
-还有个交互细节值得记：种子必须给到 θ 票。只给 `pos/neg` 一票时，θ=3 会把它们判成弱票，
-状态停在 `UNDETERMINED`，`cover` 无从触发——**噪声门和提议器是这样咬合的**。
+One interaction detail is worth recording: seeds must be given θ votes. With only one `pos/neg` vote, θ=3 treats them as weak votes,
+the state stays at `UNDETERMINED`, and `cover` never triggers — **this is how the noise gate and the proposer mesh**.
 
-## 3.17 提议质量 q 的实证：成本 ≈ r/q + 轮数
+## 3.17 Empirical proposal quality q: cost ≈ r/q + rounds
 
-在**真实循环**里跑（不是抽象模型）：每次提议 $20，以概率 q 提对，否则提一个由现有谓词随机组合成的
-诱饵（按 T2 必然无效）；正确谓词到位后逐轮提问。200 实例。
+Run in the **real loop** (not an abstract model): each proposal costs $20 and is correct with probability q; otherwise it proposes a decoy built from a random combination of existing
+predicates (necessarily useless by T2); once the correct predicate is in place, ask round by round. 200 instances.
 
-| q | 总成本 | 理论 r/q | 提议数 | 浪费 | 轮数 | 成功 |
+| q | Total cost | Theoretical r/q | Proposals | Wasted | Rounds | Success |
 |---|---|---|---|---|---|---|
 | 1/8 | 162.7 | 160 | 7.75 | 6.75 | 7.56 | 1.00 |
 | 1/4 | 88.9 | 80 | 4.07 | 3.07 | 7.56 | 1.00 |
 | 1/2 | 49.4 | 40 | 2.09 | 1.09 | 7.56 | 1.00 |
 | 1 | 27.6 | 20 | 1.00 | 0.00 | 7.56 | 1.00 |
 
-三件事：
+Three things:
 
-1. **总成本 ≈ r/q + 轮数**：20/q + 7.56 与实测接近（27.6、49.4、88.9、162.7）；残差来自提议数的
-   抽样——提议数分别是 1.00、2.09、4.07、7.75，所以 q<1 时不是精确落在 20/q 上。
-2. **轮数与 q 无关**（恒为 7.56）——提问阶段不知道、也不该关心提议器好不好。
-3. **浪费的提议数 ≈ 1/q − 1**：q=1/8 时平均白扔 6.75 次。
+1. **Total cost ≈ r/q + rounds**: 20/q + 7.56 is close to the measurements (27.6, 49.4, 88.9, 162.7); the residual comes from sampling in the
+   proposal count — the proposal counts are 1.00, 2.09, 4.07, 7.75, so for q<1 it does not land exactly on 20/q.
+2. **Rounds are independent of q** (always 7.56) — the questioning phase does not know and should not care how good the proposer is.
+3. **Wasted proposals ≈ 1/q − 1**: at q=1/8, an average of 6.75 are thrown away.
 
-这组数把 §3.6 的成本分解从"模型假设"升级成"在可执行循环里成立"。
+These numbers upgrade the cost decomposition of §3.6 from a "model assumption" to something that "holds in an executable loop".
 
-## 3.18 多 seed 方差（5 个 seed × 150 实例）
+## 3.18 Multi-seed variance (5 seeds × 150 instances)
 
-| 提问策略 | 均值 ± sd | 各 seed |
+| Questioning strategy | Mean ± sd | Per seed |
 |---|---|---|
 | gain | **2.01 ± 0.06** | 1.95 / 2.08 / 2.07 / 1.96 / 2.00 |
 | rand_inf | **1.91 ± 0.07** | 1.83 / 1.97 / 1.99 / 1.85 / 1.93 |
 | random | 6.14 ± 0.23 | 6.25 / 6.41 / 6.21 / 5.83 / 5.98 |
 
-| 覆盖策略 | 均值 ± sd | 各 seed |
+| Cover strategy | Mean ± sd | Per seed |
 |---|---|---|
 | greedy | **2.10 ± 0.06** | 2.00 / 2.12 / 2.09 / 2.11 / 2.15 |
 | random | 4.28 ± 0.09 | 4.26 / 4.14 / 4.33 / 4.29 / 4.38 |
 | optimal | 1.85 ± 0.06 | 1.76 / 1.87 / 1.86 / 1.85 / 1.91 |
 
-两条结论都站得住，而且更强：
+Both conclusions hold, and are stronger:
 
-1. **gain 不但没有优势，还略差于 rand_inf**（2.01 vs 1.91，差 0.10 ≈ 1.5 个 sd）。所以论文里不能写
-   “信息增益更好”，只能写“没有优势”；负结果有了方差支撑。
-2. **贪心与最优的差距（0.25）是 4 个 sd**，随机与贪心的差距（2.18）更大——覆盖这条是硬的。
+1. **gain not only has no advantage, it is slightly worse than rand_inf** (2.01 vs 1.91, a gap of 0.10 ≈ 1.5 sd). So the paper cannot say
+   "information gain is better", only "no advantage"; the negative result now has variance behind it.
+2. **The gap between greedy and optimal (0.25) is 4 sd**, and the gap between random and greedy (2.18) is larger — the coverage claim is solid.
 
-## 3.19 提议评分升级：覆盖 + 精确率/召回率 + 预测命中
+## 3.19 Proposal scoring upgrade: coverage + precision/recall + prediction hit rate
 
-借自 Cammara 的"盲极大"协议（`research/09-essay-cammarata.md`）：光看"劈开几对"分不出
-"**sound but narrow**"和"错"。加上与隐藏目标的 P/R，以及候选自己报的"我预测为正"的命中率。
+Borrowed from Cammarata's "blind maximization" protocol (`research/09-essay-cammarata.md`): looking only at "how many pairs it splits" cannot distinguish
+"**sound but narrow**" from "wrong". We add P/R against the hidden target, plus the hit rate of the candidate's own "I predict positive" claims.
 
-域 C（4 对撞车；目标 = 输出比输入短）：
+Domain C (4 colliding pairs; target = output shorter than input):
 
-| 候选 | 覆盖 | P | R | 预测命中 |
+| Candidate | Coverage | P | R | Prediction hits |
 |---|---|---|---|---|
 | `overlap_or_touch` | 4/4 | **1.00** | **1.00** | 3/3 |
 | `width_exceeds_gap` | 2/4 | 1.00 | 0.67 | 3/3 |
 | `has_repeated_endpoint` | 2/4 | 1.00 | 0.33 | 2/2 |
 | `input_has_three_or_more` | 0/4 | 0.67 | 0.33 | 2/3 |
 
-读法：
+Reading:
 
-1. **覆盖相同、含义不同**。`width_exceeds_gap` 与 `has_repeated_endpoint` 都劈开 2/4，但前者
-   召回 0.67、后者 0.33——前者离目标更近。只看覆盖数会误判。
-2. **P=1.00 不等于对**。后两个是"目标的子概念"：说的都对，但不完整。它们作为集合覆盖的
-   中间步骤有用，但不能当 S 提交。
-3. 唯一 P=R=1.00 的候选才该进词汇。这条把"提议质量是一阶项"从口号变成可操作判据。
+1. **Same coverage, different meaning**. `width_exceeds_gap` and `has_repeated_endpoint` both split 2/4, but the former
+   has recall 0.67 and the latter 0.33 — the former is closer to the target. Looking only at coverage would misjudge.
+2. **P=1.00 does not mean correct**. The last two are "sub-concepts of the target": everything they say is right, but incomplete. They are useful as
+   intermediate steps in a set cover, but cannot be submitted as S.
+3. Only the unique candidate with P=R=1.00 should enter the vocabulary. This turns "proposal quality is a first-order term" from a slogan into an operational criterion.
 
-**已在管线里生效**：`proposer.py --pool-out` 默认只写 P=R=1 的候选。
+**Already in effect in the pipeline**: `proposer.py --pool-out` by default writes only P=R=1 candidates.
 
 ```
 [pool] kept 1/4 (P=R=1) → pool.txt
 [pool] filtered: has_repeated_endpoint, input_has_three_or_more, width_exceeds_gap
 ```
 
-`qde cover` 因此只会从合格候选里挑。`--pool-all` 可关掉过滤，用来复现上表。
+`qde cover` therefore only picks from qualified candidates. `--pool-all` disables the filter and reproduces the table above.
 
-**但 P/R 在部署时算不出来**——它用的是隐藏外延。部署中的对应做法：把候选自报的 `predictions`
-当作查询去问 oracle，用真实回答算**经验**精确率；预测命中率低就淘汰。这正是"盲极大"在真实系统里的
-可执行版本：解释必须能生成可检验的预测，而不是只解释已见的数据。
+**But P/R cannot be computed at deployment time** — it uses the hidden extension. The deployment equivalent: turn the candidate's self-reported `predictions`
+into queries for the oracle, compute **empirical** precision from the real answers, and eliminate candidates whose prediction hit rate is low. This is exactly the executable version of "blind maximization" in a real system:
+an explanation must generate testable predictions, not merely explain the data already seen.
 
-## 3.20 部署路径的过滤：只能保证 sound，不能保证 complete
+## 3.20 Filtering on the deployment path: can guarantee soundness, not completeness
 
-同一批候选、同一个池，换两种过滤规则：
+Same candidates, same pool, two different filtering rules:
 
-| 规则 | 依据 | 留下 |
+| Rule | Basis | Kept |
 |---|---|---|
-| `--pool-filter offline` | 隐藏外延的 P/R（P=R=1） | **1/4**：只有 `overlap_or_touch` |
-| `--pool-filter empirical` | 把候选的 predictions 问 oracle，全对才留 | **3/4**：只剩 `input_has_three_or_more` 被淘汰 |
+| `--pool-filter offline` | hidden-extension P/R (P=R=1) | **1/4**: only `overlap_or_touch` |
+| `--pool-filter empirical` | ask the oracle about the candidate's predictions; keep only if all are confirmed | **3/4**: only `input_has_three_or_more` is eliminated |
 
-逐条确认：
+Confirmed case by case:
 
 ```
 overlap_or_touch         确认 3/3
@@ -418,104 +416,104 @@ width_exceeds_gap        确认 3/3
 input_has_three_or_more  确认 2/3   ← 唯一被淘汰
 ```
 
-**结论：经验过滤只强制 soundness，不强制 completeness。**
+**Conclusion: empirical filtering enforces soundness only, not completeness.**
 
-- `has_repeated_endpoint` 与 `width_exceeds_gap` 的预测全对——它们没说错话，只是说得不全（P=1.00，R=0.33/0.67）。
-- 部署时没有隐藏外延，无法直接测 recall；能测的只有"预测是否被 oracle 确认"。
+- The predictions of `has_repeated_endpoint` and `width_exceeds_gap` are all correct — they say nothing false, just incomplete things (P=1.00, R=0.33/0.67).
+- At deployment time there is no hidden extension, so recall cannot be measured directly; the only measurable thing is "whether the predictions are confirmed by the oracle".
 
-所以部署路径的规则要写成两条：
+So the deployment-path rule becomes two rules:
 
-1. **sound**：predictions 全被确认（可测）；
-2. **足以覆盖撞车对**：`covers > 0`，且由 `cover` 的贪心决定还需要几个候选（可测）。
+1. **sound**: all predictions are confirmed (measurable);
+2. **enough to cover colliding pairs**: `covers > 0`, and the greedy `cover` decides how many more candidates are needed (measurable).
 
-至于"够不够全"，只能靠多问、或多找第二个 agent 去构造反例——这正是盲极大的反向用法：
-让另一个 agent 找出"候选说否、但其实为正"的对象。本轮没有实现这一条。
+As for "is it complete enough", the only recourse is to ask more, or to have a second agent construct counterexamples — this is the reverse use of blind maximization:
+have another agent find objects that "the candidate says are negative but are actually positive". This was not implemented in this round.
 
-## 3.21 反向盲极大：可部署的完整性探针
+## 3.21 Reverse blind maximization: a deployable completeness probe
 
-思路：让另一方提出"**你说否、但我认为为正**"的对象。oracle 一确认，该候选就被证明不完整。
-这条只用 oracle 回答，不需要隐藏外延，**所以部署时能用**。
+Idea: have the other side propose objects that "**you say are negative, but I think are positive**". Once the oracle confirms one, the candidate is proven incomplete.
+This uses only oracle answers and needs no hidden extension, **so it works at deployment time**.
 
-域 C：
+Domain C:
 
-| 候选 | 探针 | 被确认 | 判定 |
+| Candidate | Probe | Confirmed | Verdict |
 |---|---|---|---|
-| `overlap_or_touch` | case 2（不相交） | 0 | **SURVIVED** |
-| `has_repeated_endpoint` | case 4（真重叠、端点不重复） | 1 | **INCOMPLETE** |
-| `width_exceeds_gap` | case 6（端点相接） | 1 | **INCOMPLETE** |
-| `input_has_three_or_more` | case 3（两个区间但合并了） | 1 | **INCOMPLETE** |
+| `overlap_or_touch` | case 2 (disjoint) | 0 | **SURVIVED** |
+| `has_repeated_endpoint` | case 4 (true overlap, no repeated endpoint) | 1 | **INCOMPLETE** |
+| `width_exceeds_gap` | case 6 (endpoints touch) | 1 | **INCOMPLETE** |
+| `input_has_three_or_more` | case 3 (two intervals but they merged) | 1 | **INCOMPLETE** |
 
-三个"说得对但不全"的候选各被一发击破，正确的那个没被击破（探针被 oracle 否掉）。
+Each of the three "right but incomplete" candidates is broken by a single shot; the correct one is not broken (the probe is rejected by the oracle).
 
-**代价**：每个候选一次 oracle 调用。收益：把上一节"只能保证 soundness"的缺口补上了——
-现在 soundness 用预测确认，completeness 用反向探针，两者都只需要 oracle。
+**Cost**: one oracle call per candidate. Benefit: it closes the gap from the previous section, "only soundness can be guaranteed" —
+soundness now comes from prediction confirmation and completeness from a reverse probe, and both need only the oracle.
 
-**局限**：探针质量取决于提出反例的那一方。若它想不到，候选就带着"未击破"的标签通过——
-这是 UNPROBED/SURVIVED 的区别，报告时要分开写，不能说"未被击破 = 正确"。
+**Limitation**: probe quality depends on the side proposing counterexamples. If it cannot think of one, the candidate passes with the label "not broken" —
+this is the UNPROBED/SURVIVED distinction, and reports must keep them separate; "not broken" does not mean "correct".
 
-## 3.22 探针台账：击破过的反例要留底
+## 3.22 Probe ledger: keep a record of counterexamples that broke something
 
-第一轮的探针结果写进 `probe_ledger.json`，下一轮所有候选必须先过台账——
-**排除任何已确认正例的候选直接被拒，不必再探**。
+The first round's probe results are written to `probe_ledger.json`; in the next round every candidate must first pass the ledger —
+**a candidate that excludes any confirmed positive is rejected outright, with no need to probe again**.
 
-| 轮次 | 台账 | 结果 |
+| Round | Ledger | Result |
 |---|---|---|
-| 1（空） | — | 三个候选被探针击破；台账记下 `[3, 4, 6]` |
-| 2（有） | 3 个反例 | 同样三个候选再加 `INCOMPLETE(ledger)` |
+| 1 (empty) | — | three candidates are broken by probes; the ledger records `[3, 4, 6]` |
+| 2 (populated) | 3 counterexamples | the same three candidates additionally get `INCOMPLETE(ledger)` |
 
-关键的一行是第二轮里的 **`repeat_mistake_v2`**：它是新提的候选、没带任何探针（第一轮判定
-`UNPROBED`），但因为它排除了台账里的反例，第二轮被直接判死，违规数 2。
+The key row is **`repeat_mistake_v2`** in round 2: it is a newly proposed candidate with no probes (round 1 would call it
+`UNPROBED`), but because it excludes the ledger's counterexamples it is killed immediately in round 2, with 2 violations.
 
 ```
 repeat_mistake_v2      probes=0  confirmed=0  ledger=2  INCOMPLETE(ledger)
 ```
 
-**这才是台账的意义**：不用等谁再想出反例，重复的错误会被历史记录挡住。
+**This is the point of the ledger**: you do not have to wait for someone to think of another counterexample; repeated mistakes are blocked by the historical record.
 
-## 3.23 两个角色：定义 vs 覆盖元素
+## 3.23 Two roles: definition vs cover element
 
-台账若一律硬拒，会把"窄但 sound"的候选也杀掉——而 T7 的集合覆盖正需要它们。拆成两个判据：
+If the ledger rejected everything outright, it would also kill "narrow but sound" candidates — which the T7 set cover needs. Split into two criteria:
 
-| 判据 | 要求 | 用途 |
+| Criterion | Requirements | Use |
 |---|---|---|
-| `definition` | 无台账违规 + 无违反已确认正例 + 预测全被确认 + P=R=1 | 作为 $S$ 的完整定义提交 |
-| `cover` | 预测全被确认（sound）+ 至少劈开一对 | 作为集合覆盖的元素（可以窄） |
+| `definition` | no ledger violation + no violation of confirmed positives + all predictions confirmed + P=R=1 | submit as the complete definition of $S$ |
+| `cover` | all predictions confirmed (sound) + splits at least one pair | as an element of the set cover (may be narrow) |
 
-带台账的第二轮：
+Round 2 with the ledger:
 
-| 候选 | definition | cover | 说明 |
+| Candidate | definition | cover | Note |
 |---|---|---|---|
-| `overlap_or_touch` | **Y** | **Y** | 唯一可当定义的 |
-| `has_repeated_endpoint` | n | **Y** | 窄但 sound，可拼进覆盖 |
-| `width_exceeds_gap` | n | **Y** | 同上 |
-| `input_has_three_or_more` | n | n | 预测被 oracle 否掉，连覆盖元素都不合格 |
-| `repeat_mistake_v2` | n | n | 没给预测——不能因为"暂时没被证伪"就放行 |
+| `overlap_or_touch` | **Y** | **Y** | the only one usable as a definition |
+| `has_repeated_endpoint` | n | **Y** | narrow but sound; can be used in the cover |
+| `width_exceeds_gap` | n | **Y** | same as above |
+| `input_has_three_or_more` | n | n | its prediction is rejected by the oracle, so it is not even a valid cover element |
+| `repeat_mistake_v2` | n | n | gave no predictions — it cannot pass just because it is "not yet falsified" |
 
-两条规则：
+Two rules:
 
-1. **sound 必须有据**：`sound = 给过预测且全被确认`。空预测不算 sound，否则任何候选都能蒙混。
-2. **窄不等于错**：窄候选可以进覆盖池，但不能当定义。这正是 T7 说的"多个谓词拼起来"。
+1. **sound must be backed by evidence**: `sound = predictions were given and all were confirmed`. An empty prediction does not count as sound, otherwise any candidate could sneak through.
+2. **Narrow does not mean wrong**: narrow candidates can enter the cover pool but cannot serve as the definition. This is exactly T7's "combine several predicates".
 
-## 3.24 台账是可增删改的知识库，不是只增不减的集合
+## 3.24 The ledger is an editable knowledge base, not an append-only set
 
-`ledger.py` 把台账升级成带状态与历史的记录：
+`ledger.py` upgrades the ledger into records with status and history:
 
-| 操作 | 语义 |
+| Operation | Semantics |
 |---|---|
-| `add` | 新增一条反例（记 by / round） |
-| `retract ID --reason` | 撤销：`status=retracted`，不参与判定，但记录保留 |
-| `amend ID --case N --reason` | 修改：改正对象或类型，before→after 写进 history |
-| `list [--all]` / `history` | 查看当前有效集合、以及每条记录的变更轨迹 |
+| `add` | add a counterexample (records by / round) |
+| `retract ID --reason` | retract: `status=retracted`; excluded from decisions, but the record is kept |
+| `amend ID --case N --reason` | amend: correct the object or type; before→after is written to history |
+| `list [--all]` / `history` | view the currently valid set and each record's change history |
 
-**撤销必须真的生效**。第三轮实测（撤销 case 6 那条）：
+**Retraction must actually take effect**. Round 3 measurement (retracting the case 6 entry):
 
 ```
 width_exceeds_gap   probes=1 conf=1 ledger=0  INCOMPLETE   ← 之前是 ledger=1, INCOMPLETE(ledger)
 ```
 
-台账违规数从 1 降到 0，判定退回探针给出的 `INCOMPLETE`——撤销不是删除历史，而是让它不再参与判决。
+The ledger violation count drops from 1 to 0, and the verdict falls back to the probe's `INCOMPLETE` — retraction is not deleting history, it is removing it from the decision.
 
-**修改也留痕**：
+**Amendments also leave a trace**:
 
 ```
 L1 case 5 [active]
@@ -526,35 +524,35 @@ L3 case 6 [retracted]
     retract  oracle 回答待复核，先不计入
 ```
 
-为什么必须可改：一条反例可能来自噪声 oracle、可能记错对象、也可能只对某一类候选成立。
-只增不减的集合会把一次错误永久固化，之后每个候选都被它误杀——**和 T6 是同一个道理：
-"更多数据"不会自动变成"更好的数据"，除非允许收回。**
+Why editability is required: a counterexample may come from a noisy oracle, may record the wrong object, or may hold only for a certain class of candidates.
+An append-only set would freeze one mistake forever, and every later candidate would be killed by it — **the same principle as T6:
+"more data" does not automatically become "better data" unless retraction is allowed.**
 
-## 3.25 条件过期：换目标时挂起，而不是删除
+## 3.25 Conditional expiry: suspend on target change instead of deleting
 
-反例是"在某个目标概念下"确认的。目标一变（用户改了想学什么），旧反例未必还成立——
-但也不能直接删，删了就丢了证据。
+A counterexample is confirmed "under a particular target concept". When the target changes (the user changes what they want to learn), the old counterexample may no longer hold —
+but it cannot simply be deleted either, because deleting loses the evidence.
 
-`ledger.py retarget --to S1` 把全部 active 条目转成 `stale`：**不参与判定，但保留**；
-逐条 `revalidate` 之后才重新生效。
+`ledger.py retarget --to S1` turns every active entry into `stale`: **excluded from decisions, but kept**;
+each entry becomes effective again only after `revalidate`.
 
-| 状态 | 参与判定 | 含义 |
+| Status | Participates in decisions | Meaning |
 |---|---|---|
-| `active` | 是 | 在当前目标下有效 |
-| `stale` | 否 | 目标换过了，等待重新确认 |
-| `retracted` | 否 | 已撤销（理由留档） |
+| `active` | yes | valid under the current target |
+| `stale` | no | the target changed; waiting for reconfirmation |
+| `retracted` | no | retracted (reason on file) |
 
-实测（5 个候选）：
+Measurement (5 candidates):
 
 ```
 全 stale:        所有 ledger=0，判定退回探针给出的 INCOMPLETE
 revalidate L2:   input_has_three_or_more ledger=1，width_exceeds_gap 仍为 0
 ```
 
-`width_exceeds_gap` 排除的是 case 6（那条已 retracted），所以不受 L2 影响——**逐条粒度是对的，
-不是一刀切**。
+`width_exceeds_gap` excludes case 6 (which has been retracted), so it is unaffected by L2 — **per-entry granularity is right,
+not one-size-fits-all**.
 
-历史链完整：
+The history chain is complete:
 
 ```
 L2 case 3 [active]
@@ -563,9 +561,9 @@ L2 case 3 [active]
     revalidate  在目标 S1 下重新确认；新目标下 case 3 仍然为正
 ```
 
-## 3.26 每条判定都要能回答"凭什么"
+## 3.26 Every verdict must answer "on what grounds"
 
-条目新增 `evidence` 字段：
+Entries gain an `evidence` field:
 
 ```json
 "evidence": {
@@ -576,75 +574,74 @@ L2 case 3 [active]
 }
 ```
 
-- `source`：判断来自哪里（测试、Lean、oracle 调用、人工）；
-- `answer`：当时 oracle 说的是什么；
-- `votes`：若是有噪 oracle，当时的票数；
-- `recorded`：记录时间。
+- `source`: where the judgment came from (test, Lean, oracle call, human);
+- `answer`: what the oracle said at the time;
+- `votes`: for a noisy oracle, the vote counts at the time;
+- `recorded`: when it was recorded.
 
-旧条目用 `normalize` 回填（`source` 写当时的 `by`，不编造）：`normalized: 3 entries now carry evidence`。
+Old entries are backfilled with `normalize` (`source` is set to the `by` of the time, with nothing invented): `normalized: 3 entries now carry evidence`.
 
-改来源也走 `amend --by`：本轮就修正了一条把 case 7 归错给 `width_exceeds_gap` 的记录
-（真正排除 7 的是 `input_has_three_or_more`）。
+Changing the source also goes through `amend --by`: this round corrected a record that attributed case 7 to `width_exceeds_gap`
+(the one that actually excludes 7 is `input_has_three_or_more`).
 
-**验证**：把 case 7 加入台账后，各候选的违规数正好符合其外延——
-`width_exceeds_gap`（含 3、7）违规 0，`has_repeated_endpoint`（只含 6、11）违规 2。台账与谓词外延对得上。
+**Verification**: after adding case 7 to the ledger, each candidate's violation count exactly matches its extension —
+`width_exceeds_gap` (contains 3, 7) has 0 violations, `has_repeated_endpoint` (contains only 6, 11) has 2. The ledger and the predicate extensions agree.
 
-## 3.27 证据可信度：软硬两档
+## 3.27 Evidence reliability: hard and soft tiers
 
-`evidence.reliability ∈ [0,1]`：单元测试 / Lean 记 1.0，模型 oracle 按 $1-\varepsilon$ 记。
-判定分两档：
+`evidence.reliability ∈ [0,1]`: unit tests / Lean are recorded as 1.0, a model oracle as $1-\varepsilon$. Verdicts come in two tiers:
 
-| 档 | 条件 | 效果 |
+| Tier | Condition | Effect |
 |---|---|---|
-| 硬违规 | 可信度 ≥ 0.8 | 直接 `INCOMPLETE(ledger)` |
-| 软违规 | < 0.8 | 只打标记（`soft` 列），不拦 |
+| Hard violation | reliability ≥ 0.8 | directly `INCOMPLETE(ledger)` |
+| Soft violation | < 0.8 | only marks it (the `soft` column), does not block |
 
-实测（`width_exceeds_gap` 对 case 11）：
+Measurement (`width_exceeds_gap` against case 11):
 
 ```
 L5 可信度 0.60 → hard=0 soft=1  → verdict 仍是 INCOMPLETE（来自它自己的探针）
 amend 到 1.00  → hard=1 soft=0  → verdict 变 INCOMPLETE(ledger)
 ```
 
-**意义**：模型说的话不能和单元测试等权。低可信度条目仍被记录、仍被显示，但不具备否决权——
-既没有忽略它，也没有让它一票否决。这条与 T6/§3.24 一脉相承：**证据要能被修正，也要能被分级。**
+**Significance**: model statements cannot carry the same weight as unit tests. Low-reliability entries are still recorded and still displayed, but have no veto —
+they are neither ignored nor allowed a single-vote veto. This is continuous with T6/§3.24: **evidence must be correctable and also gradable.**
 
-## 3.28 交叉确认：弱证据按 noisy-OR 合并
+## 3.28 Cross-confirmation: merge weak evidence by noisy-OR
 
-同一对象可以有多条独立证据。合并规则：`1 - Π(1 - r_i)`（独立即 noisy-OR）。
+The same object can have several independent pieces of evidence. Merge rule: `1 - Π(1 - r_i)` (independence makes it noisy-OR).
 
-实测（case 4，三条 r=0.5 的模型证据）：
+Measurement (case 4, three model evidence items with r=0.5):
 
-| 条数 | 合并可信度 | 判定 |
+| Count | Merged reliability | Verdict |
 |---|---|---|
-| 2 | 0.75 | 软违规（`soft=1`），不拦 |
-| 3 | **0.88** | 硬违规（`hard=3`） |
+| 2 | 0.75 | soft violation (`soft=1`), does not block |
+| 3 | **0.88** | hard violation (`hard=3`) |
 
-`corroborate --apply` 把它们合并成一条新条目：
+`corroborate --apply` merges them into one new entry:
 
 ```
 L6/L7/L8 case 4 [superseded]   合并进 L9（r=0.88）
 L9       case 4 [active]       corroborate L6, L7, L8 → r=0.88
 ```
 
-要点：
+Key points:
 
-1. **重复提问的结构化版本**。单条弱证据没有否决权，但三条独立来源交叉之后就有了——这正是
-   `RESULTS.md` §3.11 里"重复投票"的台账化。
-2. **不是简单相加**。三条 r=0.5 若相加是 1.5（无意义），noisy-OR 给 0.875，上界 1。
-3. **原条目保留为 superseded**，带合并指向——证据链没有断。
+1. **A structured version of repeated questioning**. A single weak piece of evidence has no veto, but three independent sources crossing do — this is
+   the ledger form of "repeated voting" from `RESULTS.md` §3.11.
+2. **Not simple addition**. Three r=0.5 items would sum to 1.5 (meaningless); noisy-OR gives 0.875, bounded by 1.
+3. **The original entries are kept as superseded**, with a pointer to the merge — the evidence chain is not broken.
 
-## 3.29 方向冲突：noisy-OR 不能把"互相矛盾"当成"互相支持"
+## 3.29 Direction conflict: noisy-OR must not treat "contradictory" as "mutually supporting"
 
-nosy-OR 只看可信度、不看方向。若一条说正、一条说负，按公式合并会得到 0.99——把**分歧**算成了**共识**。
+noisy-OR looks only at reliability, not direction. If one says positive and one says negative, merging by the formula gives 0.99 — counting **disagreement** as **consensus**.
 
-新规则：先按方向分组，两边都达到 0.5 即判为**冲突**，该对象真值未定：
+New rule: group by direction first; if both sides reach 0.5, declare a **conflict** and leave the object's truth undetermined:
 
-| 状态 | 参与判定 | 处理 |
+| Status | Participates in decisions | Handling |
 |---|---|---|
-| 冲突 | 否 | 停止拦任何候选，进入重新询问队列 |
+| Conflict | no | stop blocking any candidate; enter the re-ask queue |
 
-实测：
+Measurement:
 
 ```
 case 4: pos=0.88  neg=0.90   → CONFLICT
@@ -652,20 +649,20 @@ hard 计数：3 → 2（case 4 不再拦人）
 retract 错误的那条（否定来自坏来源）→ no conflicts → hard 回到 3
 ```
 
-要点：
+Key points:
 
-1. **冲突不是取平均**。0.88 与 0.90 谁也不能压过谁，正确做法是把真值标记为未知。
-2. **冲突必须阻断判定，而不是阻断流程**。系统继续工作，但对该对象停止下结论。
-3. 解决方式只有重新询问——然后撤销错的那条，历史里留着理由。
+1. **Conflict is not averaging**. Neither 0.88 nor 0.90 can override the other; the right move is to mark the truth as unknown.
+2. **Conflict must block the verdict, not the process**. The system keeps working, but stops drawing conclusions about that object.
+3. The only resolution is to ask again — then retract the wrong entry, keeping the reason in history.
 
-## 3.30 冲突变成重问队列，并加了"压倒性"判据
+## 3.30 Conflicts become a re-ask queue, with an "overwhelming" criterion
 
-冲突不能只是"排除 + 打印"，要变成可执行的下一步。
+A conflict cannot be just "exclude + print"; it must become an executable next step.
 
-### 队列
+### Queue
 
-`ledger.py conflicts` 按**差距升序**输出，差距越小越先问，并给出"还要几次独立确认"
-（设为让某一侧到 0.95，按 `r_query` 反算）：
+`ledger.py conflicts` outputs in **ascending gap order**: the smaller the gap, the earlier the question, and it gives "how many more independent confirmations are needed"
+(set so that one side reaches 0.95, solved backward from `r_query`):
 
 ```
  case    pos    neg    gap   再问
@@ -673,24 +670,24 @@ retract 错误的那条（否定来自坏来源）→ no conflicts → hard 回�
     3   1.00   0.95   0.04     4
 ```
 
-`--json` 输出同样内容，供上层调度器消费。
+`--json` outputs the same content for a higher-level scheduler.
 
-### 压倒性判据
+### Overwhelming criterion
 
-初版规则是"两边都 ≥0.5 即冲突"，但 `pos=1.00 vs neg=0.55` 也被判成冲突——**压倒性的证据
-被弱反对票取消了**。加了比例约束：只有 `min ≥ ratio × max`（默认 0.7）才算真冲突。
-于是 1.00 vs 0.55 不再冲突（强的一边说话），而 0.88 vs 0.90、1.00 vs 0.955 仍算冲突。
+The first rule was "both sides ≥0.5 means conflict", but `pos=1.00 vs neg=0.55` was also called a conflict — **overwhelming evidence
+was canceled by a weak opposing vote**. A ratio constraint was added: a true conflict requires `min ≥ ratio × max` (default 0.7).
+So 1.00 vs 0.55 is no longer a conflict (the stronger side speaks), while 0.88 vs 0.90 and 1.00 vs 0.955 still are.
 
-### 对判定的影响
+### Effect on verdicts
 
-冲突对象不参与硬/软违规计数，所以 `has_repeated_endpoint` 的 hard 从 3 降到 1（只剩 case 7），
-`width_exceeds_gap` 降到 1。**冲突期间系统不下结论，但也不停摆。**
+Conflicted objects do not count toward hard/soft violations, so `has_repeated_endpoint` drops from hard 3 to 1 (only case 7 remains),
+and `width_exceeds_gap` drops to 1. **During a conflict the system draws no conclusion, but it does not stall.**
 
-## 3.31 重问也要覆盖：同类冲突合并成一次询问
+## 3.31 Re-asking also needs coverage: merge conflicts in the same class into one query
 
-冲突对象若共享一个等价类，问一个成员就同时确认整类——**T7 的覆盖论证作用在冲突集上**。
+If conflicted objects share an equivalence class, asking one member confirms the whole class — **T7's coverage argument applies to the conflict set**.
 
-`proposer.py --plan` 给出计划：
+`proposer.py --plan` produces a plan:
 
 ```
 冲突对象 [3, 4, 6]；按当前词汇合并成 2 次询问：
@@ -701,23 +698,23 @@ retract 错误的那条（否定来自坏来源）→ no conflicts → hard 回�
 最少 2 次询问（每类一次），对比逐个问的 3 次
 ```
 
-要点：
+Key points:
 
-1. **查询数从 3 降到 2**：class 2 的成员是 `[2, 3, 6]`，3 与 6 同属一类。
-2. 这是 §3.10 集合覆盖的同一套逻辑，只是覆盖对象从"撞车对"换成"冲突对象"。
-3. 代价是**问一个代表**：若该类在冲突下不纯，还要追加——所以这是下界，不是保证。
+1. **Queries drop from 3 to 2**: the members of class 2 are `[2, 3, 6]`, and 3 and 6 are in the same class.
+2. This is the same logic as the §3.10 set cover, with the covered objects changed from "colliding pairs" to "conflicted objects".
+3. The cost is **asking one representative**: if the class is impure under the conflict, more queries are needed — so this is a lower bound, not a guarantee.
 
-## 3.32 计划的纯度检查：类不纯时不能只问一个代表
+## 3.32 Purity check in the plan: do not ask one representative when the class is impure
 
-上一节假设"类内纯"。加上纯度判定后：
+The previous section assumed "pure within a class". With the purity check added:
 
-| 纯度 | 依据 | 询问数 |
+| Purity | Basis | Queries |
 |---|---|---|
-| `impure(known)` | 类内同时有已确认的正例与负例 | 每个冲突成员各问一次 |
-| `pure?(single)` | 类只有一个成员 | 1 |
-| `unknown` | 类有多个成员，但没有正反两方面的已确认标签 | 先问代表 1 次（有风险） |
+| `impure(known)` | the class contains both confirmed positives and negatives | ask every conflicted member once |
+| `pure?(single)` | the class has one member | 1 |
+| `unknown` | the class has several members but no confirmed labels on both sides | ask the representative once (risky) |
 
-实测：
+Measurement:
 
 ```
  class  size  known +/-   purity        conflicted  asks
@@ -727,90 +724,90 @@ retract 错误的那条（否定来自坏来源）→ no conflicts → hard 回�
 合计 3 次询问；逐个问需 4 次
 ```
 
-要点：
+Key points:
 
-1. **冲突对象本身不算已知标签**——否则"冲突"会被当成"已知"，自相矛盾。这条是修 bug 修出来的。
-2. 本域等价类最大只有 3 个成员，所以 `impure(known)` 很少改变总数；类更大时它会强制逐个问。
-3. `unknown` 是明写的风险：只问代表，代表答完若又起争议，必须追加成员。
+1. **Conflicted objects do not count as known labels** — otherwise "conflict" would be treated as "known", which is self-contradictory. This came out of fixing a bug.
+2. In this domain equivalence classes have at most 3 members, so `impure(known)` rarely changes the total; for larger classes it forces one query per member.
+3. `unknown` is an explicit risk: ask only the representative; if a dispute arises again after the answer, more members must be asked.
 
-## 3.33 unknown 类的询问预算：赌一把，还是买保险
+## 3.33 Query budget for unknown classes: gamble or buy insurance
 
-未知纯度时不再硬猜 1 次，而是按期望成本选：
+For unknown purity, do not hard-guess 1; choose by expected cost:
 
-- 问 1 个代表：`1 + (1-p)·(c-1)·R`（若类不纯，其余 `c-1` 个成员要重标，每个代价 `R`）
-- 问全部冲突成员：`c`
+- Ask 1 representative: `1 + (1-p)·(c-1)·R` (if the class is impure, the remaining `c-1` members must be relabeled, each costing `R`)
+- Ask all conflicted members: `c`
 
-其中 `p` 是先验纯度（默认 0.5），`R` 是一次错标的返工代价（相对一次询问）。
+where `p` is the prior purity (default 0.5) and `R` is the rework cost of one mislabel (relative to one query).
 
-| R | cost(1) | cost(all) | 选择 | 总询问 |
+| R | cost(1) | cost(all) | Choice | Total queries |
 |---|---|---|---|---|
-| 1 | 1.50 | 2.00 | 问 1 个 | 3 |
-| 3 | 2.50 | 2.00 | **买保险**（`unknown(buy-safe)`） | 4 |
+| 1 | 1.50 | 2.00 | ask 1 | 3 |
+| 3 | 2.50 | 2.00 | **buy insurance** (`unknown(buy-safe)`) | 4 |
 
-要点：
+Key points:
 
-1. **决策随代价翻转**：错标便宜时赌一把，错标贵时逐个问。这不是拍脑袋，是 `R` 的比较。
-2. 与 §3.10 的成本模型同构：那里比较"先问还是先提议"，这里比较"问 1 个还是问 c 个"。
-3. `c=1` 时没有赌注，直接问。
+1. **The decision flips with cost**: gamble when mislabeling is cheap, ask one by one when it is expensive. This is not a guess; it is a comparison of `R`.
+2. Isomorphic to the §3.10 cost model: there it compares "ask first or propose first"; here it compares "ask 1 or ask c".
+3. For `c=1` there is no bet; just ask.
 
-## 3.34 纯度先验 p 不再手填：从台账估计
+## 3.34 Purity prior p is no longer hand-filled: estimated from the ledger
 
-`p`（多成员类为纯的概率）此前固定 0.5。现在默认为估计值：
+`p` (the probability that a multi-member class is pure) was previously fixed at 0.5. It now defaults to an estimate:
 
-- 只统计**至少有两个已确认标签**的类（这类才有信息）；
-- Laplace 平滑：`p̂ = (impure + 1) / (total + 2)`；
-- 没有这类数据时退回 0.5，并在输出里说明。
+- count only classes with **at least two confirmed labels** (only those carry information);
+- Laplace smoothing: `p̂ = (impure + 1) / (total + 2)`;
+- fall back to 0.5 when there is no such data, and say so in the output.
 
-实测：
+Measurement:
 
 ```
 [plan] p(pure)=0.67  estimated from ledger (1/1 impure)
  class 2 ... cost(1)=2.00 cost(all)=2.00 → 问 1 个（决策从 buy-safe 翻回）
 ```
 
-要点与警告：
+Key points and caveats:
 
-1. **决策翻转**：p=0.5 时 R=3 选 buy-safe（2.50 > 2.00）；估到 0.67 后 cost(1)=2.00，选问 1 个。
-2. **样本只有 1 个类，估计很脆**。2.00 与 2.00 是临界值，差一点就翻。输出里明写 `1/1 impure` 就是让人看到这一点。
-3. 随着标签积累，这个估计会变稳——**参数从数据来，而不是从默认值来**。
+1. **Decision flip**: with p=0.5 and R=3 it chose buy-safe (2.50 > 2.00); after estimating 0.67, cost(1)=2.00, so it asks 1.
+2. **The sample has only 1 class, so the estimate is fragile**. 2.00 vs 2.00 is a knife-edge; a small difference flips it. Printing `1/1 impure` in the output is meant to make that visible.
+3. As labels accumulate, the estimate stabilizes — **parameters come from data, not from defaults**.
 
-## 3.35 最后一个手填参数 R 也交给台账
+## 3.35 The last hand-filled parameter, R, also comes from the ledger
 
-`R` 是"一次错标的返工代价（单位：一次询问）"。现在的估计：
+`R` is "the rework cost of one mislabel (unit: one query)". The current estimate:
 
-- 分子：台账里实际发生的修复动作数（`retract` + `amend` + `supersede`）；
-- 分母：需要过修复的条目数（有修复动作、或状态已是 retracted/superseded）；
-- `R = max(1, 分子/分母)`（下限 1：修一次至少等于问一次）。
+- numerator: the number of repair actions that actually occurred in the ledger (`retract` + `amend` + `supersede`);
+- denominator: the number of entries that needed repair (have a repair action, or are already retracted/superseded);
+- `R = max(1, numerator/denominator)` (floor 1: one repair costs at least as much as one query).
 
-当前台账：
+Current ledger:
 
 ```
 [plan] R=1.22  estimated from ledger (11 repairs / 9 repaired entries)
 [plan] p(pure)=0.67  estimated from ledger (1/1 impure)
 ```
 
-于是未知纯度类的比较变成 `cost(1)=1.41` vs `cost(all)=2.00` → 问 1 个。
-若强行 `--rework-cost 3`，则变成 buy-safe。**决策随数据走，不再随默认值走。**
+So the comparison for unknown-purity classes becomes `cost(1)=1.41` vs `cost(all)=2.00` → ask 1.
+Forcing `--rework-cost 3` switches it to buy-safe. **The decision follows the data, not the defaults.**
 
-至此成本比较里的三个量全部有来源：
+At this point all three quantities in the cost comparison have a source:
 
-| 量 | 来源 |
+| Quantity | Source |
 |---|---|
-| `c`（冲突成员数） | 结构（等价类） |
-| `p`（类纯度） | 台账，Laplace（§3.34） |
-| `R`（返工代价） | 台账，修复/条目比（本节） |
+| `c` (number of conflicted members) | structure (equivalence class) |
+| `p` (class purity) | ledger, Laplace (§3.34) |
+| `R` (rework cost) | ledger, repairs/entries ratio (this section) |
 
-残余风险：分母只有 9 条，估计不稳；所以输出里始终打印 `11/9` 这种原始比，让人能判断可信度。
+Residual risk: the denominator has only 9 entries, so the estimate is unstable; therefore the output always prints the raw ratio, such as `11/9`, so a human can judge credibility.
 
-## 3.36 台账语义迁入 Rust：方向、冲突、已确认
+## 3.36 Ledger semantics move into Rust: direction, conflict, confirmed
 
-`metaform` 的 Rust 台账现在自带 Python 版的三条规则：
+The Rust ledger in `metaform` now carries the three rules from the Python version:
 
-1. **方向合并**：同一对象的多条独立证据按 noisy-OR 合并到 `pos` / `neg`；
-2. **冲突判定**：两侧都 ≥0.5 且 `min ≥ 0.7·max` 才算冲突（压倒性证据不被弱反对票取消）；
-3. **已确认**：`pos ≥ 0.5` 且不在冲突集合里。
+1. **Direction merge**: several independent evidence items for the same object merge into `pos` / `neg` by noisy-OR;
+2. **Conflict test**: a conflict requires both sides ≥0.5 and `min ≥ 0.7·max` (overwhelming evidence is not canceled by a weak opposing vote);
+3. **Confirmed**: `pos ≥ 0.5` and not in the conflict set.
 
-在本仓库自己的台账上（21 条迁移记录）：
+On this repository's own ledger (21 migrated records):
 
 ```
 $ metaform ledger conflicts --project .
@@ -820,14 +817,14 @@ $ metaform ledger cases --project .
 {"cases":[7,11]}
 ```
 
-与 Python 版（`ledger.py conflicts` / `proposer.py --plan`）结论一致：冲突对象被排除，只剩 7 与 11。
+Consistent with the Python version (`ledger.py conflicts` / `proposer.py --plan`): conflicted objects are excluded, leaving only 7 and 11.
 
-Rust 测试从 12 增至 **15**（新增 3 条：noisy-OR 合并、冲突需两侧可比、已确认排除冲突），
-`check-rust.ps1` 的期望数同步改为 15。
+Rust tests increased from 12 to **15** (3 new: noisy-OR merge, conflict requires comparable sides, confirmed excludes conflicts),
+and the expected count in `check-rust.ps1` was updated to 15.
 
-## 3.37 一步式调用：`state.json`
+## 3.37 One-shot invocation: `state.json`
 
-Agent 不该为了问一句话而先写脚本。`metaform state` 把场景存进 `.metaform/state.json`：
+An agent should not have to write a script just to ask one question. `metaform state` stores the scenario in `.metaform/state.json`:
 
 ```powershell
 metaform state init --project . --n 4
@@ -837,7 +834,7 @@ metaform state vote --project . --id 1 --yes 0 --no 3
 metaform state need --project .
 ```
 
-输出与脚本模式 `need` 形状完全相同：
+The output has exactly the same shape as script-mode `need`:
 
 ```json
 {"status":"INSUFFICIENT","action":"PROPOSE","theta":3,"epsilon_hat":0.00,
@@ -845,27 +842,27 @@ metaform state need --project .
  "pending":[],"suggested_labels":[2]}
 ```
 
-`state.json` 是可读的：
+`state.json` is human-readable:
 
 ```json
 {"n":4,"predicates":[{"name":"p","ids":[0,1]}],
  "votes":[{"id":0,"yes":3,"no":0},{"id":1,"yes":0,"no":3}]}
 ```
 
-Rust 测试 15 → **17**（新增：state 存取往返、从 state 重建状态机）。
+Rust tests 15 → **17** (new: state save/load round trip, rebuilding the state machine from state).
 
-## 3.38 MCP：从"能调用"到"能挂载"
+## 3.38 MCP: from "can be called" to "can be mounted"
 
-`metaform mcp` 起一个 stdio JSON-RPC 服务端，暴露四个工具：
+`metaform mcp` starts a stdio JSON-RPC server exposing four tools:
 
-| 工具 | 作用 |
+| Tool | Purpose |
 |---|---|
-| `state_need` | 读 `state.json`，返回状态机 JSON（与 CLI 的 `need` 相同） |
-| `state_vote` | 记一票并写回 |
-| `ledger_cases` | 已确认且无冲突的对象 |
-| `ledger_conflicts` | 方向冲突、真值未定的对象 |
+| `state_need` | read `state.json` and return the state-machine JSON (same as the CLI's `need`) |
+| `state_vote` | record a vote and write it back |
+| `ledger_cases` | confirmed objects with no conflicts |
+| `ledger_conflicts` | objects with direction conflicts and undetermined truth |
 
-实测（把请求行喂给进程）：
+Measurement (feeding request lines to the process):
 
 ```
 {"id":3,...} → {"content":[{"text":"{\"status\":\"INSUFFICIENT\",\"action\":\"PROPOSE\",...,\"colliding_pairs\":[[0,1]]}"}]}
@@ -873,17 +870,17 @@ Rust 测试 15 → **17**（新增：state 存取往返、从 state 重建状态
 {"id":5,...} → {"content":[{"text":"{\"conflicts\":[3,4,6,10]}"}]}
 ```
 
-要点：
+Key points:
 
-1. **同一内核，两个前端**：CLI 给人敲，MCP 给 Agent 挂；`need` 的 JSON 完全一致。
-2. 通知（`notifications/initialized`）不回复——协议要求。
-3. 未知工具返回 `isError: true` 的 content，而不是崩掉连接。
+1. **One kernel, two front ends**: the CLI for humans, MCP for agents to mount; the `need` JSON is identical.
+2. Notifications (`notifications/initialized`) get no reply — the protocol requires it.
+3. An unknown tool returns content with `isError: true` instead of crashing the connection.
 
-Rust 测试 17 → **21**（新增 4 条：initialize、tools/list、未知工具、通知）。
+Rust tests 17 → **21** (4 new: initialize, tools/list, unknown tool, notification).
 
-## 3.39 `report` 与第一个发布件（v0.2.0）
+## 3.39 `report` and the first release (v0.2.0)
 
-`metaform report` 把状态写成 `out/report.md`（人读），内容来自 `state.json` + `ledger.tsv`：
+`metaform report` writes the state to `out/report.md` (human-readable), drawing on `state.json` + `ledger.tsv`:
 
 ```markdown
 ## 状态
@@ -900,56 +897,56 @@ Rust 测试 17 → **21**（新增 4 条：initialize、tools/list、未知工�
 - 纯度 p=0.67（1/1 impure, Laplace），返工代价 R=1.21（1 + 3/14 retracted）
 ```
 
-发布件：`scripts/release.ps1` → `dist/metaform-0.2.0-win64.zip`（4 条目，276.2 KB），
-解压即得 `metaform.exe` + `SKILL.md` + `README.md` + `VERSION.txt`。解压后实测：
+Release: `scripts/release.ps1` → `dist/metaform-0.2.0-win64.zip` (4 entries, 276.2 KB);
+unzip it and you get `metaform.exe` + `SKILL.md` + `README.md` + `VERSION.txt`. Measured after unzipping:
 
 ```
 $ metaform.exe ledger cases --project D:\GitHub\metaform
 {"cases":[7,11]}
 ```
 
-Rust 测试 24 → **26**（report 两个用例：INSUFFICIENT 指名撞车、IDENTIFIED 建议停止）。
+Rust tests 24 → **26** (two report cases: INSUFFICIENT names the collision, IDENTIFIED recommends stopping).
 
-## 3.40 `score` 与 v0.3.0
+## 3.40 `score` and v0.3.0
 
-提议评分进入 Rust：输入是**外延**（对象编号）而非可执行代码，因此可以脱离 Python 运行。
+Proposal scoring enters Rust: the input is an **extension** (object ids) rather than executable code, so it can run without Python.
 
-域 C 的真实数据（4 个候选，真值 6 正 6 负）：
+Real domain C data (4 candidates, ground truth 6 positive and 6 negative):
 
-| 候选 | 覆盖 | P | R | 预测 | 台账违规 | 判定 |
+| Candidate | Coverage | P | R | Predictions | Ledger violations | Verdict |
 |---|---|---|---|---|---|---|
 | `overlap_or_touch` | 1/1 | 1.00 | 1.00 | 3/3 | 0 | **definition** |
 | `has_repeated_endpoint` | 1/1 | 1.00 | 0.33 | 2/2 | 1 | cover only |
 | `width_exceeds_gap` | 0/1 | 1.00 | 0.67 | 3/3 | 1 | — |
 | `input_has_three_or_more` | 0/1 | 0.67 | 0.33 | 2/3 | 1 | — |
 
-读法：只有 `overlap_or_touch` 能当定义（P=R=1 且不排除已确认正例）；
-`has_repeated_endpoint` 说得对但太窄，只能当覆盖元素——与 §3.23 的结论一致。
+Reading: only `overlap_or_touch` can serve as the definition (P=R=1 and excludes no confirmed positive);
+`has_repeated_endpoint` is right but too narrow, so it can only be a cover element — consistent with §3.23.
 
-发布件：`metaform-0.3.0-win64.zip`（4 条目，290.3 KB），解压后实测 `score` 与 `report` 均正常。
+Release: `metaform-0.3.0-win64.zip` (4 entries, 290.3 KB); after unzipping, both `score` and `report` work.
 
-Rust 测试 26 → **29**（新增 3 条：完美候选、窄候选、台账违规）。
+Rust tests 26 → **29** (3 new: perfect candidate, narrow candidate, ledger violation).
 
-## 4 这对论文意味着什么
+## 4 What this means for the paper
 
-1. **C3 作废**，改为负结果：*对象级选题在均匀成本下几乎无关紧要*。
-2. **真正值钱的决策在词汇层**：什么时候停止问对象、转为提议谓词；提议哪个；花多少 oracle 预算。
-   这一层才有非平凡代价，因为谓词提议的"单位成本"远高于一次成员查询（要人想、要 LLM 生成、要验证）。
-3. 论文的实验矩阵要改：主指标从"提问数"改为**"总成本（对象查询 + 谓词提议）下的恢复率"**，
-   并比较三种停止规则：F 为空才换、预算用完才换、按期望收益换。
-4. 这与 T2 的结论一致：既然词汇内搜索必然失败，优化对象级选题就是在优化一个注定失败的过程。
+1. **C3 is retired**, replaced by a negative result: *object-level question selection barely matters under uniform cost*.
+2. **The valuable decisions are at the vocabulary level**: when to stop asking about objects and switch to proposing predicates; which one to propose; how much oracle budget to spend.
+   Only this layer has non-trivial cost, because the "unit cost" of a predicate proposal is far higher than a membership query (a human must think, an LLM must generate, and it must be verified).
+3. The paper's experiment matrix must change: the primary metric goes from "number of questions" to **"recovery rate under total cost (object queries + predicate proposals)"**,
+   comparing three stopping rules: switch only when F is empty, switch when the budget runs out, and switch by expected gain.
+4. This is consistent with T2: since search within the vocabulary is bound to fail, optimizing object-level selection is optimizing a process that is doomed to fail.
 
-## 5 复现
+## 5 Reproduction
 
 ```powershell
 $py = 'C:\Users\xzxxn\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe'
 cd D:\GitHub\metaform\research\exp
-& $py domain_a.py --n 300 --objects 12 --attrs 8 --k 2   # E1–E4，约 4 s
-& $py domain_prior.py                                     # E5，约 6 s
+& $py domain_a.py --n 300 --objects 12 --attrs 8 --k 2   # E1–E4, about 4 s
+& $py domain_prior.py                                     # E5, about 6 s
 ```
 
-## 6 下一步实验
+## 6 Next experiments
 
-1. **成本敏感的停止规则**：单位成本 c_obj ≪ c_pred，比较三种停止规则的总成本-恢复率曲线。
-2. **谓词提议效率**：随机提议 vs 差异驱动提议（用正反例撞车处的属性差异），看需要几次提议才让 F 非空。
-3. 域 B（Lean 判定）与域 C（测试判定）上重复 1、2，确认结论不是合成域的产物。
+1. **Cost-sensitive stopping rules**: with unit costs c_obj ≪ c_pred, compare the total-cost/recovery-rate curves of the three stopping rules.
+2. **Predicate proposal efficiency**: random proposals vs difference-driven proposals (using attribute differences at the collision between positive and negative examples), to see how many proposals are needed before F becomes non-empty.
+3. Repeat 1 and 2 on domain B (Lean-decided) and domain C (test-decided) to confirm the conclusions are not artifacts of the synthetic domain.

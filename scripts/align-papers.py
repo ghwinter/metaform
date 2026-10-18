@@ -1,15 +1,17 @@
 """
-双语对齐检查：英文是准，中文是译本。这个脚本检查译本有没有悄悄漂移。
+Bilingual alignment check: English is authoritative, Chinese is the translation.
+This script checks whether the translation has quietly drifted.
 
-比对四件事：
-  1. 章节数量与顺序
-  2. 环境数量（theorem / definition / figure / table / axis）
-  3. 使用的文献 key 集合
-  4. 论文里出现的关键数字是否两边都有
+It compares four things:
+  1. section count and order
+  2. environment counts (theorem / definition / figure / table / axis)
+  3. the set of citation keys used
+  4. whether the key numbers in the paper appear on both sides
 
-它不判断译文好坏，只抓"结构或数字漏了"这类机械问题。
+It does not judge translation quality; it only catches mechanical problems such as
+missing structure or numbers.
 
-运行：python scripts/align-papers.py
+Run: python scripts/align-papers.py
 """
 from __future__ import annotations
 
@@ -52,7 +54,7 @@ LEAN = ROOT / "research" / "lean" / "QueryDriven.lean"
 
 
 def lean_table_names(tex: str) -> list[str]:
-    """附录表里列出的 Lean 名称。"""
+    """Lean names listed in the appendix table."""
     m = re.search(r"\\midrule(.*?)\\bottomrule", tex, re.S)
     if not m:
         return []

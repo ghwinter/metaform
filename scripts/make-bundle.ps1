@@ -1,20 +1,21 @@
 <#
 .SYNOPSIS
-    打一个可提交的归档：论文（双语）、形式化、引擎、实验、检查脚本。
+    Build a submittable archive: paper (bilingual), formalization, engine, experiments, and check scripts.
 
 .DESCRIPTION
-    投稿或交接时不想再从仓库里挑文件。本脚本把必要文件复制到 dist/staging，
-    保持目录结构，压成 dist/submission-<日期>.zip，并写一份 MANIFEST.txt。
+    When submitting or handing off, you do not want to pick files out of the repository again.
+    This script copies the necessary files to dist/staging, keeps the directory structure,
+    compresses them into dist/submission-<date>.zip, and writes a MANIFEST.txt.
 
-    不包含：.library（离线语料，太大）、.lake（构建缓存）、target（Rust 构建产物）。
+    Excluded: .library (offline corpus, too large), .lake (build cache), target (Rust build artifacts).
 
-    退出码：0 成功；1 有必需文件缺失。
+    Exit codes: 0 success; 1 a required file is missing.
 #>
 [CmdletBinding()]
 param(
     [string]$Root = (Split-Path $PSScriptRoot -Parent),
     [string]$Stamp = (Get-Date -Format 'yyyyMMdd'),
-    [switch]$Tamper   # 自检用：故意从包里删掉一个条目，看核对能不能抓到
+    [switch]$Tamper   # self-test: deliberately drop one entry from the bundle to see whether verification catches it
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,7 +26,7 @@ $zip = Join-Path $dist ("submission-{0}.zip" -f $Stamp)
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
-# 相对路径清单
+# Relative path list
 $files = @(
     'README.md',
     'skills/metaform/SKILL.md',
@@ -118,7 +119,7 @@ $manifest += "double-blind note: this bundle contains no author names."
 
 $manifest | Set-Content -Path (Join-Path $stage 'MANIFEST.txt') -Encoding utf8
 
-# 打包前记录每个文件的大小，打包后回读核对
+# Record each file's size before packing; read back and verify after packing
 $sizes = @{}
 foreach ($rel in $copied) {
     $sizes[$rel] = (Get-Item (Join-Path $stage $rel)).Length
@@ -145,7 +146,7 @@ if ($Tamper) {
     $u.Dispose()
 }
 
-# --- 回读核对：包里的每个条目都在，且大小与源文件一致 ---
+# --- Read-back check: every entry is in the bundle, and its size matches the source file ---
 $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
 try {
     $entries = @{}

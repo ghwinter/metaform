@@ -1,191 +1,153 @@
-# metaform — 查询驱动的表征变更
+# metaform — query-driven representation change
 
-一个可发表的理论工作 + 可执行参考实现：当目标概念不在当前词汇里时，增加搜索预算必然失败；
-系统必须判定"语言不够"，并借外部信号改写语言。
+A publishable theoretical work plus an executable reference implementation: when the target concept is not in the current vocabulary, increasing the search budget is bound to fail; the system must decide that "the language is insufficient" and rewrite the language using an external signal.
 
-论文：**英文为准** [paper/en/main.pdf](paper/en/main.pdf)（11 页）· 中文翻译 [paper/zh/main.pdf](paper/zh/main.pdf)（11 页）。
-以后改内容只改 `paper/en/main.tex`，再同步 `paper/zh/main.tex`。
+Paper: **English is authoritative** [paper/en/main.pdf](paper/en/main.pdf) (11 pages) · Chinese translation [paper/zh/main.pdf](paper/zh/main.pdf) (11 pages).
+From now on, edit only `paper/en/main.tex`, then sync `paper/zh/main.tex`.
 
-## 结构
+## Layout
 
-| 目录 | 内容 |
+| Directory | Contents |
 |---|---|
-| `paper/en/`, `paper/zh/` | 双语正文。en 用 `pdflatex` 两遍，zh 用 `xelatex` 两遍（ctex） |
-| `research/` | 命题（00）、形式核心（01）、论文骨架（02）、文献综合（03）、引擎设计（04）、可借机制（05）、AI 原生假设（06）、JEV 决策层（07）、断言审计（08）、长文摘记（09）、工具架构（10）、统一算子（11）、算子定型（12）、六种读法（13） |
-| `research/lean/` | Lean 4 形式化：11 条定理（13 个 Lean 名称：含多算子的 4 条）+ 3 条辅助引理，0 sorry |
-| `research/exp/` | Python 实验：合成域、Lean 域、代码域、成本分解、数据总账 `RESULTS.md` |
-| `engine/` | Rust 内核 + `metaform` 命令行（`scenarios/` 里有示例脚本） |
-| `scripts/` | 资料库下载/校验、PDF 转文本、Lean 编译封装 |
-| `.library/` | **15 个主题目录**、约 8.7k 个文件的离线语料，含 Copycat 替代材料与 JEV 决策模型论文 |
-| `.local/` | 本机事实（工具链、路径、坑）与下载笔记 |
+| `paper/en/`, `paper/zh/` | Bilingual body text. en uses `pdflatex` twice; zh uses `xelatex` twice (ctex) |
+| `research/` | Propositions (00), formal core (01), paper outline (02), literature synthesis (03), engine design (04), borrowable mechanisms (05), AI-native hypotheses (06), JEV decision layer (07), claim audit (08), long-form notes (09), tool architecture (10), unified operators (11), operator typing (12), six readings (13) |
+| `research/lean/` | Lean 4 formalization: 11 theorems (13 Lean names: 4 with multiple operators) + 3 auxiliary lemmas, 0 sorry |
+| `research/exp/` | Python experiments: synthetic domains, Lean domain, code domain, cost breakdown, data ledger `RESULTS.md` |
+| `engine/` | Rust kernel + `metaform` command line (`scenarios/` holds example scripts) |
+| `scripts/` | Library download/verification, PDF-to-text, Lean build wrapper |
+| `.library/` | **15 topic directories**, an offline corpus of about 8.7k files, including Copycat substitute material and JEV decision-model papers |
+| `.local/` | Machine facts (toolchain, paths, pitfalls) and download notes |
 
-## `metaform`：把当前场景摆出来
+## `metaform`: lay out the current scenario
 
 ```powershell
 cd engine
 cargo run --quiet -- scenarios\setcover.demo
 ```
 
-命令：`objects N` / `add <name> <id...>` / `pos <id...>` / `neg <id...>` / `vote <id> <yes> <no>` /
+Commands: `objects N` / `add <name> <id...>` / `pos <id...>` / `neg <id...>` / `vote <id> <yes> <no>` /
 `ask` / `status` / `explain` / `score <name> <id...>` / `capacity` / `need [theta]` / `batch k` /
-`gen [pool.txt]`（从当前词汇生成 metarule 式候选池）/ `cover <pool.txt>`（贪心覆盖全部撞车对）。
+`gen [pool.txt]` (generate a metarule-style candidate pool from the current vocabulary) / `cover <pool.txt>` (greedily cover all colliding pairs).
 
-`need` 输出机器可读状态（含 `action`: `PROPOSE` / `ASK` / `STOP`）、票差阈值 `theta`（默认取 `theta_rec`）、
-由票数估出的 `epsilon_hat`、推荐的 `theta_rec`，以及需要补票的 `pending`。
-噪声 oracle 下用它能压掉假触发（见 `RESULTS.md` §3.11：ε=0.1 时 θ=1 只有 25% 成功，θ=3 是 98%）。
+`need` outputs a machine-readable status (including `action`: `PROPOSE` / `ASK` / `STOP`), the vote-gap
+threshold `theta` (defaults to `theta_rec`), `epsilon_hat` estimated from the vote counts, the
+recommended `theta_rec`, and `pending` objects that need more votes.
+Under a noisy oracle it suppresses false triggers (see `RESULTS.md` §3.11: at ε=0.1, θ=1 succeeds only 25% of the time, while θ=3 succeeds 98%).
 
-### 项目目录与自举
+### Project directory and bootstrapping
 
-`metaform` 只写一个子目录 `.metaform/`：
+`metaform` writes to exactly one subdirectory, `.metaform/`:
 
 ```powershell
-metaform init   --project .                      # 建 .metaform/{config.toml,ledger.tsv,logs,out}
-metaform ledger add     --project . --case 3 --by demo --reason "第一条证据"
-metaform ledger list    --project . --all        # TSV，按 id 折叠出最新状态
-metaform ledger retract --project . --id L2 --reason "oracle 答错"
-metaform ledger cases   --project .              # 已确认且无冲突的对象
-metaform ledger conflicts --project .            # 方向冲突：{"conflicts":[...]}
-metaform state init  --project . --n 4            # 场景持久化到 .metaform/state.json
+metaform init   --project .                      # create .metaform/{config.toml,ledger.tsv,logs,out}
+metaform ledger add     --project . --case 3 --by demo --reason "first piece of evidence"
+metaform ledger list    --project . --all        # TSV, folded by id to the latest state
+metaform ledger retract --project . --id L2 --reason "oracle answered wrong"
+metaform ledger cases   --project .              # confirmed objects with no conflicts
+metaform ledger conflicts --project .            # direction conflicts: {"conflicts":[...]}
+metaform state init  --project . --n 4            # persist the scenario to .metaform/state.json
 metaform state vote  --project . --id 0 --yes 3 --no 0
-metaform state need  --project .                  # 一步式：直接给状态与建议
-metaform plan   --project . --pool .metaform/out/pool.txt # 覆盖 + 纯度 + 重问预算
-metaform report --project .                         # 生成 .metaform/out/report.md
-metaform score  --project . --pool cands.txt --truth truth.txt   # 候选评分：覆盖/P-R/台账
-metaform mcp                                       # MCP 服务端（stdio），供 Agent 挂载
-metaform ops                                       # 五类算子调度对照：固定顺序 vs 跳过冗余（论文 §4）
+metaform state need  --project .                  # one-shot: status and recommendations directly
+metaform plan   --project . --pool .metaform/out/pool.txt # coverage + purity + re-ask budget
+metaform report --project .                         # generate .metaform/out/report.md
+metaform score  --project . --pool cands.txt --truth truth.txt   # candidate scoring: coverage/P-R/ledger
+metaform mcp                                       # MCP server (stdio) for agents to mount
+metaform ops                                       # five-operator schedule comparison: fixed order vs skipping redundant steps (paper §4)
 ```
 
-台账是**只追加**的：撤销 = 追加一行同 id 的 `retracted`，折叠时后者胜。
-本仓库自己也在用：根目录下的 `.metaform/` 就是它的产物（`scripts/migrate-ledger-to-tsv.py` 从旧 JSON 迁来）。
+The ledger is **append-only**: retracting means appending a `retracted` line with the same id; when
+folded, the later line wins.
+This repository uses it too: the `.metaform/` directory at the root is its output (migrated from the old JSON by `scripts/migrate-ledger-to-tsv.py`).
 
-## 三件套复现
+## Reproducing the three-part setup
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # 五套断言门（Lean/Rust/证伪/双语/数字），约 40 s
-pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 63）
-pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
-python scripts/align-papers.py                       # 双语结构/数字对齐 + 附录 Lean 表 ↔ 源文件
-python research/exp/ledger.py list --all             # 反例台账（可增删改、挂起、带证据与历史）
-python research/exp/ledger.py show L2               # 看单条：来源、答案、票数、变更轨迹
-python research/exp/ledger.py corroborate --apply    # 同一对象的弱证据按 noisy-OR 合并
-python research/exp/ledger.py conflicts              # 方向冲突 + 重问队列（按差距排序，含 json）
-pwsh -File scripts/make-bundle.ps1                   # 打提交包（回读核对每个条目）→ dist/submission-<日期>.zip
-python research/exp/verify_claims.py                 # 论文数字回归（容差 0.06）
-python research/exp/theory_audit.py --engine engine/target/debug/metaform.exe   # 定理证伪 + 引擎一致性
+pwsh -File scripts/check-all.ps1                     # five assertion gates (Lean/Rust/falsification/bilingual/numbers), about 40 s
+pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 63)
+pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
+python scripts/align-papers.py                       # bilingual structure/number alignment + appendix Lean table ↔ source files
+python research/exp/ledger.py list --all             # counterexample ledger (add/amend/retract, suspend, with evidence and history)
+python research/exp/ledger.py show L2               # inspect one entry: source, answer, votes, change history
+python research/exp/ledger.py corroborate --apply    # merge weak evidence for the same object via noisy-OR
+python research/exp/ledger.py conflicts              # direction conflicts + re-ask queue (sorted by gap, includes json)
+pwsh -File scripts/make-bundle.ps1                   # build the submission bundle (read back and verify every entry) → dist/submission-<date>.zip
+python research/exp/verify_claims.py                 # paper-number regression (tolerance 0.06)
+python research/exp/theory_audit.py --engine engine/target/debug/metaform.exe   # theorem falsification + engine consistency
 python research/exp/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
-python research/exp/domain_b.py                      # Lean 当 oracle，约 3 s
-python research/exp/domain_c.py                      # 真实代码不变量
-python research/exp/domain_cost.py                   # 成本分解
-python research/exp/domain_more_data.py              # 定理 5 的经验版
-python research/exp/greedy_cover.py                  # 贪心覆盖 vs 最优 vs 随机
-engine\target\debug\metaform.exe ops                 # 五类算子的调度对照 + 200 次随机自检
-python research/exp/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # 噪声 oracle
-python research/exp/proposer.py --case domain_c --emit                    # 看发给模型的请求
+python research/exp/domain_b.py                      # Lean as oracle, about 3 s
+python research/exp/domain_c.py                      # real code invariants
+python research/exp/domain_cost.py                   # cost breakdown
+python research/exp/domain_more_data.py              # empirical version of Theorem 5
+python research/exp/greedy_cover.py                  # greedy cover vs optimal vs random
+engine\target\debug\metaform.exe ops                 # five operators' schedule comparison + 200 random self-checks
+python research/exp/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # noisy oracle
+python research/exp/proposer.py --case domain_c --emit                    # see the request sent to the model
 python research/exp/proposer.py --case domain_c --responses research/exp/responses_domain_c.json \
-    --pool-out pool.txt --scenario-out case.demo                          # 生成 metaform 场景与候选池
+    --pool-out pool.txt --scenario-out case.demo                          # generate a metaform scenario and candidate pool
 ```
 
-Windows 上 `python` 是 Store 桩，用 harness 自带解释器：
+On Windows `python` is a Store stub; use the interpreter bundled with the harness:
 
 ```powershell
 $py = 'C:\Users\xzxxn\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe'
 & $py research\exp\domain_a.py
 ```
 
-## 结论（可核对）
+## Conclusions (checkable)
 
-1. **T2（必要性）**：正反例在同一签名类里，则当前词汇内无一致概念。合成域 300/300 复现。
-2. **T5（不可修复）**：更多例子不会修复词汇不足，只会暴露它。P(不足) 随例子数 2.5% → 98.7%。
-3. **选题是二阶项**：信息增益与"随机问一个还有信息的问题"持平；加先验也只领先 9–13%。
-4. **成本由提议质量决定**：总成本跨 45×，几乎全由 `r/q` 决定；停止规则差 ±6%。
-   `verify_claims.py` 现在检查三件事：`r/q+7.6` 与四个实测点的相对误差 <4%；论文里不许再出现
-   `exactly`；并真的去跑 `metaform ops` 核对 `3.11/3.50/3.60` 与探测的 `1/5/14`，再把 README
-   里同一组数字解析出来做第三方对照（论文、README、程序三方一致才算过）。
-5. **错谓词零帮助**：在撞车对上取值相同的谓词，不会改变任何签名。
-6. **T8–T11（算子定型）**：五类步骤共用"活假设个数"这一个度量。生成只抬高它，闭包幂等，
-   只有取证严格降低它，词汇内部的布尔重组打不破撞车；表征的 warrant 要求新原子在词汇外、
-   且它承认的候选在新词汇下可定义（否则只是把没表达的东西记成已表达）。覆盖（T7）只作
-   调度分数。因此表征变更与取证必须交替。
-7. **控制的全部收益 = 冗余步的代价**：`metaform ops` 三个场景里"全部执行 vs 跳过冗余"的差额
-   恒等于被跳过步骤的代价；200 次随机调度自检 0 违反。
-8. **同预算下"选问题"值约 0.4 次查询**：八个活候选、单位代价时，逐步选择 3.11 次、随机顺序
-   3.50 次、固定顺序 3.60 次（`metaform ops` 的 `selection` 字段，200 次）。选择是二阶项，
-   不是一阶项——这和论文 §5 的负结果一致。
-9. **两个原子时贪心组合仍成立**：需要 2 个原子的场景里，贪心 2.00 个原子、成功率 1.00；
-   随机顺序 2.87 / 0.13；固定顺序（整类原子在前）3.00 / 0.00（`compose` 字段，200 次）。
-10. **真实域上排序可以替代好提议器**：域 C 的四个候选（三个诱饵 + 一个正确）按覆盖排序后
-    1 次提议、成本 28，等于"一次就提对"；文件顺序 4 次、88；随机顺序 2.46 次、57.2
-    （`selection_domain_c.py`，随机取 200 个 seed）。
-11. **无撞车 ≠ 正确**：需要两个谓词的域 C 场景里，标签在类内继承会让循环以错误外延停机——
-    贪心 1 次提议、成本 28、但外延不等于目标。对每个多成员类各探一个没问过的成员后，状态重新
-    变成不足，两次提议恢复正确（成本 51，文件顺序 111）；单原子情形只多 3 次查询（28 → 31）。
-12. **内核停机现在要求"无继承标签"**：`run_selected` 只在 `Φ=1` **且** `unprobed` 为空时停；
-    否则优先排 `Op::Probe`。探测证伪 → 状态退回不足；探测一致 → 未验证集合缩小；没有可用探测
-    算子时按 `Φ=1` 停，但 `unprobed` 会把风险暴露给调用方。
-13. **这条现在在工具输出里可见，也被门检查**：`metaform ops` 的 `probe` 字段——早停 1 次查询、
-    `Φ=1`、外延错；验证版 5 次查询、成本 14、外延对。`theory_audit.py` 断言这两条；把 JSON 改成
-    `early_correct: true` 会让 `check-all` 变红（负向自检已进 `selftest-gates.ps1`）。
-14. **CLI 也会要求先验证**：`objects 3; add p 0; vote 0 3 0; vote 1 3 0; need` 的输出是
-    `"action":"VERIFY"`、`"unverified":[2]`——类 `{1,2}` 的标签是从 1 继承来的，2 没被直接问过。
-15. **端到端跑通一次**：`engine/scenarios/verify.demo`（6 个测试文件、判"是否集成测试"）走完
-    `IDENTIFIED/VERIFY → INSUFFICIENT/PROPOSE → UNDETERMINED/ASK → IDENTIFIED/STOP`。
-    `e2e_verify.py` 把这条序列与 `unverified=[4,5]` 固化进 `check-all`。
-    顺带修了 `unprobed()` 顺序不稳的问题（`classes()` 走 `HashMap`）。
-16. **报告里能看出探测改变了判定**：`report` 在探测前给 `VERIFY` + `## 待验证`（4, 5），
-    探测 4 之后给 `INSUFFICIENT` + 撞车 `(0,4)`。`e2e_verify.py` 的项目模式把这条也固化进
-    `check-all`（临时目录建项目、写台账、两读报告）。
-17. **工具自己记账**：`state vote --record --by probe --reason "..."` 会把这次投票写进
-    `ledger.tsv`（编号 `L1`…），`report` 新增 `## 最近证据` 段落引用它；E2E 已改用这条路径，
-    不再手写 `ledger add`。
+1. **T2 (necessity)**: if a positive and a negative example share the same signature class, then no consistent concept exists in the current vocabulary. Reproduced 300/300 in the synthetic domain.
+2. **T5 (irreparable)**: more examples do not fix an insufficient vocabulary, they only expose it. P(insufficient) goes from 2.5% to 98.7% as the number of examples grows.
+3. **Question selection is a second-order term**: information gain ties with "ask a random question that still carries information"; even with a prior it leads by only 9–13%.
+4. **Cost is determined by proposal quality**: total cost spans 45× and is almost entirely determined by `r/q`; stopping rules differ by ±6%.
+   `verify_claims.py` now checks three things: the relative error of `r/q+7.6` against the four measured points is <4%; the word
+   `exactly` must no longer appear in the paper; and it actually runs `metaform ops` to check `3.11/3.50/3.60` and the probe's `1/5/14`, then parses
+   the same numbers out of the README as an independent third-party comparison (paper, README, and program must all agree).
+5. **A wrong predicate gives zero help**: a predicate that takes the same value on a colliding pair does not change any signature.
+6. **T8–T11 (operator typing)**: the five step types share a single measure, the number of live hypotheses. Generation only raises it, closure is idempotent,
+   only evidence gathering strictly lowers it, and Boolean recombination inside the vocabulary cannot break a collision; a representation's
+   warrant requires the new atom to be outside the vocabulary and the candidates it admits to be definable under the new vocabulary (otherwise
+   it merely records what was unexpressed as expressed). Coverage (T7) serves only as a scheduling score. Representation change and evidence gathering must therefore alternate.
+7. **The entire benefit of control equals the cost of redundant steps**: in the three `metaform ops` scenarios, the difference between "execute everything" and "skip redundant steps" is
+   always exactly the cost of the skipped steps; 200 random schedule self-checks produced 0 violations.
+8. **Under the same budget, "choosing the question" is worth about 0.4 queries**: with eight live candidates and unit cost, stepwise selection takes 3.11 queries, random order
+   3.50, and fixed order 3.60 (`metaform ops` `selection` field, 200 runs). Selection is a second-order term, not a first-order one — consistent with the negative result in paper §5.
+9. **Greedy composition still holds with two atoms**: in scenarios that need 2 atoms, greedy uses 2.00 atoms with success rate 1.00;
+   random order 2.87 / 0.13; fixed order (whole-class atoms first) 3.00 / 0.00 (`compose` field, 200 runs).
+10. **On a real domain, ordering can substitute for a good proposer**: after sorting domain C's four candidates (three decoys + one correct) by coverage,
+    one proposal costs 28, the same as "propose it right the first time"; file order takes 4 proposals and 88; random order 2.46 and 57.2
+    (`selection_domain_c.py`, 200 random seeds).
+11. **No collision ≠ correct**: in the domain C scenario that needs two predicates, label inheritance within a class lets the loop stop with a wrong extension —
+    greedy makes 1 proposal at cost 28, but the extension does not equal the target. After probing one unasked member of each multi-member class, the state
+    becomes insufficient again, and two proposals restore correctness (cost 51; file order 111); the single-atom case costs only 3 extra queries (28 → 31).
+12. **Kernel termination now requires "no inherited labels"**: `run_selected` stops only when `Φ=1` **and** `unprobed` is empty;
+    otherwise it schedules `Op::Probe` first. A probe that falsifies → the state falls back to insufficient; a consistent probe → the unverified set shrinks;
+    when no probe operator is available it stops at `Φ=1`, but `unprobed` exposes the risk to the caller.
+13. **This is now visible in tool output and checked by a gate**: the `probe` field of `metaform ops` — early stop after 1 query,
+    `Φ=1`, wrong extension; the verified version takes 5 queries, costs 14, and gets the extension right. `theory_audit.py` asserts both; changing the JSON to
+    `early_correct: true` turns `check-all` red (the negative self-test is in `selftest-gates.ps1`).
+14. **The CLI also asks for verification first**: `objects 3; add p 0; vote 0 3 0; vote 1 3 0; need` outputs
+    `"action":"VERIFY"` and `"unverified":[2]` — the label of class `{1,2}` is inherited from 1, and 2 was never asked directly.
+15. **One end-to-end run works**: `engine/scenarios/verify.demo` (6 test files, deciding "is this an integration test") goes through
+    `IDENTIFIED/VERIFY → INSUFFICIENT/PROPOSE → UNDETERMINED/ASK → IDENTIFIED/STOP`.
+    `e2e_verify.py` freezes this sequence and `unverified=[4,5]` into `check-all`.
+    While there, it also fixed the unstable order in `unprobed()` (`classes()` goes through a `HashMap`).
+16. **The report shows that probing changed the verdict**: before probing, `report` gives `VERIFY` + `## 待验证` (4, 5); after probing 4 it gives
+    `INSUFFICIENT` + collision `(0,4)`. The project mode of `e2e_verify.py` also freezes this into
+    `check-all` (build a project in a temp directory, write the ledger, read the report twice).
+17. **The tool records its own evidence**: `state vote --record --by probe --reason "..."` writes this vote into
+    `ledger.tsv` (ids `L1`…), and `report` gains a `## 最近证据` section that cites it; the E2E now uses this path
+    instead of hand-writing `ledger add`.
 
-## 诚实边界
+## Honest boundaries
 
-- 核心数学是 FCA/ILP 的 folklore（"可定义 = 等价类之并"）。贡献是把它当**必要性判据**用，
-  并补上多算子的定型（论文 §4：单调、幂等、唯一减小、重组不破撞），触发、基准与负结果跟着来。
-- 实验都在合成域与一个小代码域上，**没有真 LLM 提议器**在环里；论文据此声明范围，不吹。
-- T4 的计数形式 `2^m` 已形式化为 `capacity_bound_strong`，弱形式保留作引理。
+- The core mathematics is folklore from FCA/ILP ("definable = union of equivalence classes"). The contribution is to use it as a **necessity criterion**
+  and to supply the typing of multiple operators (paper §4: monotone, idempotent, the only one that decreases, recombination does not break collisions), with triggers, baselines, and negative results following.
+- All experiments are on synthetic domains and one small code domain, with **no real LLM proposer** in the loop; the paper scopes its claims accordingly and does not overclaim.
+- The counting form `2^m` of T4 is formalized as `capacity_bound_strong`; the weak form is kept as a lemma.
 
-## 出处
+## Provenance
 
-- `1.md`：原始对话，提出问题。
-- `reasoning_engine_research_map.md`：跨学科资料地图（本仓库 36 篇文献即按它下载）。
-- `research/03-synthesis.md`：36 篇逐篇对照，确认"查询失败 → 改写语言"的空位。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- `1.md`: the original conversation that posed the problem.
+- `reasoning_engine_research_map.md`: an interdisciplinary source map (the repository's 36 papers were downloaded according to it).
+- `research/03-synthesis.md`: paper-by-paper comparison of the 36 works, confirming the gap of "query failure → rewrite the language".

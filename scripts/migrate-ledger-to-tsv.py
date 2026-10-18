@@ -1,10 +1,12 @@
 """
-一次性迁移：把 Python 台账 probe_ledger.json 转成 Rust 版只追加 TSV（.metaform/ledger.tsv）。
+One-off migration: convert the Python ledger probe_ledger.json into the Rust append-only
+TSV (.metaform/ledger.tsv).
 
-TSV 列：id  case  status  by  round  reliability  answer  reason
-同一 id 若出现多次（历史修改），按 JSON 顺序全部写出——Rust 端折叠时后者胜。
+TSV columns: id  case  status  by  round  reliability  answer  reason
+If the same id appears more than once (historical edits), write every occurrence in JSON
+order -- the Rust side keeps the last one when folding.
 
-运行：python scripts/migrate-ledger-to-tsv.py
+Run: python scripts/migrate-ledger-to-tsv.py
 """
 from __future__ import annotations
 

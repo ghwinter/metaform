@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    打一个可发布的工具包：exe + skill + README + VERSION。
+    Build a publishable tool bundle: exe + skill + README + VERSION.
 
 .DESCRIPTION
-    与 make-bundle（论文/研究归档）不同，这个包是"给别的项目用"的：
-    解压即得一个可执行文件与它的使用说明。
+    Unlike make-bundle (the paper/research archive), this bundle is meant "for other projects":
+    unzip it and you get an executable plus its usage docs.
 
-    打包后会重新打开 zip 核对每个条目的大小，不一致就失败。
+    After packing, it reopens the zip and checks every entry's size; a mismatch fails.
 #>
 [CmdletBinding()]
 param(

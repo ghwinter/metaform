@@ -1,23 +1,23 @@
 <#
 .SYNOPSIS
-    把 .library 下的 PDF 抽成纯文本，供阅读/综合使用。
+    Extract PDFs under .library into plain text for reading and synthesis.
 
 .DESCRIPTION
-    用 MiKTeX 自带的 pdftotext（24.04.0）抽取。PDF 里的字体警告很多，全部吞掉，
-    只保留退出码与产出体量，写入 text-log.tsv。
+    Uses the pdftotext bundled with MiKTeX (24.04.0). PDFs emit many font warnings, so all of
+    them are swallowed; only the exit code and the output volume are kept, written to text-log.tsv.
 
-    输出结构镜像 .library：
+    The output layout mirrors .library:
         .library/02_problem_finding/foo.pdf
             -> .library/_text/02_problem_finding/foo.txt
 
 .PARAMETER Library
-    资料库根目录，默认 D:\GitHub\metaform\.library
+    Library root, default D:\GitHub\metaform\.library
 
 .PARAMETER Only
-    只处理路径里包含该子串的文件（例如 03a_）。
+    Only process files whose path contains this substring (for example 03a_).
 
 .PARAMETER Force
-    已存在且非空的 txt 也重新抽取。
+    Re-extract even when a non-empty txt already exists.
 #>
 [CmdletBinding()]
 param(

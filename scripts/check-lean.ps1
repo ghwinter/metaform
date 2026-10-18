@@ -1,29 +1,31 @@
 <#
 .SYNOPSIS
-    编译 research/lean 里的 Lean 形式化，并把输出留证。
+    Compile the Lean formalization under research/lean and keep the output as evidence.
 
 .DESCRIPTION
-    本机 mathlib 只有一份（D:\GitHub\lean\mathlib），但能够真正加载它的工程是
-    D:\GitHub\workspace\ReasearchLean —— 那里 .lake\packages 里的 batteries/aesop/Qq
-    等依赖已经编译好。在 metaform 里新建工程会触发 Lake 重新 materialize 这批依赖，
-    而它们没有预编译产物（mathlib 的 cache 钩子在本机失效）。
+    This machine has only one copy of mathlib (D:\GitHub\lean\mathlib), but the project that can
+    actually load it is D:\GitHub\workspace\ReasearchLean -- the batteries/aesop/Qq and other
+    dependencies under its .lake\packages are already compiled. Creating a new project inside
+    metaform makes Lake re-materialize those dependencies, and they have no prebuilt artifacts
+    (the mathlib cache hook does not work on this machine).
 
-    所以：源码留在 research/lean（进论文仓库），编译借 ReasearchLean 的环境。
+    So: the sources stay in research/lean (part of the paper repository), and compilation borrows
+    the ReasearchLean environment.
 
-    本脚本把 stdout+stderr 全量写进 `research/lean/last-check.log`，并统计 warning。
-    论文附录声称"no sorry and no warnings"，这条现在可复现：
-    **有任何 warning 就返回非零**，不能靠记忆。
+    This script writes all of stdout+stderr to `research/lean/last-check.log` and counts warnings.
+    The paper appendix claims "no sorry and no warnings"; that is now reproducible:
+    **any warning returns non-zero**. Do not rely on memory.
 
-    退出码：
-      0  编译通过且零 warning
-      1  Lean 编译失败（或源码缺失）
-      2  编译通过但有 warning
+    Exit codes:
+      0  compilation passes with zero warnings
+      1  Lean compilation fails (or the source is missing)
+      2  compilation passes with warnings
 
 .PARAMETER File
-    源文件名（research/lean 下）。
+    Source file name (under research/lean).
 
 .PARAMETER Project
-    借用其环境的 Lake 工程。
+    Lake project whose environment is borrowed.
 #>
 [CmdletBinding()]
 param(
