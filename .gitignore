@@ -1,11 +1,22 @@
-# Local corpora, machine facts, and vendored references: not part of the project history.
+# Default deny: nothing is tracked unless it is named at the bottom of this file.
+# Add a file here in the same commit that adds it, so that a stray note, a build
+# product or a machine-local file can never slip into the history.
+*
+!*/
+
+# Trees that are never walked, whatever they contain: large, machine-local, or
+# generated. They stay ignored even though directories are otherwise traversable.
 .library/
 .local/
 .repo/
-
-# Build outputs and generated artifacts.
-dist/
+.metaform/
 engine/target/
+dist/
+research/lean/.lake/
+research/exp/lean_oracle/
+__pycache__/
+
+# Products of the tracked code, and local configuration it generates.
 *.pdf
 *.aux
 *.log
@@ -14,38 +25,124 @@ engine/target/
 *.png
 engine/last-test.log
 research/lean/last-check.log
-research/lean/.lake/
-research/lean/lake-manifest.json
-research/lean/lakefile.toml
-research/lean/lean-toolchain
-research/exp/lean_oracle/
-.metaform/
+scripts/local.ps1
 
-# Raw conversation logs and internal notes: inputs, not deliverables.
+# Inputs and notes that are not deliverables. 2.md needs no edit here: the
+# default deny already covers it; the line is kept as documentation of intent.
 1.md
 1-digest.md
+2.md
 reasoning_engine_research_map.md
 HANDOFF.md
 
-# Python cache.
-__pycache__/
-*.pyc
+# ---------------------------------------------------------------------------
+# The tracked tree. One line per file; adding a file means adding a line.
+# ---------------------------------------------------------------------------
+!/.gitattributes
+!/.gitignore
 
-# Machine-local configuration (see scripts/local.example.ps1).
-scripts/local.ps1
+# engine
+!/engine/Cargo.lock
+!/engine/Cargo.toml
 
-# Library tooling: it serves the local corpus above, which is not tracked.
-scripts/download-library.ps1
-scripts/extract-archives.ps1
-scripts/extract-pdf-text.ps1
-scripts/verify-library.ps1
-scripts/library-manifest.json
+# engine/scenarios
+!/engine/scenarios/setcover.demo
+!/engine/scenarios/verify.demo
 
-# Notes written line-by-line against untracked inputs.
-research/10-tool-architecture.md
-research/10-tool-architecture.zh.md
-research/13-six-readings.md
-research/13-six-readings.zh.md
+# engine/src
+!/engine/src/ledger.rs
+!/engine/src/lib.rs
+!/engine/src/main.rs
+!/engine/src/mcp.rs
+!/engine/src/operators.rs
+!/engine/src/plan.rs
+!/engine/src/report.rs
+!/engine/src/score.rs
+!/engine/src/state.rs
 
-# Later conversation dumps: inputs, not deliverables.
-2.md
+# root
+!/environment.json
+
+# paper/en
+!/paper/en/main.tex
+
+# paper/zh
+!/paper/zh/main.tex
+
+# root
+!/README.md
+!/README.zh.md
+
+# research
+!/research/00-thesis.md
+!/research/00-thesis.zh.md
+!/research/01-formal-core.md
+!/research/01-formal-core.zh.md
+!/research/02-paper-outline.md
+!/research/02-paper-outline.zh.md
+!/research/03-synthesis.md
+!/research/03-synthesis.zh.md
+!/research/04-engine-design.md
+!/research/04-engine-design.zh.md
+!/research/05-borrowables.md
+!/research/05-borrowables.zh.md
+!/research/06-ai-native.md
+!/research/06-ai-native.zh.md
+!/research/07-jev-decision-layer.md
+!/research/07-jev-decision-layer.zh.md
+!/research/08-claims-audit.md
+!/research/08-claims-audit.zh.md
+!/research/09-essay-cammarata.md
+!/research/09-essay-cammarata.zh.md
+!/research/11-unified-operators.md
+!/research/11-unified-operators.zh.md
+!/research/12-operator-typing.md
+!/research/12-operator-typing.zh.md
+
+# research/exp
+!/research/exp/adaptive_theta.py
+!/research/exp/domain_a.py
+!/research/exp/domain_b.py
+!/research/exp/domain_c.py
+!/research/exp/domain_cost.py
+!/research/exp/domain_more_data.py
+!/research/exp/domain_prior.py
+!/research/exp/e2e_verify.py
+!/research/exp/engine.py
+!/research/exp/greedy_cover.py
+!/research/exp/ledger.py
+!/research/exp/multi_seed.py
+!/research/exp/noisy_loop.py
+!/research/exp/noisy_oracle.py
+!/research/exp/posterior_gate.py
+!/research/exp/probe_ledger.json
+!/research/exp/proposer_quality.py
+!/research/exp/proposer.py
+!/research/exp/responses_domain_c.json
+!/research/exp/RESULTS.md
+!/research/exp/RESULTS.zh.md
+!/research/exp/selection_domain_c.py
+!/research/exp/selfcalibrated_theta.py
+!/research/exp/theory_audit.py
+!/research/exp/verify_claims.py
+
+# research/lean
+!/research/lean/mechanization.md
+!/research/lean/mechanization.zh.md
+!/research/lean/QueryDriven.lean
+
+# scripts
+!/scripts/align-papers.py
+!/scripts/bootstrap.ps1
+!/scripts/check-all.ps1
+!/scripts/check-lean.ps1
+!/scripts/check-references.py
+!/scripts/check-rust.ps1
+!/scripts/make-bundle.ps1
+!/scripts/migrate-ledger-to-tsv.py
+!/scripts/release.ps1
+!/scripts/selftest-gates.ps1
+
+# skills/metaform
+!/skills/metaform/SKILL.md
+!/skills/metaform/SKILL.zh.md

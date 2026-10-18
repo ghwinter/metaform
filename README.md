@@ -26,6 +26,11 @@ without a bibliography entry. The paper reaches external work only through the b
 end, which is the usual convention; the table that maps theorems to Lean declarations lives in
 `research/lean/mechanization.md` instead of the paper.
 
+The tree is default-deny: `.gitignore` starts with `*` and then declares every tracked file with a
+`!` line. The same gate fails if a tracked file is undeclared, or if a declaration names nothing, so
+adding a file means adding its line in the same commit. A dropped note or a build product cannot enter
+the history by accident.
+
 ## `metaform`: lay out the current scenario
 
 ```powershell

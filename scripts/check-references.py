@@ -116,6 +116,16 @@ def blank_math(text: str) -> str:
     return text
 
 
+def allowlist_problems(ignore_path: Path, tracked: list[str]) -> list[str]:
+    """The tree is default-deny: every tracked file must be declared in .gitignore."""
+    text = ignore_path.read_text(encoding="utf-8")
+    declared = {m.group(1).strip() for m in re.finditer(r"(?m)^!/(.+?)\s*$", text)}
+    tracked_set = set(tracked)
+    out = [f".gitignore: tracked but not declared: {p}" for p in sorted(tracked_set - declared)]
+    out += [f".gitignore: declared but not tracked: {p}" for p in sorted(declared - tracked_set)]
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Reference hygiene gate.")
     parser.add_argument(
@@ -123,6 +133,11 @@ def main() -> int:
         action="append",
         default=[],
         help="scan this file instead of the tracked set; used by the gate self-test",
+    )
+    parser.add_argument(
+        "--ignore-file",
+        default=str(ROOT / ".gitignore"),
+        help="allowlist to check instead of .gitignore; used by the gate self-test",
     )
     args = parser.parse_args()
     tracked = tracked_files()
@@ -176,6 +191,8 @@ def main() -> int:
                     m = pattern.search(body)
                     if m:
                         problems.append(f"{rel}:{lineno}: paper carries {label} {m.group(0)!r}")
+
+    problems.extend(allowlist_problems(Path(args.ignore_file), tracked))
 
     for paper in PAPERS:
         rel = paper.relative_to(ROOT).as_posix()

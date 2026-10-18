@@ -9,6 +9,7 @@
       lean    create a file with an unused variable -> expect exit code 2 (warning)
       rust    set the expected pass count to 999    -> expect exit code 1
       refs    point a file at a name git does not track -> expect exit code 1
+      refs    leave a tracked file out of .gitignore      -> expect exit code 1
       claims  change the expected value of gain to 2.5 -> expect exit code 1
       cost    break one measured cost point        -> expect exit code 1
       ops no. change one expected ops number        -> expect exit code 1
@@ -73,6 +74,20 @@ finally {
     Remove-Item $refFile -Force -ErrorAction SilentlyContinue
 }
 $results += [pscustomobject]@{ Gate = 'refs / untracked file'; Got = $code; Want = 1 }
+
+# --- 2c. Allowlist: a tracked file that .gitignore does not declare ---
+$ignoreCopy = Join-Path $root '_selftest_ignore'
+Get-Content (Join-Path $root '.gitignore') |
+    Where-Object { $_ -ne '!/README.md' } |
+    Set-Content -Path $ignoreCopy -Encoding utf8
+try {
+    & $Python (Join-Path $PSScriptRoot 'check-references.py') --ignore-file $ignoreCopy | Out-Null
+    $code = $LASTEXITCODE
+}
+finally {
+    Remove-Item $ignoreCopy -Force -ErrorAction SilentlyContinue
+}
+$results += [pscustomobject]@{ Gate = 'refs / undeclared file'; Got = $code; Want = 1 }
 
 # --- 3. Number regression: tamper with an expected value ---
 Push-Location (Join-Path $root 'research\exp')
