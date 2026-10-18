@@ -1,52 +1,52 @@
-//! 多算子定型：论文 §4（`Operators as typed transitions`）的可执行对应物。
+//! Multi-operator typing: the executable counterpart of paper §4 (`Operators as typed transitions`).
 //!
-//! 论文把"下一步做什么"拆成五类步骤，并只用一个度量比较它们：
+//! The paper splits 'what to do next' into five classes of steps and compares them with a single measure:
 //!
-//! | 论文 | 这里 |
+//! | Paper | Here |
 //! |---|---|
-//! | 状态 `s=(H,V,E,B)` | [`State`] |
-//! | 活集 `L(s)` / 势 `Φ(s)` | [`State::live`] / [`State::phi`] |
-//! | 算子 `(rd, wr, warrant, cost, falsifier)` | [`Op`] + [`Op::class`] + [`Op::cost`] + [`Op::warrant`] |
-//! | T8 生成单调 | 生成只往 `H` 里加，`Φ` 不减 |
-//! | T9 闭包幂等 | 闭包两次 = 闭包一次 |
-//! | T10 证据唯一严格减小 | 能在活集上劈开的一问，严格降 `Φ` |
-//! | T11 重组打不破撞车 | 词汇内部布尔组合被 `warrant` 直接拒收 |
-//! | 推论（交替） | `Φ=0` 时只有新原子能救；`Φ≥2` 时只有取证能降 |
-//! | 控制的全部收益 = 省掉的冗余 | [`run`] 的 `skip_redundant` 与 [`demo`] |
+//! | State `s=(H,V,E,B)` | [`State`] |
+//! | Live set `L(s)` / potential `Φ(s)` | [`State::live`] / [`State::phi`] |
+//! | Operator `(rd, wr, warrant, cost, falsifier)` | [`Op`] + [`Op::class`] + [`Op::cost`] + [`Op::warrant`] |
+//! | T8 generation is monotone | generation only adds to `H`, so `Φ` never drops |
+//! | T9 closure is idempotent | closing twice = closing once |
+//! | T10 evidence is the only strict reducer | a question that splits the live set strictly lowers `Φ` |
+//! | T11 recombination cannot break a collision | Boolean combinations inside the vocabulary are rejected outright by `warrant` |
+//! | Corollary (alternation) | at `Φ=0` only a new atom can help; at `Φ≥2` only evidence can lower it |
+//! | The whole gain of control = the redundant spend it saves | `skip_redundant` in [`run`] and [`demo`] |
 //!
-//! 这里刻意不实现搜索、不实现排序打分：本模块只回答"这一步能不能改变度量"。
+//! Search and ranking are deliberately not implemented here: this module only answers 'can this step change the measure'.
 //!
-//! ## 没有实现的部分（别把对应关系读大）
+//! ## What is not implemented (do not over-read the correspondence)
 //!
-//! - **生成的 warrant 没有实装**：论文说生成的 warrant 是"覆盖 + 简洁"（T7 与 MDL），
-//!   这里只检查 T8 的方向（加候选不降 `Φ`），不判断候选好不好。
-//! - **表征的 warrant 检查两件事**：新原子不是当前词汇的布尔组合（T11 的否定面），
-//!   且每个候选在 `V ∪ {新原子}` 下可定义——否则就是把没表达的东西记成已表达。
-//!   覆盖（T7）只作调度分数 [`Op::coverage`]，不作拒收条件；保真条件（换表征后能重建
-//!   旧证据）仍未实装。
-//! - **标签继承要验证**：普通取证会把对象记进 `asked`；[`Op::Probe`] 只能问"多成员等价类里
-//!   没被直接问过"的成员，用来检验继承来的标签。`State::unprobed` 列出这些成员。
-//! - **关系只通过投影进入词汇**：`State` 存二元关系（`rels[r][x]` 是后继集），
-//!   但 `signature` / `definable` 仍是一元的；关系要先经 [`State::image`] 或
-//!   [`State::preimage`] 变成一元谓词，才能作为原子被 `Represent` 提出。
-//! - **控制的代价模型没有实装**：`is_discriminating` 只说"会不会劈开活集"，
-//!   不说"值不值这个代价"；实验成本在调用方。
-//! - **控制不是一步**：它是 [`run`] 的 `skip_redundant` 模式；论文里的 `B` 由 `run` 记账。
+//! - **The warrant for generation is not implemented**: the paper says the warrant for generation is 'cover + simplicity' (T7 and MDL),
+//!   but here only the direction of T8 is checked (adding candidates never lowers `Φ`), not whether a candidate is good.
+//! - **The warrant for representation checks two things**: the new atom is not a Boolean combination of the current vocabulary (the negative side of T11),
+//!   and every candidate is definable under `V ∪ {new atom}` — otherwise the step records the unexpressed as expressed.
+//!   Coverage (T7) is only a scheduling score [`Op::coverage`], never a rejection condition; the fidelity condition (rebuilding
+//!   the old evidence after a representation change) is still unimplemented.
+//! - **Inherited labels need verification**: ordinary evidence records the object in `asked`; [`Op::Probe`] can only ask about members
+//!   'never asked directly' inside a multi-member equivalence class, to test the inherited labels. `State::unprobed` lists these members.
+//! - **Relations enter the vocabulary only through projections**: `State` stores binary relations (`rels[r][x]` is the successor set),
+//!   but `signature` / `definable` are still unary; a relation must first pass through [`State::image`] or
+//!   [`State::preimage`] to become a unary predicate before `Represent` can propose it as an atom.
+//! - **The cost model of control is not implemented**: `is_discriminating` only says 'would it split the live set',
+//!   not 'is it worth the cost'; the experiment's cost lives with the caller.
+//! - **Control is not a step**: it is the `skip_redundant` mode of [`run`]; the paper's `B` is accounted for by `run`.
 
 use crate::{bit, Mask};
 
-/// 四类可执行算子 + 控制。类型即论文里的 `(rd, wr)`。
+/// Four classes of executable operators + control. The type is the paper's `(rd, wr)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Class {
-    /// 归纳 / 溯因 / 类比：只写 `H`，按包含增长。
+    /// Induction / abduction / analogy: writes `H` only, growing by inclusion.
     Generation,
-    /// 演绎 / 一致性检查：只写 `H`，过滤到与证据一致的候选。
+    /// Deduction / consistency checking: writes `H` only, filtering to candidates consistent with the evidence.
     Closure,
-    /// 词汇扩张 / 反统一 / 对称商：只写 `V`。
+    /// Vocabulary expansion / anti-unification / symmetry quotient: writes `V` only.
     Representation,
-    /// 反例搜索 / 主动学习 / 实验：只写 `E`。
+    /// Counterexample search / active learning / experiment: writes `E` only.
     Evidence,
-    /// 元推理：只写 `B`，在其余四类之间选。
+    /// Metareasoning: writes `B` only, choosing among the other four classes.
     Control,
 }
 
@@ -61,8 +61,8 @@ impl Class {
     }
 }
 
-/// 方向：写 `H` 的算子靠它区分"加（↑）"与"筛（↓）"。
-/// 论文说"类型定下类别"；只看 `wr` 只有四个取值，必须加上方向才是五个。
+/// Direction: operators that write `H` use it to tell 'add (↑)' from 'filter (↓)'.
+/// The paper says 'the type fixes the class'; `wr` alone has only four values, so direction must be added to get five.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Dir {
     Up,
@@ -70,18 +70,18 @@ pub enum Dir {
     None,
 }
 
-/// 状态：候选族 `H`、词汇 `V`、证据 `E`、预算 `B`。
+/// State: candidate family `H`, vocabulary `V`, evidence `E`, budget `B`.
 #[derive(Clone, Debug)]
 pub struct State {
     pub n: usize,
     pub vocab: Vec<Mask>,
-    /// 二元关系：`rels[r][x]` 是 `x` 在关系 `r` 下的后继集合。
-    /// 关系不直接进签名，只通过 [`State::image`] / [`State::preimage`] 投影成一元谓词后进入词汇。
+    /// Binary relation: `rels[r][x]` is the successor set of `x` under relation `r`.
+    /// Relations do not enter signatures directly; they enter the vocabulary only after being projected to a unary predicate via [`State::image`] / [`State::preimage`].
     pub rels: Vec<Vec<Mask>>,
     pub hyps: Vec<Mask>,
     pub pos: Mask,
     pub neg: Mask,
-    /// 被直接问过的对象。类标签会"继承"给同类成员，所以没被直接问过的成员是未验证的。
+    /// Objects that were asked directly. Class labels 'inherit' to members of the same class, so members never asked directly are unverified.
     pub asked: Mask,
     pub budget: u32,
 }
@@ -101,8 +101,8 @@ impl State {
         }
     }
 
-    /// 未验证的成员：多成员等价类里、没被直接问过的对象。
-    /// 这些对象的标签是从同类成员"继承"来的，可能错。
+    /// Unverified members: objects of a multi-member equivalence class that were never asked directly.
+    /// Their labels are 'inherited' from class members and may be wrong.
     pub fn unprobed(&self) -> Vec<usize> {
         let mut out = Vec::new();
         for c in self.classes() {
@@ -118,7 +118,7 @@ impl State {
         out
     }
 
-    /// 关系 `r` 从集合 `s` 出发一步能到达的对象：`{y | ∃x∈s, r(x,y)}`。
+    /// Objects reachable in one step from set `s` under relation `r`: `{y | ∃x∈s, r(x,y)}`.
     pub fn image(&self, r: usize, s: Mask) -> Mask {
         let mut out = 0u64;
         for x in 0..self.n {
@@ -129,8 +129,8 @@ impl State {
         out
     }
 
-    /// 关系 `r` 下能一步到达 `s` 的对象：`{x | ∃y∈s, r(x,y)}`。
-    /// 这是把二元关系投影成一元谓词的最短路径（ILP 里的一条 lift）。
+    /// Objects that reach `s` in one step under relation `r`: `{x | ∃y∈s, r(x,y)}`.
+    /// This is the shortest path for projecting a binary relation to a unary predicate (a lift in ILP).
     pub fn preimage(&self, r: usize, s: Mask) -> Mask {
         let mut out = 0u64;
         for x in 0..self.n {
@@ -149,32 +149,32 @@ impl State {
         }
     }
 
-    /// 候选 `h` 与证据一致：含全部正例，不含任何反例。
+    /// Candidate `h` is consistent with the evidence: it contains every positive and no negative.
     pub fn consistent(&self, h: Mask) -> bool {
         self.pos & !h == 0 && h & self.neg == 0
     }
 
-    /// 活集 `L(s)`。
+    /// Live set `L(s)`.
     pub fn live(&self) -> Vec<Mask> {
         self.hyps.iter().copied().filter(|h| self.consistent(*h)).collect()
     }
 
-    /// 势 `Φ(s)`。
+    /// Potential `Φ(s)`.
     pub fn phi(&self) -> usize {
         self.live().len()
     }
 
-    /// `x` 在 `V` 下的签名。
+    /// Signature of `x` under `V`.
     pub fn signature(&self, x: usize) -> Vec<bool> {
         self.vocab.iter().map(|p| p & bit(x) != 0).collect()
     }
 
-    /// 按签名分组（等价类）。
+    /// Group by signature (equivalence classes).
     pub fn classes(&self) -> Vec<Mask> {
         self.classes_with(0)
     }
 
-    /// 词汇加上 `extra` 之后的等价类。`extra = 0` 时就是当前词汇的划分。
+    /// Equivalence classes after adding `extra` to the vocabulary. With `extra = 0` this is the partition of the current vocabulary.
     pub fn classes_with(&self, extra: Mask) -> Vec<Mask> {
         let mut keys: Vec<Vec<bool>> = Vec::new();
         let mut masks: Vec<Mask> = Vec::new();
@@ -192,8 +192,8 @@ impl State {
         masks
     }
 
-    /// 用当前词汇的合取描述 `h` 所需的最少文字数（每个谓词可正可负），
-    /// 至多枚举 3 个文字；超出返回 `None`。这是 MDL 的工程近似：只算模型项，不算残差。
+    /// Minimum number of literals needed to describe `h` as a conjunction over the current vocabulary (each predicate may be positive or negative),
+    /// enumerating at most 3 literals; returns `None` beyond that. This is an engineering approximation of MDL: model terms only, no residual.
     pub fn mdl(&self, h: Mask) -> Option<usize> {
         let m = self.vocab.len();
         if m > 12 {
@@ -221,7 +221,7 @@ impl State {
         None
     }
 
-    /// 当前词汇下不可分辨、却分别落在正例与反例里的对象对（论文的撞车对）。
+    /// Pairs of objects that are indistinguishable under the current vocabulary but fall in the positives and the negatives respectively (the paper's colliding pairs).
     pub fn colliding_pairs(&self) -> Vec<(usize, usize)> {
         let mut out = Vec::new();
         for x in 0..self.n {
@@ -237,13 +237,13 @@ impl State {
         out
     }
 
-    /// `h` 是否 `V`-可定义：在每个等价类上取常值（论文 T1）。
+    /// Whether `h` is `V`-definable: constant on every equivalence class (paper T1).
     pub fn definable(&self, h: Mask) -> bool {
         self.definable_with(0, h)
     }
 
-    /// `h` 在 `V ∪ {extra}` 下是否可定义。`Represent` 的 warrant 用它：
-    /// 新原子必须真的让这些候选可表达，否则这一步只是把没表达的东西记成已表达。
+    /// Whether `h` is definable under `V ∪ {extra}`. The warrant of `Represent` uses it:
+    /// the new atom must really make these candidates expressible, otherwise the step only records the unexpressed as expressed.
     pub fn definable_with(&self, extra: Mask, h: Mask) -> bool {
         for c in self.classes_with(extra) {
             let inside = h & c;
@@ -254,8 +254,8 @@ impl State {
         true
     }
 
-    /// 当前词汇下的全部 `V`-可定义集（等价类之并）。
-    /// 演示域保持小（类数 ≤ 20），否则返回空。
+    /// All `V`-definable sets under the current vocabulary (unions of equivalence classes).
+    /// The demo domain is kept small (at most 20 classes); otherwise returns empty.
     pub fn enumerate_definable(&self) -> Vec<Mask> {
         let cs = self.classes();
         if cs.len() > 20 {
@@ -275,7 +275,7 @@ impl State {
     }
 }
 
-/// `m` 个下标里取 `k` 个的所有组合（`m` 很小，演示域够用）。
+/// All combinations of `k` out of `m` indices (`m` is tiny, enough for the demo domain).
 fn combos(m: usize, k: usize) -> Vec<Vec<usize>> {
     let mut out = Vec::new();
     let mut cur = Vec::new();
@@ -294,9 +294,9 @@ fn combos(m: usize, k: usize) -> Vec<Vec<usize>> {
     out
 }
 
-/// 从候选原子里选覆盖面最大的一个（T7 的可执行版本）。
-/// 若某个原子单独就能让目标可定义，它必然分开全部撞车对，因此这个选择在该情形下不是启发式。
-/// 布尔重组（`V`-可定义的候选）不参与——那是 T11 说打不破撞车的那种。
+/// Pick the candidate atom with the largest coverage from the pool (the executable version of T7).
+/// If a single atom alone makes the target definable, it must separate all colliding pairs, so the choice is not a heuristic in that case.
+/// Boolean recombinations (`V`-definable candidates) do not take part — those are what T11 says cannot break a collision.
 pub fn best_cover(s: &State, pool: &[Mask]) -> Option<usize> {
     let mut best: Option<(usize, usize)> = None;
     for (i, &a) in pool.iter().enumerate() {
@@ -320,7 +320,7 @@ pub fn best_cover(s: &State, pool: &[Mask]) -> Option<usize> {
     best.map(|(i, _)| i)
 }
 
-/// 两个原子才够用时，三种顺序各自要几个原子。`k` 是"方向"数（需要 `k` 个原子）。
+/// How many atoms each of three orders needs when two atoms are required. `k` is the number of 'directions' (that many atoms are needed).
 pub struct ComposeStats {
     pub trials: u64,
     pub fixed: f64,
@@ -331,7 +331,7 @@ pub struct ComposeStats {
     pub greedy_ok: f64,
 }
 
-/// 需要多个原子时：贪心覆盖 vs 随机顺序 vs 固定顺序（固定把整类原子排在前面，它们不提供新切分）。
+/// When several atoms are needed: greedy cover vs random order vs fixed order (the fixed order puts whole-class atoms first; they provide no new split).
 pub fn compose_bench(trials: u64, k: usize, budget: usize) -> ComposeStats {
     assert!(k >= 1 && k <= 4, "两比特编码类号，k ≤ 4");
     let mut seed = 0x1234_5678u64;
@@ -393,7 +393,7 @@ pub fn compose_bench(trials: u64, k: usize, budget: usize) -> ComposeStats {
     }
 }
 
-/// 按覆盖贪心排出原子顺序（跳过 `V`-可定义的重组）。
+/// Order the atoms greedily by coverage (skipping `V`-definable recombinations).
 fn greedy_order(s0: &State, pool: &[Mask]) -> Vec<Mask> {
     let mut s = s0.clone();
     let mut remaining: Vec<Mask> = pool.to_vec();
@@ -407,7 +407,7 @@ fn greedy_order(s0: &State, pool: &[Mask]) -> Vec<Mask> {
     order
 }
 
-/// 按顺序逐个加入原子，直到目标可定义；返回 (步数, 是否成功)。失败记 `budget + 1`。
+/// Add atoms one by one in the given order until the target is definable; returns (steps, success). Failure is recorded as `budget + 1`.
 fn steps_to_define(s0: &State, order: &[Mask], target: Mask, budget: usize) -> (usize, bool) {
     let mut s = s0.clone();
     if s.definable(target) {
@@ -425,7 +425,7 @@ fn steps_to_define(s0: &State, order: &[Mask], target: Mask, budget: usize) -> (
     (budget + 1, false)
 }
 
-/// 同预算对照：同一批查询，固定顺序 / 随机顺序 / 逐步选择，各自要几轮。
+/// Same-budget comparison: for the same batch of queries, how many rounds fixed order / random order / stepwise selection each need.
 pub fn selection_bench(trials: u64) -> (u64, f64, f64, f64) {
     let mut seed = 0x9e37_79b9u64;
     let mut rnd = move || {
@@ -477,7 +477,7 @@ pub fn selection_bench(trials: u64) -> (u64, f64, f64, f64) {
     (done, fixed as f64 / d, random as f64 / d, selected as f64 / d)
 }
 
-/// 按给定顺序跑到判定（`Φ = 1`）为止（对照用的固定/随机顺序）。
+/// Run in the given order until a decision (`Φ = 1`) (the fixed/random orders used for comparison).
 fn run_order(s: &mut State, ops: &[Op]) -> Outcome {
     let mut cost = 0u32;
     let mut ran = 0usize;
@@ -497,29 +497,29 @@ fn run_order(s: &mut State, ops: &[Op]) -> Outcome {
     Outcome { phi: s.phi(), cost, ran, skipped: 0, skipped_cost: 0 }
 }
 
-/// 一步被 falsifier 击中，或前提不满足。
+/// The step was hit by a falsifier, or its precondition does not hold.
 ///
-/// `Recombination` 是论文 T11 的直接落地；其余三种是工程层的前提（与证据矛盾 /
-/// 与已确认答案相反 / 预算不够），论文没有对它们作断言。
+/// `Recombination` is the direct implementation of paper T11; the other three are engineering-level preconditions (contradicts the evidence /
+/// contradicts an already confirmed answer / not enough budget), on which the paper makes no claim.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Falsified {
-    /// 表征步骤里的谓词是当前词汇的布尔组合：T11，重组打不破撞车。
+    /// The predicate in a representation step is a Boolean combination of the current vocabulary: T11, recombination cannot break a collision.
     Recombination,
-    /// 新增候选与证据矛盾。
+    /// The new candidate contradicts the evidence.
     Inconsistent,
-    /// 候选在 `V ∪ {新原子}` 下仍不可定义：这一步把没表达的东西记成了已表达。
+    /// The candidate is still not definable under `V ∪ {new atom}`: the step recorded the unexpressed as expressed.
     NotExpressible,
-    /// 探测对象已经被直接问过。
+    /// The probe target was already asked directly.
     AlreadyAsked,
-    /// 探测对象所在等价类只有一个成员：没有"继承"可验证。
+    /// The probe target's equivalence class has only one member: there is no 'inheritance' to verify.
     NotInherited,
-    /// 证据与已确认答案相反。
+    /// The evidence contradicts an already confirmed answer.
     Contradiction,
-    /// 预算不够。
+    /// Not enough budget.
     OutOfBudget,
 }
 
-/// 状态分量的位标志，对应论文 Def 5 的 `rd` / `wr`。
+/// Bit flags of the state components, corresponding to `rd` / `wr` in paper Def 5.
 pub mod comp {
     pub const H: u8 = 1;
     pub const V: u8 = 2;
@@ -527,24 +527,24 @@ pub mod comp {
     pub const B: u8 = 8;
 }
 
-/// 五类步骤。`cost` 用同一单位（查询轮 / 提议开销），否则不可加、不可调度。
+/// The five classes of steps. `cost` uses one unit (query rounds / proposal overhead); otherwise costs are neither additive nor schedulable.
 #[derive(Clone, Debug)]
 pub enum Op {
-    /// 生成：把候选并进 `H`。warrant 是覆盖，falsifier 是不一致。
+    /// Generation: merge candidates into `H`. The warrant is coverage, the falsifier is inconsistency.
     Generate { cands: Vec<Mask>, cost: u32 },
-    /// 闭包：把 `H` 过滤到与 `E` 一致。warrant 是推导，falsifier 无（删掉的都可查）。
+    /// Closure: filter `H` to agree with `E`. The warrant is derivation; there is no falsifier (everything removed can be checked).
     Close { cost: u32 },
-    /// 表征：加入新原子 `pred`，并允许用它的候选进入 `H`。
+    /// Representation: add a new atom `pred` and let candidates using it enter `H`.
     Represent { pred: Mask, cands: Vec<Mask>, cost: u32 },
-    /// 取证：向 oracle 问一个对象。warrant 是 oracle 的回答。
+    /// Evidence: ask the oracle about one object. The warrant is the oracle's answer.
     Evidence { x: usize, member: bool, cost: u32 },
-    /// 探测：问一个"标签是从同类继承来的"成员，用来验证继承是否成立。
-    /// 与 `Evidence` 的区别只在 warrant：对象必须没被直接问过，且所在的类不止一个成员。
+    /// Probe: ask a member whose 'label was inherited from its class', to check whether the inheritance holds.
+    /// It differs from `Evidence` only in the warrant: the object must never have been asked directly, and its class must have more than one member.
     Probe { x: usize, member: bool, cost: u32 },
 }
 
 impl Op {
-    /// 方向。写 `H` 的两类靠它分开。
+    /// Direction. The two classes that write `H` are told apart by it.
     pub fn dir(&self) -> Dir {
         match self {
             Op::Generate { .. } => Dir::Up,
@@ -553,7 +553,7 @@ impl Op {
         }
     }
 
-    /// 读哪些分量（论文 Def 5 的 `rd`）。
+    /// Which components are read (paper Def 5's `rd`).
     pub fn reads(&self) -> u8 {
         match self {
             Op::Generate { .. } | Op::Close { .. } | Op::Evidence { .. } | Op::Probe { .. } => {
@@ -563,7 +563,7 @@ impl Op {
         }
     }
 
-    /// 写哪些分量（论文 Def 5 的 `wr`）。`Represent` 写 `V`，并因此写 `H`（新原子允许新候选进入）。
+    /// Which components are written (paper Def 5's `wr`). `Represent` writes `V` and therefore `H` (a new atom lets new candidates in).
     pub fn writes(&self) -> u8 {
         match self {
             Op::Generate { .. } | Op::Close { .. } => comp::H,
@@ -591,12 +591,12 @@ impl Op {
         }
     }
 
-    /// warranty：这一步凭什么可以被接受。T11 在这里落地。
+    /// Warranty: why this step may be accepted. T11 is implemented here.
     pub fn warrant(&self, s: &State) -> Result<(), Falsified> {
         match self {
             Op::Generate { .. } => {
-                // 生成不需要 warrant：加进来的候选若与证据矛盾，闭包会把它删掉
-                // （T8 只说 Φ 不降，不问候选好坏——好坏由 Φ 与代价来量）。
+                // generation needs no warrant: if an added candidate contradicts the evidence, closure will remove it
+                // (T8 only says Φ does not drop, not whether a candidate is good — goodness is measured by Φ and cost).
                 Ok(())
             }
             Op::Close { .. } => Ok(()),
@@ -604,7 +604,7 @@ impl Op {
                 if s.definable(*pred) {
                     return Err(Falsified::Recombination);
                 }
-                // 每个候选都必须在新词汇 V ∪ {pred} 下可定义，否则它只是被"记成"表达了。
+                // every candidate must be definable under the new vocabulary V ∪ {pred}, otherwise it is only 'recorded' as expressed.
                 if cands.iter().any(|c| !s.definable_with(*pred, *c)) {
                     return Err(Falsified::NotExpressible);
                 }
@@ -637,7 +637,7 @@ impl Op {
         }
     }
 
-    /// 这一步预计能去掉多少东西：生成/闭包数候选，表征看覆盖，取证看是否劈开。
+    /// How much this step is expected to remove: generation/closure count candidates, representation looks at coverage, evidence at whether it splits.
     pub fn gain(&self, s: &State) -> usize {
         match self {
             Op::Generate { cands, .. } => cands
@@ -650,10 +650,10 @@ impl Op {
         }
     }
 
-    /// 冗余：写不出任何新东西（状态逐位不变）。控制类永远冗余。
+    /// Redundancy: nothing new can be written (the state is unchanged bit for bit). The control class is always redundant.
     ///
-    /// 注意"冗余"与"无区分力"不是一回事：一个在所有活候选上答案都一样的取证
-    /// **不降 Φ**，但它仍然写 `E`（约束之后的候选），因此不叫冗余。见 [`Op::is_discriminating`]。
+    /// Note that 'redundant' and 'non-discriminating' are not the same thing: an evidence step that answers the same on every live candidate
+    /// **does not lower Φ**, yet it still writes `E` (the candidates after the constraint), so it is not called redundant. See [`Op::is_discriminating`].
     pub fn is_redundant(&self, s: &State) -> bool {
         match self {
             Op::Generate { cands, .. } => cands
@@ -665,14 +665,14 @@ impl Op {
             }
             Op::Evidence { x, .. } => {
                 let b = bit(*x);
-                s.pos & b != 0 || s.neg & b != 0 // 已经有答案，再问一遍是空写
+                s.pos & b != 0 || s.neg & b != 0 // the answer is already known; asking again writes nothing
             }
             Op::Probe { x, .. } => s.asked & bit(*x) != 0 || s.pos & bit(*x) != 0 || s.neg & bit(*x) != 0,
         }
     }
 
-    /// 覆盖分数：这一步分开了多少对当前撞车的正反例。
-    /// 它只是调度信号，不是 warrant——远期才有用的原子覆盖为 0，仍然合法。
+    /// Coverage score: how many currently colliding positive/negative pairs this step separates.
+    /// It is only a scheduling signal, not a warrant — an atom that is only useful later has coverage 0 and is still legal.
     pub fn coverage(&self, s: &State) -> usize {
         match self {
             Op::Generate { .. } | Op::Close { .. } | Op::Evidence { .. } | Op::Probe { .. } => 0,
@@ -684,8 +684,8 @@ impl Op {
         }
     }
 
-    /// 区分力：这一步会不会真的在活集上劈开（因此严格降 `Φ`）。
-    /// 非区分性的取证不降 `Φ`，只加约束；这是论文里"每题都值同样一个比特"的可执行版本。
+    /// Discriminating: whether this step really splits the live set (and therefore strictly lowers `Φ`).
+    /// Non-discriminating evidence does not lower `Φ`, it only adds constraints; this is the executable version of the paper's 'every question is worth the same bit'.
     pub fn is_discriminating(&self, s: &State) -> bool {
         match self {
             Op::Generate { cands, .. } => {
@@ -700,7 +700,7 @@ impl Op {
         }
     }
 
-    /// 执行一步。先过 warrant，再写状态。
+    /// Execute one step. Pass the warrant first, then write the state.
     pub fn apply(&self, s: &mut State) -> Result<(), Falsified> {
         self.warrant(s)?;
         match self {
@@ -739,18 +739,18 @@ impl Op {
     }
 }
 
-/// 论文 Def 5 的两个关系：`o₂` 是否被 `o₁` 告知，以及 `o₂` 在 `o₁` 之后是否冗余。
+/// The two relations of paper Def 5: whether `o₂` is informed by `o₁`, and whether `o₂` is redundant after `o₁`.
 pub fn informed_by(prev: &Op, next: &Op) -> bool {
     next.reads() & (prev.reads() | prev.writes()) != 0
 }
 
-/// `next` 在 `prev` 之后没有写出任何新分量（论文 Def 5 的冗余）。
+/// `next` writes no new component after `prev` (the redundancy of paper Def 5).
 pub fn redundant_after(prev: &Op, next: &Op) -> bool {
     next.writes() & !prev.writes() == 0
 }
 
-/// 在候选步骤里按 `gain / cost` 选一个（比值相等时取靠前的）。
-/// warrant 不过或冗余的步骤直接跳过——这就是控制类的全部工作。
+/// Pick one of the candidate steps by `gain / cost` (ties go to the earlier one).
+/// Steps that fail the warrant or are redundant are skipped outright — that is the entire job of the control class.
 pub fn select(s: &State, ops: &[Op]) -> Option<usize> {
     let mut best: Option<(usize, u64, u64)> = None;
     for (i, op) in ops.iter().enumerate() {
@@ -771,8 +771,8 @@ pub fn select(s: &State, ops: &[Op]) -> Option<usize> {
     best.map(|(i, _, _)| i)
 }
 
-/// 每一步都重选当前最值的一步。停机条件是**已判定且没有继承来的标签**：
-/// `Φ = 1` 还不够，还要 `unprobed` 为空；否则优先排一个探测。
+/// Reselect the currently best step every time. The stopping condition is **decided and with no inherited labels**:
+/// `Φ = 1` is not enough, `unprobed` must be empty as well; otherwise schedule a probe first.
 pub fn run_selected(s: &mut State, ops: &[Op]) -> Result<Outcome, Falsified> {
     let mut remaining: Vec<Op> = ops.to_vec();
     let mut cost = 0u32;
@@ -782,7 +782,7 @@ pub fn run_selected(s: &mut State, ops: &[Op]) -> Result<Outcome, Falsified> {
             break;
         }
         let idx = if s.phi() == 1 {
-            // 已判定，但还有继承来的标签：只接受能验证它的探测。
+            // already decided, but inherited labels remain: accept only a probe that can verify them.
             let Some(x) = s.unprobed().into_iter().next() else { break };
             match remaining
                 .iter()
@@ -814,18 +814,18 @@ pub fn run_selected(s: &mut State, ops: &[Op]) -> Result<Outcome, Falsified> {
     })
 }
 
-/// 一次运行的结果。
+/// The result of one run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Outcome {
     pub phi: usize,
     pub cost: u32,
     pub ran: usize,
     pub skipped: usize,
-    /// 被跳过步骤的代价之和（跳过的都是不改变状态的步骤）。
+    /// Sum of the costs of the skipped steps (everything skipped leaves the state unchanged).
     pub skipped_cost: u32,
 }
 
-/// 按给定顺序跑一串算子。`skip_redundant` 为真时，控制类真的在省冗余步。
+/// Run a sequence of operators in the given order. When `skip_redundant` is true, the control class really does save the redundant steps.
 pub fn run(ops: &[Op], s: &mut State, skip_redundant: bool) -> Result<Outcome, Falsified> {
     let mut cost = 0u32;
     let mut ran = 0usize;
@@ -847,7 +847,7 @@ pub fn run(ops: &[Op], s: &mut State, skip_redundant: bool) -> Result<Outcome, F
     Ok(Outcome { phi: s.phi(), cost, ran, skipped, skipped_cost })
 }
 
-/// 一组演示：同一串步骤，固定顺序 vs 跳过冗余。
+/// A set of demos: the same step sequence, fixed order vs skipping redundancy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Demo {
     pub name: &'static str,
@@ -856,26 +856,26 @@ pub struct Demo {
     pub phi_before: usize,
     pub phi_after: usize,
     pub skipped: usize,
-    /// 被跳过步骤的代价之和；应当等于 `fixed_cost - scheduled_cost`。
+    /// Sum of the costs of the skipped steps; should equal `fixed_cost - scheduled_cost`.
     pub skipped_cost: u32,
 }
 
-/// 三个演示场景。每个都只用论文里的量（Φ、代价、冗余步）。
+/// Three demo scenarios. Each uses only quantities from the paper (Φ, cost, redundant steps).
 pub fn demo() -> Vec<Demo> {
     let mut out = Vec::new();
 
-    // A：没有冗余时，调度省不到任何东西（论文：控制只值冗余那部分）。
+    // A: with no redundancy, scheduling saves nothing (paper: control is worth only the redundant part).
     {
         let mut s = State::new(4);
         s.vocab = vec![bit(0) | bit(1)];
         s.pos = bit(0);
-        // 三个活候选，一问即可判定。
+        // three live candidates, one question settles it.
         s.hyps = vec![bit(0) | bit(1), bit(0) | bit(2), bit(0) | bit(3)];
         let ops = vec![Op::Evidence { x: 1, member: true, cost: 1 }];
         out.push(run_pair("no-redundancy", &s, &ops));
     }
 
-    // B：固定顺序里塞了重复闭包与非区分性提问；调度省掉的正是它们的代价。
+    // B: the fixed order contains repeated closures and non-discriminating questions; scheduling saves exactly their cost.
     {
         let mut s = State::new(4);
         s.vocab = vec![bit(0) | bit(1)];
@@ -891,12 +891,12 @@ pub fn demo() -> Vec<Demo> {
         out.push(run_pair("repeated-closure", &s, &ops));
     }
 
-    // C：状态已耗尽（Φ=0）。生成救不了，只有新原子能；固定顺序还要多付两次冗余。
+    // C: the state is exhausted (Φ=0). Generation cannot save it, only a new atom can; the fixed order also pays two extra redundancies.
     {
         let mut s = State::new(4);
         s.vocab = vec![bit(0) | bit(1)];
         s.pos = bit(0);
-        s.neg = bit(1); // 0 与 1 同类 → T2 撞车
+        s.neg = bit(1); // 0 and 1 are in the same class → T2 collision
         s.hyps = s.enumerate_definable();
         let ops = vec![
             Op::Generate { cands: vec![bit(2) | bit(3)], cost: 2 },
@@ -911,7 +911,7 @@ pub fn demo() -> Vec<Demo> {
     out
 }
 
-/// 同一串步骤跑两遍：不跳过 / 跳过冗余。返回两者都到同一状态的那一行。
+/// Run the same step sequence twice: without skipping / with skipping. Returns the row where both reach the same state.
 fn run_pair(name: &'static str, s: &State, ops: &[Op]) -> Demo {
     let before = s.phi();
     let fixed = run(ops, &mut s.clone(), false).expect("fixed run");
@@ -929,11 +929,11 @@ fn run_pair(name: &'static str, s: &State, ops: &[Op]) -> Demo {
     }
 }
 
-/// 随机自检：生成 `trials` 条随机调度，验证两件事——
-/// 跳过冗余不改变最终 `Φ`；省下的钱恰好等于被跳过步骤的代价。
+/// Random self-check: generate `trials` random schedules and verify two things —
+/// skipping redundancy never changes the final `Φ`; the money saved equals exactly the cost of the skipped steps.
 ///
-/// 返回 `(trials, violations)`。二进制每次跑 `ops` 都会执行它，因此论文 §4 的
-/// "控制不动势"在运行时也被检查一次，不只在测试里。
+/// Returns `(trials, violations)`. The binary runs it on every `ops`, so the paper's §4 claim
+/// 'control does not move the potential' is checked at runtime as well, not only in tests.
 pub fn audit(trials: u64) -> (u64, Vec<String>) {
     let mut seed = 0x5eed_1234u64;
     let mut rnd = move || {
@@ -985,7 +985,7 @@ pub fn audit(trials: u64) -> (u64, Vec<String>) {
     (trials, violations)
 }
 
-/// 当前词汇下"被识别"的外延：所有含正例的等价类之并。
+/// The 'identified' extension under the current vocabulary: the union of all equivalence classes that contain a positive.
 pub fn implied_extension(s: &State) -> Mask {
     let mut out = 0u64;
     for c in s.classes() {
@@ -996,7 +996,7 @@ pub fn implied_extension(s: &State) -> Mask {
     out
 }
 
-/// 继承标签的演示：早停给出错误外延，探测后补一次表征才正确。
+/// Demo of inherited labels: an early stop yields a wrong extension, and one more representation step after the probes makes it right.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProbeDemo {
     pub early_phi: usize,
@@ -1007,16 +1007,16 @@ pub struct ProbeDemo {
     pub verified_correct: bool,
 }
 
-/// 真值是 `{0}`（4 个对象、空词汇下不可定义）。
+/// The truth is `{0}` (4 objects, not definable under the empty vocabulary).
 pub fn probe_demo() -> ProbeDemo {
     let truth = bit(0);
 
-    // 早停：只问 0，Φ=1，但外延是整类 → 错。
+    // early stop: ask only 0, Φ=1, but the extension is the whole class → wrong.
     let mut early = State::new(4);
     early.hyps = early.enumerate_definable();
     Op::Evidence { x: 0, member: true, cost: 1 }.apply(&mut early).expect("ask 0");
 
-    // 验证版：探测 → 状态退回不足 → 加原子 → 继续探测到没有继承标签。
+    // verified version: probe → the state falls back to insufficient → add an atom → keep probing until no inherited labels remain.
     let mut verified = early.clone();
     let ops = vec![
         Op::Probe { x: 1, member: false, cost: 1 },
@@ -1036,7 +1036,7 @@ pub fn probe_demo() -> ProbeDemo {
     }
 }
 
-/// 演示结果的 JSON（与其他子命令一致：机器可读）。
+/// JSON of the demo results (consistent with the other subcommands: machine-readable).
 pub fn demo_json() -> String {
     let rows: Vec<String> = demo()
         .iter()
@@ -1087,7 +1087,7 @@ mod tests {
         s
     }
 
-    /// T8：生成只加候选，Φ 永不下降。
+    /// T8: generation only adds candidates, so Φ never drops.
     #[test]
     fn t8_generation_never_reduces_phi() {
         let s = state3();
@@ -1095,17 +1095,17 @@ mod tests {
         let mut t = s.clone();
         Op::Generate { cands: vec![bit(0) | bit(3)], cost: 2 }.apply(&mut t).unwrap();
         assert!(t.phi() >= before);
-        // 加一个不一致的候选：它一进来就是死的，Φ 仍然不降。
+        // add an inconsistent candidate: it is dead on arrival, and Φ still does not drop.
         let mut u = s.clone();
         Op::Generate { cands: vec![0], cost: 1 }.apply(&mut u).unwrap();
         assert_eq!(u.phi(), before);
     }
 
-    /// T9：闭包两次 = 闭包一次；第二次是冗余步。
+    /// T9: closing twice = closing once; the second time is a redundant step.
     #[test]
     fn t9_closure_is_idempotent() {
         let mut s = state3();
-        // 塞一个不一致候选进去（直接放，模拟生成算子写坏了）。
+        // stuff an inconsistent candidate in (directly, simulating a broken generation operator).
         s.hyps.push(bit(2) | bit(3));
         let mut once = s.clone();
         Op::Close { cost: 1 }.apply(&mut once).unwrap();
@@ -1115,7 +1115,7 @@ mod tests {
         assert!(Op::Close { cost: 1 }.is_redundant(&once));
     }
 
-    /// T10：能在活集上劈开的一问严格降 Φ；劈不开的不降 Φ（但它仍然写 E，所以不算冗余）。
+    /// T10: a question that splits the live set strictly lowers Φ; one that does not lowers nothing (but it still writes E, so it is not redundant).
     #[test]
     fn t10_evidence_is_the_only_strict_reducer() {
         let s = state3();
@@ -1124,7 +1124,7 @@ mod tests {
         Op::Evidence { x: 1, member: true, cost: 1 }.apply(&mut t).unwrap();
         assert!(t.phi() < before);
 
-        // 所有活候选都含 1 且 1 还没问过：问 1 不改变 Φ，但它是新证据（写 E），不是冗余步。
+        // every live candidate contains 1 and 1 has not been asked yet: asking 1 does not change Φ, but it is new evidence (writes E), not a redundant step.
         let mut s2 = State::new(4);
         s2.pos = bit(0);
         s2.hyps = vec![
@@ -1138,27 +1138,27 @@ mod tests {
         let mut u = s2.clone();
         q.apply(&mut u).unwrap();
         assert_eq!(u.phi(), s2.phi());
-        // 同一个问题再问一次才是冗余。
+        // asking the same question a second time is what makes it redundant.
         assert!(q.is_redundant(&u));
     }
 
-    /// T11：由词汇布尔组合出来的谓词被 warrant 直接拒收。
+    /// T11: a predicate built by Boolean recombination of the vocabulary is rejected outright by the warrant.
     #[test]
     fn t11_recombination_is_rejected() {
         let s = State::new(4);
-        // 词汇只有一个谓词 p = {0,1}；not(p) 仍是它的布尔组合。
+        // the vocabulary has one predicate p = {0,1}; not(p) is still a Boolean combination of it.
         let mut v = s.clone();
         v.vocab = vec![bit(0) | bit(1)];
         let not_p = State::full(4) & !(bit(0) | bit(1));
         let op = Op::Represent { pred: not_p, cands: vec![not_p], cost: 5 };
         assert_eq!(op.warrant(&v), Err(Falsified::Recombination));
-        // 新原子（不在布尔闭包里）可以过。
+        // a new atom (outside the Boolean closure) passes.
         let atom = bit(0) | bit(2);
         assert!(!v.definable(atom));
         assert_eq!(Op::Represent { pred: atom, cands: vec![atom], cost: 5 }.warrant(&v), Ok(()));
     }
 
-    /// 推论前半：Φ=0 时生成/闭包/取证都救不了。
+    /// First half of the corollary: at Φ=0, generation/closure/evidence cannot help.
     #[test]
     fn exhausted_state_survives_without_a_new_atom() {
         let mut s = State::new(4);
@@ -1176,7 +1176,7 @@ mod tests {
         assert_eq!(out.phi, 0);
     }
 
-    /// 推论后半：新原子进来后 Φ 才可能大于 0。
+    /// Second half of the corollary: only after a new atom arrives can Φ exceed 0.
     #[test]
     fn a_new_atom_can_raise_phi() {
         let mut s = State::new(4);
@@ -1189,7 +1189,7 @@ mod tests {
         assert!(s.phi() > before);
     }
 
-    /// 远期才有用的原子（当前覆盖 0）仍然合法：覆盖只作调度分数。
+    /// An atom that is only useful later (coverage 0 now) is still legal: coverage is only a scheduling score.
     #[test]
     fn represent_allows_a_future_atom() {
         let mut s = State::new(4);
@@ -1197,24 +1197,24 @@ mod tests {
         s.pos = bit(0);
         s.neg = bit(1);
         assert_eq!(s.colliding_pairs(), vec![(0, 1)]);
-        // {2} 切开了类 {2,3}（不可定义），但分不开撞车的 (0,1)。
+        // {2} splits the class {2,3} (not definable), but does not separate the colliding (0,1).
         let op = Op::Represent { pred: bit(2), cands: vec![], cost: 5 };
         assert_eq!(op.warrant(&s), Ok(()));
         assert_eq!(op.coverage(&s), 0, "当前零覆盖，但它是合法的一步");
     }
 
-    /// 候选必须在新词汇 V ∪ {pred} 下可定义：否则 Φ=1 是假 decided。
+    /// Every candidate must be definable under the new vocabulary V ∪ {pred}; otherwise Φ=1 is a fake 'decided'.
     #[test]
     fn represent_rejects_candidates_outside_new_vocabulary() {
         let mut s = State::new(4);
         s.vocab = vec![bit(0) | bit(1)];
         s.pos = bit(0) | bit(2);
         s.neg = bit(1) | bit(3);
-        // 候选 {0,2} 在 V' = {V, {0}} 下仍切开 {2,3} → 不可定义。
+        // the candidate {0,2} still splits {2,3} under V' = {V, {0}} → not definable.
         let bad = Op::Represent { pred: bit(0), cands: vec![bit(0) | bit(2)], cost: 5 };
         assert_eq!(bad.warrant(&s), Err(Falsified::NotExpressible));
 
-        // 同一原子，若证据只要求含 0 不含 1，则 {0} 与 {0,2,3} 都合法。
+        // with the same atom, if the evidence only requires 0 and excludes 1, then both {0} and {0,2,3} are legal.
         let mut t = State::new(4);
         t.vocab = vec![bit(0) | bit(1)];
         t.pos = bit(0);
@@ -1227,8 +1227,8 @@ mod tests {
         assert_eq!(ok.warrant(&t), Ok(()));
     }
 
-    /// `(wr, dir)` 给四类签名四个不同值；只看 `wr` 时生成与闭包撞在一起。
-    /// 这就是"为什么是 4 不是 3、不是 5"的机器版本：数类别要数到方向这一位。
+    /// `(wr, dir)` gives the four classes four distinct values; with `wr` alone, generation and closure collide.
+    /// This is the machine version of 'why 4 and not 3, not 5': counting the classes requires counting the direction bit.
     #[test]
     fn type_with_direction_separates_the_classes() {
         let ops = [
@@ -1237,9 +1237,9 @@ mod tests {
             Op::Represent { pred: 0, cands: vec![], cost: 1 },
             Op::Evidence { x: 0, member: true, cost: 1 },
         ];
-        // 只看 wr：生成与闭包同签名。
+        // wr alone: generation and closure share a signature.
         assert_eq!(ops[0].writes(), ops[1].writes());
-        // 加上方向：四个签名互不相同。
+        // add direction: the four signatures are pairwise distinct.
         let mut seen: Vec<(u8, Dir)> = Vec::new();
         for op in &ops {
             let sig = (op.writes(), op.dir());
@@ -1249,18 +1249,18 @@ mod tests {
         assert_eq!(seen.len(), 4);
     }
 
-    /// 关系投影出一元谓词，从而进入词汇并分开撞车对。
+    /// A relation projects out a unary predicate, which then enters the vocabulary and separates the colliding pair.
     #[test]
     fn relations_enter_through_lifts() {
         let mut s = State::new(4);
         s.vocab = vec![bit(0) | bit(1)];
         s.pos = bit(0);
         s.neg = bit(1);
-        // 关系 r: 0→2, 1→3。
+        // relation r: 0→2, 1→3.
         s.rels = vec![vec![bit(2), bit(3), 0, 0]];
         assert_eq!(s.image(0, bit(0)), bit(2));
         assert_eq!(s.preimage(0, bit(2)), bit(0));
-        // 前像 {0} 在旧词汇下不可定义，却恰好分开 (0,1)。
+        // the preimage {0} is not definable under the old vocabulary, yet it separates (0,1) exactly.
         let lift = s.preimage(0, bit(2));
         assert_eq!(lift, bit(0));
         assert!(!s.definable(lift));
@@ -1269,7 +1269,7 @@ mod tests {
         assert_eq!(op.coverage(&s), 1);
     }
 
-    /// 关系的像可以复合（两步可达）。
+    /// Images of a relation compose (two steps of reachability).
     #[test]
     fn relational_images_compose() {
         let mut s = State::new(4);
@@ -1280,7 +1280,7 @@ mod tests {
         assert_eq!(s.preimage(0, bit(0)), 0);
     }
 
-    /// MDL：用当前词汇的合取描述一个集合需要几个文字。
+    /// MDL: how many literals it takes to describe a set as a conjunction over the current vocabulary.
     #[test]
     fn mdl_counts_literals() {
         let mut s = State::new(4);
@@ -1291,20 +1291,20 @@ mod tests {
         assert_eq!(s.mdl(bit(0) | bit(2)), None);
     }
 
-    /// 选择：可劈开的问题优先于劈不开的。
+    /// Selection: a question that can split is preferred over one that cannot.
     #[test]
     fn selection_prefers_a_discriminating_question() {
         let mut s = State::new(5);
         s.pos = bit(0);
         s.hyps = vec![bit(0) | bit(1), bit(0) | bit(2), bit(0) | bit(3)];
         let ops = vec![
-            Op::Evidence { x: 4, member: false, cost: 1 }, // 所有活候选都不含 4：不劈开
-            Op::Evidence { x: 1, member: true, cost: 1 },  // 劈开
+            Op::Evidence { x: 4, member: false, cost: 1 }, // no live candidate contains 4: does not split
+            Op::Evidence { x: 1, member: true, cost: 1 },  // splits
         ];
         assert_eq!(select(&s, &ops), Some(1));
     }
 
-    /// 选择：覆盖更多撞车对的原子优先。
+    /// Selection: an atom that covers more colliding pairs is preferred.
     #[test]
     fn selection_prefers_higher_coverage_atom() {
         let mut s = State::new(4);
@@ -1319,7 +1319,7 @@ mod tests {
         assert_eq!(select(&s, &ops), Some(1));
     }
 
-    /// 逐步重选能走到判定，且不会重复执行。
+    /// Stepwise reselection reaches a decision and never runs a step twice.
     #[test]
     fn run_selected_reaches_a_decision() {
         let mut s = State::new(5);
@@ -1335,26 +1335,26 @@ mod tests {
         assert_eq!(out.cost, 1);
     }
 
-    /// 单个原子就足够时，覆盖最大者就是充分的那个（T7）：它必分开全部撞车对。
+    /// When a single atom suffices, the one with the largest coverage is the sufficient one (T7): it must separate all colliding pairs.
     #[test]
     fn best_cover_picks_the_sufficient_atom() {
         let mut s = State::new(4);
         s.vocab = vec![bit(0) | bit(1)];
         s.pos = bit(0) | bit(2);
         s.neg = bit(1) | bit(3);
-        // 撞车对 (0,1) 与 (2,3)；目标是 S = {0,2}。
+        // colliding pairs (0,1) and (2,3); the target is S = {0,2}.
         let decoy = bit(0);
         let good = bit(0) | bit(2);
         let pool = vec![decoy, good];
         assert_eq!(best_cover(&s, &pool), Some(1));
-        // 用它做一次表征，Φ 直接到 1。
+        // use it for one representation step; Φ goes straight to 1.
         let op = Op::Represent { pred: good, cands: vec![good], cost: 5 };
         assert_eq!(op.warrant(&s), Ok(()));
         op.apply(&mut s).expect("sufficient atom");
         assert_eq!(s.phi(), 1);
     }
 
-    /// 同预算对照：逐步选择不应比固定顺序更贵（合成 8 候选状态，确定性种子）。
+    /// Same-budget comparison: stepwise selection should not cost more than a fixed order (synthesized 8-candidate state, deterministic seed).
     #[test]
     fn selection_bench_beats_fixed_order() {
         let (n, fixed, random, selected) = selection_bench(50);
@@ -1363,7 +1363,7 @@ mod tests {
         assert!(selected <= random + 0.5, "selected {selected} vs random {random}");
     }
 
-    /// 需要两个原子时：贪心覆盖两个就够，固定顺序（整类原子在前）在预算内失败。
+    /// When two atoms are needed: greedy covering needs two, while the fixed order (whole-class atoms first) fails within the budget.
     #[test]
     fn compose_bench_greedy_composes() {
         let st = compose_bench(50, 2, 2);
@@ -1373,12 +1373,12 @@ mod tests {
         assert_eq!(st.fixed_ok, 0.0);
     }
 
-    /// 探测：未验证的成员可以被问；问过之后状态可能从"已判定"退回"不足"。
+    /// Probe: an unverified member can be asked; after asking, the state may fall back from 'decided' to 'insufficient'.
     #[test]
     fn probe_can_reopen_a_decided_state() {
         let mut s = State::new(3);
         s.pos = bit(0);
-        s.asked = bit(0); // 0 是直接问过的
+        s.asked = bit(0); // 0 was asked directly
         s.hyps = vec![bit(0) | bit(1) | bit(2)];
         assert_eq!(s.phi(), 1);
         assert_eq!(s.unprobed(), vec![1, 2]);
@@ -1389,11 +1389,11 @@ mod tests {
         assert_eq!(s.asked, bit(0) | bit(1));
     }
 
-    /// 探测的 warrant：没直接问过，且类里不止一个成员。
+    /// The probe warrant: never asked directly, and the class has more than one member.
     #[test]
     fn probe_requires_an_unasked_member_of_a_nontrivial_class() {
         let mut s = State::new(3);
-        s.vocab = vec![bit(0)]; // 类 {0} 与 {1,2}
+        s.vocab = vec![bit(0)]; // classes {0} and {1,2}
         s.pos = bit(0);
         Op::Evidence { x: 0, member: true, cost: 1 }.apply(&mut s).unwrap();
         assert_eq!(Op::Probe { x: 0, member: true, cost: 1 }.warrant(&s), Err(Falsified::AlreadyAsked));
@@ -1404,7 +1404,7 @@ mod tests {
         assert_eq!(Op::Probe { x: 0, member: true, cost: 1 }.warrant(&t), Err(Falsified::NotInherited));
     }
 
-    /// 普通取证也会记下"直接问过"，单成员类不计入未验证集合。
+    /// Ordinary evidence also records 'asked directly'; singleton classes are not counted in the unverified set.
     #[test]
     fn evidence_marks_asked_and_unprobed_skips_singletons() {
         let mut s = State::new(3);
@@ -1416,7 +1416,7 @@ mod tests {
         assert_eq!(s.unprobed(), vec![1]);
     }
 
-    /// 停机规则：Φ=1 但还有继承标签时，先探测；探测证伪就退回不足。
+    /// Stopping rule: when Φ=1 but inherited labels remain, probe first; a refuted probe falls back to insufficient.
     #[test]
     fn run_selected_probes_before_stopping() {
         let make = || {
@@ -1440,14 +1440,14 @@ mod tests {
         assert_eq!(out.phi, 1);
         assert!(t.unprobed().is_empty(), "探过之后没有继承标签了");
 
-        // 没有可用的探测算子：按 Φ=1 停，但未验证成员还在（调用方需知道）。
+        // no probe operator is available: stop at Φ=1, but unverified members remain (the caller must know).
         let mut u = make();
         let out = run_selected(&mut u, &[]).unwrap();
         assert_eq!(out.ran, 0);
         assert_eq!(u.unprobed(), vec![1]);
     }
 
-    /// 演示：Φ=1 早停给出错误外延，探测后正确。
+    /// Demo: at Φ=1 the early stop yields a wrong extension; after probing it is correct.
     #[test]
     fn probe_demo_shows_the_gap() {
         let p = probe_demo();
@@ -1457,7 +1457,7 @@ mod tests {
         assert!(p.verified_cost > 1);
     }
 
-    /// 控制不是一步，而是 [`run`] 的跳过模式：它写 `B`，不动 `Φ`。
+    /// Control is not a step but the skip mode of [`run`]: it writes `B` and does not move `Φ`.
     #[test]
     fn control_is_the_scheduler_not_a_step() {
         assert_eq!(Class::Control.writes(), "B");
@@ -1468,7 +1468,7 @@ mod tests {
         assert_eq!(fixed.phi, sched.phi);
     }
 
-    /// 论文 Def 5 的两个关系：被告知 / 冗余。
+    /// The two relations of paper Def 5: informed-by / redundant.
     #[test]
     fn type_relations_follow_definition() {
         let close = Op::Close { cost: 1 };
@@ -1484,7 +1484,7 @@ mod tests {
         assert_eq!(ev.writes(), comp::E);
     }
 
-    /// `is_discriminating` 必须等价于"应用之后 Φ 严格下降"。
+    /// `is_discriminating` must be equivalent to 'Φ strictly drops after applying'.
     #[test]
     fn discriminating_iff_phi_drops() {
         let mut seed = 7u64;
@@ -1519,11 +1519,11 @@ mod tests {
         }
     }
 
-    /// 调度省下的钱必须正好等于被跳过步骤的代价（论文的"控制只值冗余"）。
+    /// The money saved by scheduling must equal exactly the cost of the skipped steps (the paper's 'control is worth only redundancy').
     #[test]
     fn scheduling_saves_exactly_the_redundant_spend() {
         let s = state3();
-        // 三步闭包 + 两步取证，其中两次闭包冗余。
+        // three closures + two evidence steps, of which two closures are redundant.
         let ops = vec![
             Op::Close { cost: 1 },
             Op::Close { cost: 1 },
@@ -1537,7 +1537,7 @@ mod tests {
         assert_eq!(fixed.cost - sched.cost, sched.skipped as u32);
     }
 
-    /// 预算耗尽时返回 falsifier，而不是静默继续。
+    /// Return the falsifier when the budget is exhausted, instead of silently continuing.
     #[test]
     fn budget_is_enforced() {
         let mut s = state3();
@@ -1546,7 +1546,7 @@ mod tests {
         assert_eq!(run(&ops, &mut s, false), Err(Falsified::OutOfBudget));
     }
 
-    /// 每个演示行都必须满足：固定代价 − 调度代价 = 被跳过步骤的代价。
+    /// Every demo row must satisfy: fixed cost − scheduled cost = cost of the skipped steps.
     #[test]
     fn demo_cost_identity_holds() {
         let rows = demo();
@@ -1557,8 +1557,8 @@ mod tests {
         }
     }
 
-    /// 随机调度：跳过冗余永远不改变最终状态，省下的钱恰好等于被跳过步骤的代价。
-    /// 与二进制 `ops` 跑的是同一个 [`audit`]。
+    /// Random schedules: skipping redundancy never changes the final state, and the money saved equals exactly the cost of the skipped steps.
+    /// It runs the same [`audit`] as the binary's `ops`.
     #[test]
     fn random_schedules_preserve_state_and_accounting() {
         let (trials, violations) = audit(200);

@@ -1,14 +1,14 @@
-//! `score`：给候选谓词打分。
+//! `score`: score candidate predicates.
 //!
-//! 与 Python `proposer.py` 的评分同构，但输入是**外延**（对象编号），不是可执行代码：
-//!   coverage   —— 劈开多少正反例对
-//!   precision/recall —— 与隐藏真值的重合度（离线评估）
-//!   predictions —— 候选自报"我预测为正"的对象命中多少
-//!   ledger     —— 是否排除了台账里已确认的正例
+//! Isomorphic to the scoring in the Python `proposer.py`, but the input is an **extension** (object ids), not executable code:
+//!   coverage   — how many positive/negative pairs it splits
+//!   precision/recall — overlap with the hidden ground truth (offline evaluation)
+//!   predictions — how many of the objects the candidate itself predicted as positive it hits
+//!   ledger     — whether it excludes the positives already confirmed in the ledger
 //!
-//! 两个角色分开判：
-//!   definition —— 可以当作 S 的完整定义（P=R=1 且不违反台账）
-//!   cover      —— 只作为集合覆盖的元素（sound 且至少劈开一对）
+//! The two roles are judged separately:
+//!   definition — usable as a complete definition of S (P=R=1 and no ledger violation)
+//!   cover      — only as an element of a set cover (sound and splits at least one pair)
 
 use std::collections::BTreeSet;
 
@@ -40,7 +40,7 @@ pub struct Row {
     pub cover_ok: bool,
 }
 
-/// 解析 `pos 1 2 3` / `neg 4 5` 形式（`#` 后注释）。
+/// Parse the `pos 1 2 3` / `neg 4 5` form (`#` starts a comment).
 pub fn parse_truth(text: &str) -> Truth {
     let mut t = Truth::default();
     for line in text.lines() {
@@ -64,7 +64,7 @@ pub fn parse_truth(text: &str) -> Truth {
     t
 }
 
-/// 解析候选：`name id id ...`，行末可跟 `| pred_id pred_id ...` 表示预测。
+/// Parse candidates: `name id id ...`, optionally followed by `| pred_id pred_id ...` to declare predictions.
 pub fn parse_candidates(text: &str) -> Vec<Candidate> {
     let mut out = Vec::new();
     for line in text.lines() {
@@ -223,7 +223,7 @@ mod tests {
             &[cand("forgetful", &[3, 6], &[])],
             &truth,
             &[(3, 2)],
-            &[3usize, 7].into_iter().collect(), // 7 是已确认正例，但候选排除了它
+            &[3usize, 7].into_iter().collect(), // 7 is a confirmed positive, but the candidate excludes it
         );
         assert_eq!(rows[0].ledger_violations, 1);
         assert!(!rows[0].definition_ok);

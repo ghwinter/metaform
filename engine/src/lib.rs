@@ -1,33 +1,33 @@
-//! 查询驱动的表征变更：核心状态机。
+//! Query-driven representation change: the core state machine.
 //!
-//! 这是 `research/01-formal-core.md` 与 `research/lean/QueryDriven.lean` 的可执行对应物。
-//! 三个概念一一对应：
+//! This is the executable counterpart of `research/01-formal-core.md` and `research/lean/QueryDriven.lean`.
+//! Three concepts correspond one-to-one:
 //!
-//! | 论文 | 这里 |
+//! | Paper | Here |
 //! |---|---|
-//! | 签名 `sig_V(x)` | [`Explorer::signature`] |
-//! | 不可分辨 / 等价类 | [`Explorer::classes`] |
-//! | 候选集 `F_V(Q)` 是否为空（T2） | [`Explorer::status`] 返回 [`Status::Insufficient`] |
-//! | 扩词表 | [`Explorer::propose`] |
+//! | Signature `sig_V(x)` | [`Explorer::signature`] |
+//! | Indistinguishability / equivalence classes | [`Explorer::classes`] |
+//! | Whether the candidate set `F_V(Q)` is empty (T2) | [`Explorer::status`] returns [`Status::Insufficient`] |
+//! | Vocabulary extension | [`Explorer::propose`] |
 //!
-//! 设计上刻意保持"笨"：不内置搜索、不内置评分。控制器只有一条规则——
-//! 候选集空就换词，换完再问。域 A 的成本实验表明，更聪明的调度只值几个百分点
-//! （`research/exp/RESULTS.md` §3.6）。
+//! The design is deliberately 'dumb': no built-in search, no built-in scoring. The controller has a single rule —
+//! if the candidate set is empty, change the vocabulary, then ask again. The cost experiments on domain A show that a smarter scheduler is worth only a few percentage points
+//! (`research/exp/RESULTS.md` §3.6).
 
 use std::collections::HashMap;
 
-/// 多算子定型（论文 §4）：五类步骤共用一个度量 `Φ`，逐类验证它能改变什么。
+/// Multi-operator typing (paper §4): five classes of steps share one measure `Φ`, and each class is checked for what it can change.
 pub mod operators;
 
-/// 对象集合的位掩码。64 个对象以内够用；需要更多就换 `bitvec`。
+/// Bitmask over a set of objects. Enough for up to 64 objects; switch to `bitvec` if you need more.
 pub type Mask = u64;
 
-/// 第 `i` 个对象的位。
+/// The bit of the `i`-th object.
 pub fn bit(i: usize) -> Mask {
     1 << i
 }
 
-/// 一个谓词：名字 + 外延。
+/// A predicate: name + extension.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Predicate {
     pub name: String,
@@ -40,7 +40,7 @@ impl Predicate {
     }
 }
 
-/// 词汇：一小组谓词。顺序决定签名的坐标顺序。
+/// Vocabulary: a small set of predicates. The order fixes the coordinate order of signatures.
 #[derive(Clone, Debug, Default)]
 pub struct Vocabulary {
     pub preds: Vec<Predicate>,
@@ -64,27 +64,27 @@ impl Vocabulary {
     }
 }
 
-/// 探索状态。
+/// Exploration status.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {
-    /// 存在正例与反例落在同一等价类：当前词汇已被证明不够（T2）。
+    /// A positive and a negative example fall in the same equivalence class: the current vocabulary is proven insufficient (T2).
     Insufficient,
-    /// 每个等价类都已被标注覆盖：目标的外延完全确定。
+    /// Every equivalence class is covered by a label: the target's extension is fully determined.
     Identified,
-    /// 还有一些类没被覆盖，继续提问。
+    /// Some classes are still uncovered; keep asking.
     Undetermined,
 }
 
-/// 一次探索：固定对象域，维护词汇与已标注样本。
+/// One exploration: a fixed object domain, a maintained vocabulary, and labeled samples.
 #[derive(Clone, Debug)]
 pub struct Explorer {
     pub n: usize,
     pub vocab: Vocabulary,
     pub pos: Mask,
     pub neg: Mask,
-    /// 每个对象的票数 `(yes, no)`。噪声 oracle 下重复提问靠它聚合。
+    /// Vote counts `(yes, no)` per object. Under a noisy oracle, repeated questions aggregate here.
     pub votes: Vec<(u8, u8)>,
-    /// 被直接问过的对象。等价类的标签会"继承"给没问过的成员，这里记下哪些是真的问过。
+    /// Objects that were asked directly. A class label 'inherits' to members never asked, so this records which ones were really asked.
     pub asked: Mask,
 }
 
@@ -94,13 +94,13 @@ impl Explorer {
         Self { n, vocab, pos: 0, neg: 0, votes: vec![(0, 0); n], asked: 0 }
     }
 
-    /// `x` 在当前词汇下的签名。
+    /// Signature of `x` under the current vocabulary.
     pub fn signature(&self, x: usize) -> Vec<bool> {
         let b = bit(x);
         self.vocab.preds.iter().map(|p| p.ext & b != 0).collect()
     }
 
-    /// 按签名分组，返回每个等价类的对象掩码。
+    /// Group by signature and return the object mask of each equivalence class.
     pub fn classes(&self) -> Vec<Mask> {
         let mut groups: HashMap<Vec<bool>, Mask> = HashMap::new();
         for x in 0..self.n {
@@ -109,22 +109,22 @@ impl Explorer {
         groups.into_values().collect()
     }
 
-    /// 当前状态（票差阈值 1，即"多数即可"）。
+    /// Current status (vote-margin threshold 1, i.e. 'a majority is enough').
     pub fn status(&self) -> Status {
         self.status_with(1)
     }
 
-    /// 带票差阈值的状态。
+    /// Status with an explicit vote-margin threshold.
     ///
-    /// `theta` 是"确证"所需的最小票差：只有 `yes - no >= theta` 的对象算强正例，
-    /// `no - yes >= theta` 算强反例。噪声越大，`theta` 应越大（见 RESULTS §3.11：
-    /// 完整循环里 θ=1 在 ε=0.1 时只有 25% 成功，θ=3 是 98%）。
+    /// `theta` is the minimum vote margin needed for 'confirmation': only objects with `yes - no >= theta` count as strong positives,
+    /// and `no - yes >= theta` as strong negatives. The more noise, the larger `theta` should be (see RESULTS §3.11:
+    /// in the full loop, at ε=0.1 the θ=1 setting succeeds only 25% of the time, while θ=3 reaches 98%).
     ///
-    /// 三条规则（与 `research/exp/noisy_loop.py` 对齐）：
-    /// 1. 撞车优先：某类同时有强正例与强反例 → `Insufficient`。
-    /// 2. 弱票阻塞：某类里还有"投过票但未达 θ"的成员 → 不算已决，返回 `Undetermined`。
-    ///    否则"一个强标签 + 一个弱反对"会被静默接受，给出错误外延。
-    /// 3. 覆盖：每个类都要有强标签，否则 `Undetermined`。
+    /// Three rules (aligned with `research/exp/noisy_loop.py`):
+    /// 1. Collision first: a class has both a strong positive and a strong negative → `Insufficient`.
+    /// 2. Weak votes block: a class still holds a member that 'voted but did not reach θ' → not decided, return `Undetermined`.
+    ///    Otherwise 'one strong label + one weak objection' would be silently accepted, yielding a wrong extension.
+    /// 3. Cover: every class needs a strong label, otherwise `Undetermined`.
     pub fn status_with(&self, theta: u8) -> Status {
         let (sp, sn) = self.strong(theta);
         let classes = self.classes();
@@ -142,7 +142,7 @@ impl Explorer {
         Status::Identified
     }
 
-    /// 投过票的对象（不论强弱）。
+    /// Objects that have voted (strong or weak).
     pub fn voted_mask(&self) -> Mask {
         self.votes
             .iter()
@@ -151,17 +151,17 @@ impl Explorer {
             .fold(0u64, |acc, (x, _)| acc | bit(x))
     }
 
-    /// 需要补票的对象：投过票、但在阈值 `theta` 下还不算强标签。
+    /// Objects that need more votes: they voted, but are not strong labels under threshold `theta`.
     pub fn pending(&self, theta: u8) -> Vec<usize> {
         let (sp, sn) = self.strong(theta);
         let weak = self.voted_mask() & !(sp | sn);
         (0..self.n).filter(|&x| weak & bit(x) != 0).collect()
     }
 
-    /// 由票数直接估 oracle 的错误率：每个对象的少数票占比，再对投过票的对象取均值。
+    /// Estimate the oracle's error rate directly from the votes: the minority-vote share of each object, averaged over the objects that voted.
     ///
-    /// 票数少时这个估计偏低（r=1 时只能是 0 或 1），所以它适合"跑了几轮之后"用，
-    /// 不适合第一轮。
+    /// With few votes this estimate is biased low (at r=1 it can only be 0 or 1), so it suits use 'after a few rounds',
+    /// not the first round.
     pub fn implied_epsilon(&self) -> f64 {
         let mut sum = 0.0;
         let mut n = 0u32;
@@ -179,7 +179,7 @@ impl Explorer {
         }
     }
 
-    /// 按估出来的 ε 给一个 θ（`RESULTS.md` §3.11 的经验规则）。
+    /// Pick a θ from the estimated ε (empirical rule of `RESULTS.md` §3.11).
     pub fn recommended_theta(&self) -> u8 {
         let e = self.implied_epsilon();
         if e <= 0.10 {
@@ -191,7 +191,7 @@ impl Explorer {
         }
     }
 
-    /// 在当前阈值下"强正例 / 强反例"的掩码。
+    /// Masks of the 'strong positives / strong negatives' under the current threshold.
     pub fn strong(&self, theta: u8) -> (Mask, Mask) {
         let mut sp = 0u64;
         let mut sn = 0u64;
@@ -205,12 +205,12 @@ impl Explorer {
         (sp, sn)
     }
 
-    /// 下一个该问的对象：先补弱票，再问未覆盖类的代表。
+    /// The next object to ask: top up weak votes first, then ask a representative of an uncovered class.
     pub fn next_question(&self) -> Option<usize> {
         self.next_question_with(1)
     }
 
-    /// 带阈值的下一个问题：先补弱票（规则 2），再问未覆盖类。
+    /// Next question with a threshold: top up weak votes first (rule 2), then ask an uncovered class.
     pub fn next_question_with(&self, theta: u8) -> Option<usize> {
         if let Some(x) = self.pending(theta).into_iter().next() {
             return Some(x);
@@ -223,7 +223,7 @@ impl Explorer {
             .map(|c| c.trailing_zeros() as usize)
     }
 
-    /// 记录一次成员查询的答案（单票）。
+    /// Record the answer to one membership query (a single vote).
     pub fn answer(&mut self, x: usize, is_member: bool) {
         if is_member {
             self.answer_votes(x, 1, 0);
@@ -232,7 +232,7 @@ impl Explorer {
         }
     }
 
-    /// 记录一次带票数的回答。同一个对象可以多次投票。
+    /// Record an answer with vote counts. The same object may vote several times.
     pub fn answer_votes(&mut self, x: usize, yes: u8, no: u8) {
         assert!(x < self.n);
         self.votes[x].0 = self.votes[x].0.saturating_add(yes);
@@ -241,8 +241,8 @@ impl Explorer {
         self.sync_plain_labels();
     }
 
-    /// 没被直接问过的成员：多成员等价类里、不在 `asked` 里的对象。
-    /// 这些对象的标签是从同类成员"继承"来的，可能错——停机前应当各探一个。
+    /// Members never asked directly: objects of a multi-member equivalence class that are not in `asked`.
+    /// Their labels are 'inherited' from class members and may be wrong — probe one of each before stopping.
     pub fn unprobed(&self) -> Vec<usize> {
         let mut out = Vec::new();
         for c in self.classes() {
@@ -255,28 +255,28 @@ impl Explorer {
                 }
             }
         }
-        out.sort_unstable(); // classes() 走 HashMap，顺序不稳；这里固定下来
+        out.sort_unstable(); // classes() goes through a HashMap, so the order is unstable; fix it here
         out
     }
 
-    /// 用多数票维护 `pos` / `neg`（给 `explain`、`cover` 这类"看标签"的地方用）。
+    /// Maintain `pos` / `neg` from majority votes (used by label-reading paths such as `explain` and `cover`).
     fn sync_plain_labels(&mut self) {
         let (sp, sn) = self.strong(1);
         self.pos = sp;
         self.neg = sn;
     }
 
-    /// 采纳一个新谓词（扩词表）。调用方负责保证它"值得"——本结构不做评分。
+    /// Adopt a new predicate (vocabulary extension). The caller must ensure it is 'worth it' — this structure does no scoring.
     pub fn propose(&mut self, p: Predicate) {
         self.vocab.add(p);
     }
 
-    /// T4 的容量：样本上可区分的可定义集数上界 = 2^(签名类数)。
+    /// T4 capacity: upper bound on the number of distinguishable definable sets on the sample = 2^(number of signature classes).
     pub fn capacity(&self) -> u64 {
         1u64.checked_shl(self.classes().len() as u32).unwrap_or(u64::MAX)
     }
 
-    /// 已确定的答案集合（调试用）。
+    /// The settled answer set (for debugging).
     pub fn known(&self) -> Mask {
         self.pos | self.neg
     }
@@ -286,7 +286,7 @@ impl Explorer {
 mod tests {
     use super::*;
 
-    /// 4 个对象；谓词 a 把 {0,1} 与 {2,3} 分开。
+    /// 4 objects; predicate a separates {0,1} from {2,3}.
     fn ctx() -> Explorer {
         let a = Predicate::new("a", bit(0) | bit(1));
         Explorer::new(4, Vocabulary::with(vec![a]))
@@ -295,7 +295,7 @@ mod tests {
     #[test]
     fn t2_insufficient_when_pos_and_neg_collide() {
         let mut e = ctx();
-        // 0 与 1 在 a 上同为 true，签名相同
+        // 0 and 1 are both true on a, so they share the same signature
         e.answer(0, true);
         e.answer(1, false);
         assert_eq!(e.status(), Status::Insufficient);
@@ -308,12 +308,12 @@ mod tests {
         e.answer(1, false);
         assert_eq!(e.status(), Status::Insufficient);
 
-        // b 只含对象 0，把 0 与 1 分开
+        // b contains only object 0, separating 0 from 1
         e.propose(Predicate::new("b", bit(0)));
         assert_ne!(e.status(), Status::Insufficient);
     }
 
-    /// 论文定理 5（Lean 文件里叫 T6）：词汇不足不会被更多例子修复。
+    /// Theorem 5 of the paper (T6 in the Lean file): insufficiency is never repaired by more examples.
     #[test]
     fn more_data_never_repairs_insufficiency() {
         let mut e = ctx();
@@ -334,7 +334,7 @@ mod tests {
         let mut guard = 0;
         while e.status() == Status::Undetermined {
             let x = e.next_question().expect("undetermined implies a free class");
-            // 目标 S = {0, 1}
+            // target S = {0, 1}
             let member = x == 0 || x == 1;
             e.answer(x, member);
             guard += 1;
@@ -353,41 +353,41 @@ mod tests {
 
     #[test]
     fn votes_need_a_margin() {
-        // 两个单例类：p 只含对象 0
+        // two singleton classes: p contains only object 0
         let mut e = Explorer::new(2, Vocabulary::with(vec![Predicate::new("p", bit(0))]));
-        e.answer_votes(0, 1, 1); // 平票，不算确证
-        e.answer_votes(1, 0, 3); // 反例确证
-        assert_eq!(e.status_with(1), Status::Undetermined); // 0 还没有确证标签
+        e.answer_votes(0, 1, 1); // tied, not a confirmation
+        e.answer_votes(1, 0, 3); // negative confirmed
+        assert_eq!(e.status_with(1), Status::Undetermined); // 0 has no confirmed label yet
         assert_eq!(e.status_with(2), Status::Undetermined);
 
-        e.answer_votes(0, 2, 1); // 票差 1，阈值 2 下仍不算确证
+        e.answer_votes(0, 2, 1); // margin 1, still not confirmed at threshold 2
         assert_eq!(e.status_with(2), Status::Undetermined);
 
-        e.answer_votes(0, 2, 0); // 累计 3:1，票差 2
+        e.answer_votes(0, 2, 0); // cumulative 3:1, margin 2
         assert_eq!(e.status_with(2), Status::Identified);
         assert_eq!(e.status_with(1), Status::Identified);
     }
 
     #[test]
     fn noise_can_be_outvoted() {
-        let mut e = ctx(); // {0,1} 同类
-        e.answer_votes(0, 5, 1); // 强正例
-        e.answer_votes(1, 1, 5); // 强反例
+        let mut e = ctx(); // {0,1} are in the same class
+        e.answer_votes(0, 5, 1); // strong positive
+        e.answer_votes(1, 1, 5); // strong negative
         assert_eq!(e.status(), Status::Insufficient);
-        // 阈值调高到 6：两边都不够确证，于是退回未决，而不是误报撞车
+        // raise the threshold to 6: neither side is confirmed, so it drops back to undetermined instead of falsely reporting a collision
         assert_eq!(e.status_with(6), Status::Undetermined);
     }
 
     #[test]
     fn weak_vote_blocks_identification() {
         let mut e = Explorer::new(2, Vocabulary::with(vec![Predicate::new("p", bit(0))]));
-        e.answer_votes(0, 3, 0); // 强正
-        e.answer_votes(1, 1, 1); // 平票 → 弱票，阻塞"已识别"
+        e.answer_votes(0, 3, 0); // strong positive
+        e.answer_votes(1, 1, 1); // tied → weak vote, blocks 'identified'
         assert_eq!(e.status_with(2), Status::Undetermined);
         assert_eq!(e.pending(2), vec![1]);
-        assert_eq!(e.next_question_with(2), Some(1)); // 先补弱票
+        assert_eq!(e.next_question_with(2), Some(1)); // top up the weak vote first
 
-        e.answer_votes(1, 0, 2); // 累计 (1,3)，差 2 → 强反
+        e.answer_votes(1, 0, 2); // cumulative (1,3), margin 2 → strong negative
         assert_eq!(e.status_with(2), Status::Identified);
         assert!(e.pending(2).is_empty());
     }
@@ -400,15 +400,15 @@ mod tests {
         assert!(e.implied_epsilon() < 0.01);
         assert_eq!(e.recommended_theta(), 3);
 
-        e.answer_votes(2, 2, 1); // 少数票 1/3
+        e.answer_votes(2, 2, 1); // minority vote 1/3
         e.answer_votes(3, 1, 2);
         assert!(e.implied_epsilon() > 0.15); // ≈ 0.167
-        assert_eq!(e.recommended_theta(), 4); // 落在 0.1–0.2 之间
+        assert_eq!(e.recommended_theta(), 4); // falls between 0.1 and 0.2
     }
 
     #[test]
     fn asked_and_unprobed_track_direct_questions() {
-        let mut e = Explorer::new(3, Vocabulary::default()); // 一个类
+        let mut e = Explorer::new(3, Vocabulary::default()); // a single class
         e.answer_votes(0, 3, 0);
         assert_eq!(e.asked, bit(0));
         assert_eq!(e.unprobed(), vec![1, 2]);
@@ -419,13 +419,13 @@ mod tests {
     #[test]
     fn empty_vocabulary_makes_every_pair_insufficient() {
         let mut e = Explorer::new(3, Vocabulary::default());
-        // 空词汇：三个对象同一签名，只有一个类，可定义集只有 {} 与 X 两个
+        // empty vocabulary: three objects share one signature, so there is one class and only two definable sets, {} and X
         assert_eq!(e.capacity(), 2);
         e.answer(0, true);
         e.answer(1, false);
         assert_eq!(e.status(), Status::Insufficient);
         e.propose(Predicate::new("p", bit(0)));
-        // 加入 p 后类变为 {0} 与 {1,2}：前者含正例、后者含反例，全部被覆盖
+        // after adding p the classes become {0} and {1,2}: the former holds a positive, the latter a negative, so all are covered
         assert_eq!(e.status(), Status::Identified);
     }
 }

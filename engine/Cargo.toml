@@ -2,7 +2,7 @@
 name = "metaform"
 version = "0.3.0"
 edition = "2021"
-description = "查询驱动的表征变更：核心状态机（论文的形式化对应实现）"
+description = "Query-driven representation change: the core state machine (the executable counterpart of the paper's formalization)"
 
 [lib]
 name = "metaform"

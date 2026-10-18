@@ -1,9 +1,9 @@
-//! 证据台账：只追加的 TSV 日志，按 id 折叠出最新状态。
+//! Evidence ledger: an append-only TSV log, folded by id into the latest state.
 //!
-//! 为什么只追加：撤销/修改都写成新行（同 id，后者胜），文件永远不被改写，
-//! 既不会写坏，也保留了完整历史。
+//! Why append-only: retractions and amendments are written as new rows (same id, later wins), and the file is never rewritten,
+//! so it cannot be corrupted and the full history is preserved.
 //!
-//! 列：id  case  status  by  round  reliability  answer  reason
+//! Columns: id  case  status  by  round  reliability  answer  reason
 
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -53,7 +53,7 @@ pub fn read_all(path: &Path) -> Vec<Entry> {
         .collect()
 }
 
-/// 按 id 折叠：后出现的行覆盖先前的，顺序保留首次出现的位置。
+/// Fold by id: a later row overrides the earlier one, keeping the position where the id first appeared.
 pub fn fold(entries: &[Entry]) -> Vec<Entry> {
     let mut out: Vec<Entry> = Vec::new();
     for e in entries {
@@ -74,7 +74,7 @@ pub fn next_id(entries: &[Entry]) -> String {
     format!("L{}", max + 1)
 }
 
-/// 同一对象的正、负支持强度（独立证据按 noisy-OR 合并：1 - Π(1 - r)）。
+/// Positive and negative support strength for the same object (independent evidence merged by noisy-OR: 1 - Π(1 - r)).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Support {
     pub pos: f64,
@@ -93,7 +93,7 @@ impl Support {
     }
 }
 
-/// 只统计 active 条目，按 case 折叠方向。
+/// Count active entries only, folding direction by case.
 pub fn support(entries: &[Entry]) -> std::collections::BTreeMap<usize, Support> {
     let mut out: std::collections::BTreeMap<usize, Support> = Default::default();
     for e in fold(entries) {
@@ -105,8 +105,8 @@ pub fn support(entries: &[Entry]) -> std::collections::BTreeMap<usize, Support> 
     out
 }
 
-/// 冲突：两侧都有分量（都 ≥ threshold），且弱者不弱于强者 ratio 倍。
-/// 压倒性的证据不会被弱反对票取消。
+/// Conflict: both sides carry weight (both ≥ threshold), and the weaker is no weaker than ratio times the stronger.
+/// Overwhelming evidence is not canceled by a weak objection vote.
 pub fn conflicts(
     entries: &[Entry],
     threshold: f64,
@@ -126,7 +126,7 @@ pub fn conflicts(
     out
 }
 
-/// 已确认且无冲突的对象：正支持 ≥ threshold，且不在 conflicts 里。
+/// Confirmed and conflict-free objects: positive support ≥ threshold and not in conflicts.
 pub fn confirmed_cases(
     entries: &[Entry],
     threshold: f64,

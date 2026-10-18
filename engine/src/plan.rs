@@ -1,9 +1,9 @@
-//! `plan`：把"覆盖 + 纯度 + 重问预算"做成一次调用。
+//! `plan`: cover + purity + re-ask budget in a single call.
 //!
-//! 三件事：
-//!   1. cover  —— 从候选谓词里贪心选出最少的一组，覆盖全部撞车对（T7 的动手版）
-//!   2. purity —— 冲突对象按等价类合并；类内已知正反例都有 ⇒ 不纯
-//!   3. budget —— 未知纯度时比较 `1 + (1-p)(c-1)R` 与 `c`，决定问一个还是问全部
+//! Three things:
+//!   1. cover  — greedily pick the smallest set of candidate predicates that covers every colliding pair (the hands-on version of T7)
+//!   2. purity — merge conflicting objects by equivalence class; a class with both known positives and negatives ⇒ impure
+//!   3. budget — with unknown purity, compare `1 + (1-p)(c-1)R` against `c` to decide between asking one or asking all
 
 use metaform::{bit, Explorer};
 
@@ -33,7 +33,7 @@ pub struct Plan {
     pub classes: Vec<ClassPlan>,
 }
 
-/// 解析池文件：每行 `name id id ...`，`#` 后为注释。
+/// Parse a pool file: each line is `name id id ...`, with `#` starting a comment.
 pub fn parse_pool(text: &str) -> Vec<(String, u64)> {
     let mut out = Vec::new();
     for line in text.lines() {
@@ -75,7 +75,7 @@ pub fn colliding(e: &Explorer, theta: u8) -> Vec<(usize, usize)> {
     out
 }
 
-/// 贪心覆盖：每步选"能劈开最多未覆盖对"的谓词。
+/// Greedy cover: at each step pick the predicate that splits the most uncovered pairs.
 pub fn greedy_cover(
     preds: &[(String, u64)],
     pairs: &[(usize, usize)],
@@ -105,7 +105,7 @@ pub fn greedy_cover(
     (chosen, remaining.len())
 }
 
-/// 返工代价：1 + 被撤销条目 / 活跃条目（下限 1）。没有 amend 历史时这是可算的近似。
+/// Rework cost: 1 + retracted entries / active entries (lower bound 1). Without amend history this is the computable approximation.
 pub fn rework_cost(rows: &[ledger::Entry]) -> (f64, String) {
     let folded = ledger::fold(rows);
     let active = folded.iter().filter(|e| e.status == "active").count();
@@ -139,7 +139,7 @@ pub fn build(
     let pool_ref = pool.unwrap_or(&default_pool);
     let (cover, remaining) = greedy_cover(pool_ref, &pairs);
 
-    // 冲突对象 → 等价类
+    // conflicting objects → equivalence classes
     let conf = ledger::conflicts(rows, 0.5, 0.7);
     let confirmed: Vec<usize> = ledger::confirmed_cases(rows, 0.5, 0.7);
     let neg_cases: Vec<usize> = {
@@ -153,7 +153,7 @@ pub fn build(
         v
     };
 
-    // 纯度：只看"至少两个已确认标签"的类
+    // purity: only classes with 'at least two confirmed labels' are considered
     let classes = e.classes();
     let mut labelled = 0usize;
     let mut impure = 0usize;
@@ -180,7 +180,7 @@ pub fn build(
 
     let (rework, rework_src) = rework_cost(rows);
 
-    // 按类聚合冲突对象
+    // aggregate conflicting objects by class
     let mut groups: Vec<(usize, Vec<usize>)> = Vec::new();
     for case in conf.keys() {
         if let Some(ci) = case_class(e, *case) {
@@ -277,10 +277,10 @@ mod tests {
 
     #[test]
     fn greedy_prefers_predicate_that_covers_most() {
-        // 对象 0..3；p 分开 (0,1) 与 (0,2)，q 只分开 (0,1)
+        // objects 0..3; p separates (0,1) from (0,2), q separates only (0,1)
         let preds = vec![("p".to_string(), 0b001u64), ("q".to_string(), 0b011u64)];
-        // p: 只有 0 为真 → 与 1,2 都分开
-        // q: 0,1 为真 → 与 2 分开，与 1 不分开
+        // p: true only for 0 → separates it from both 1 and 2
+        // q: true for 0,1 → separates 2, but not 1
         let pairs = vec![(0usize, 1usize), (0, 2)];
         let (chosen, remaining) = greedy_cover(&preds, &pairs);
         assert_eq!(chosen, vec!["p"]);
@@ -291,8 +291,8 @@ mod tests {
     fn budget_flips_with_rework_cost() {
         // c=2, p=0.5 → cost_one = 1 + 0.5*1*R
         let cost = |r: f64| 1.0 + 0.5 * 1.0 * r;
-        assert!(cost(1.0) <= 2.0); // 便宜 → 问一个
-        assert!(cost(3.0) > 2.0); // 贵 → 问全部
+        assert!(cost(1.0) <= 2.0); // cheap → ask one
+        assert!(cost(3.0) > 2.0); // expensive → ask all
     }
 
     #[test]

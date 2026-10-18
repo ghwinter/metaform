@@ -1,16 +1,16 @@
-//! 最小 MCP（Model Context Protocol）服务端：stdio + 行分隔 JSON-RPC。
+//! Minimal MCP (Model Context Protocol) server: stdio + line-delimited JSON-RPC.
 //!
-//! 为什么要有它：CLI 是"人能敲"的接口，MCP 是"Agent 能挂载"的接口。
-//! 同一批操作（看状态、看台账、记一票）走同一个内核，只是传输入方式不同。
+//! Why it exists: the CLI is the interface 'a human can type'; MCP is the interface 'an agent can mount'.
+//! The same operations (read state, read ledger, record a vote) go through the same kernel; only the transport differs.
 //!
-//! 支持的方法：
+//! Supported methods:
 //!   initialize / notifications/initialized / ping / tools/list / tools/call
 //!
-//! 工具：
-//!   state_need       读 .metaform/state.json，返回状态机 JSON（与 CLI 的 need 相同）
-//!   state_vote       记一票（写 state.json）
-//!   ledger_cases     已确认且无冲突的对象
-//!   ledger_conflicts 方向冲突的对象
+//! Tools:
+//!   state_need       read .metaform/state.json and return the state machine JSON (same as the CLI's need)
+//!   state_vote       record a vote (writes state.json)
+//!   ledger_cases     objects that are confirmed and conflict-free
+//!   ledger_conflicts objects with conflicting directions
 
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -146,14 +146,14 @@ fn call_tool(name: &str, args: &Value) -> Result<String, String> {
     }
 }
 
-/// 处理一条 JSON-RPC 请求；通知（无 id）返回 None。
+/// Handle one JSON-RPC request; notifications (no id) return None.
 pub fn handle(req: &Value) -> Option<Value> {
     let id = req.get("id").cloned();
     let method = req.get("method").and_then(|m| m.as_str()).unwrap_or("");
     let params = req.get("params").cloned().unwrap_or_else(|| json!({}));
 
     if id.is_none() {
-        return None; // notification：不回复
+        return None; // notification: no reply
     }
     let id = id.unwrap();
 
@@ -188,7 +188,7 @@ pub fn handle(req: &Value) -> Option<Value> {
     })
 }
 
-/// 行分隔 JSON 的 stdio 循环。遇到 EOF 退出。
+/// stdio loop over line-delimited JSON. Exits on EOF.
 pub fn serve() {
     let stdin = io::stdin();
     let stdout = io::stdout();

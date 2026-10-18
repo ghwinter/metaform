@@ -1,7 +1,7 @@
-//! 场景持久化：把当前实验写进 `<project>/.metaform/state.json`。
+//! Scenario persistence: write the current experiment into `<project>/.metaform/state.json`.
 //!
-//! 目标是**一步式调用**：Agent 每次只发一条命令（add / vote / need），
-//! 不必先写脚本文件，也不必在内存里维持会话。
+//! The goal is a **one-step call**: the agent sends just one command at a time (add / vote / need),
+//! without writing a script file first and without keeping a session in memory.
 
 use std::path::Path;
 
@@ -46,7 +46,7 @@ impl State {
         std::fs::write(path, text)
     }
 
-    /// 用持久化状态重建内核状态机。
+    /// Rebuild the kernel state machine from the persisted state.
     pub fn explorer(&self) -> Explorer {
         let mut vocab = Vocabulary::with(Vec::new());
         for p in &self.predicates {
@@ -76,7 +76,7 @@ pub fn pairs_json(p: &[(usize, usize)]) -> String {
     format!("[{}]", items.join(","))
 }
 
-#[allow(dead_code)] // 目前由测试使用；need_json 内联了同样逻辑，后续合并
+#[allow(dead_code)] // currently used by tests; need_json inlines the same logic, to be merged later
 pub fn colliding_pairs(e: &Explorer) -> Vec<(usize, usize)> {
     let mut out = Vec::new();
     for c in e.classes() {
@@ -104,7 +104,7 @@ pub fn free_reps(e: &Explorer) -> Vec<usize> {
         .collect()
 }
 
-/// 与脚本模式 `need` 完全相同的 JSON。
+/// Exactly the same JSON as `need` in script mode.
 pub fn need_json(e: &Explorer, theta: Option<u8>) -> String {
     let theta = theta.unwrap_or_else(|| e.recommended_theta());
     let (sp, sn) = e.strong(theta);

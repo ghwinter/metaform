@@ -1,7 +1,7 @@
-//! `report`：把当前项目的状态写成一份人读的 markdown（`.metaform/out/report.md`）。
+//! `report`: render the current project state as human-readable markdown (`.metaform/out/report.md`).
 //!
-//! 为什么需要它：JSON 给机器看，但"我现在到底卡在哪"这件事，人需要一段话。
-//! 报告同时是**可归档的产物**——每次判断都留下当时的依据。
+//! Why it exists: JSON is for machines, but 'where exactly am I stuck right now' needs a paragraph for a human.
+//! The report is also an **archivable artifact** — every judgement leaves behind the basis it was made on.
 
 use std::path::Path;
 
@@ -29,7 +29,7 @@ pub fn render(project: &Path) -> String {
     let free = state::free_reps(&e);
     let conflicts = ledger::conflicts(&rows, 0.5, 0.7);
     let confirmed = ledger::confirmed_cases(&rows, 0.5, 0.7);
-    // 若存在候选池，报告按池计算覆盖；否则退回当前词汇
+    // if a candidate pool exists, compute coverage from the pool; otherwise fall back to the current vocabulary
     let pool_path = dir.join("out").join("pool.txt");
     let pool = std::fs::read_to_string(&pool_path)
         .ok()

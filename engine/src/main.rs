@@ -1,21 +1,21 @@
-//! `metaform` —— 查询驱动表征变更的命令行工作台。
+//! `metaform` — the command-line workbench for query-driven representation change.
 //!
-//! 从一个脚本文件（或 stdin）读命令，逐步构造并观察状态机。
-//! 它的用途不是跑基准，而是**在思考时把当前场景摆出来**：
-//! 现在缺什么、撞车的是哪一对、某个候选谓词能劈开几对。
+//! Reads commands from a script file (or stdin) and builds and observes the state machine step by step.
+//! Its purpose is not to run benchmarks but to **lay the current scenario out while thinking**:
+//! what is missing now, which pair is colliding, how many pairs a candidate predicate would split.
 //!
-//! 命令：
+//! Commands:
 //! ```text
-//! objects 21                     # 新建场景（对象 0..20）
-//! add <name> <id...>             # 向词汇添加谓词，取值为 id 列表
-//! pos <id...>   neg <id...>      # 标注正例 / 反例
-//! ask                            # 下一个建议提问的对象
-//! status                         # 当前状态 + 未决类数
-//! explain                        # 打印全部等价类，标出撞车对
-//! score <name> <id...>           # 不添加，只报它能劈开几对撞车
-//! capacity                       # 2^(类数)
+//! objects 21                     # new scenario (objects 0..20)
+//! add <name> <id...>             # add a predicate to the vocabulary; its extension is a list of ids
+//! pos <id...>   neg <id...>      # label positives / negatives
+//! ask                            # the next object suggested for a question
+//! status                         # current status + number of open classes
+//! explain                        # print all equivalence classes, marking colliding pairs
+//! score <name> <id...>           # do not add it, just report how many colliding pairs it splits
+//! capacity                       # 2^(number of classes)
 //! ```
-//! 行内 `#` 之后是注释。
+//! Text after `#` on a line is a comment.
 
 use std::io::{self, BufRead, Write};
 
@@ -67,7 +67,7 @@ fn json_pairs(p: &[(usize, usize)]) -> String {
     format!("[{}]", items.join(","))
 }
 
-/// 每个未决等价类取一个代表（一轮批量标注的建议）。
+/// One representative per undecided equivalence class (the suggestion for a batch round of labeling).
 fn free_reps(e: &Explorer) -> Vec<usize> {
     let known = e.pos | e.neg;
     e.classes()
@@ -112,8 +112,8 @@ fn mask_to_ids(mask: u64, n: usize) -> Vec<usize> {
     (0..n).filter(|&x| mask & bit(x) != 0).collect()
 }
 
-/// metarule 式候选生成：对已有谓词做合取/析取/否定。
-/// 注意：这些实例都落在 `Def(V)` 内部，**不会**产生新原子。
+/// Metarule-style candidate generation: conjunction/disjunction/negation over existing predicates.
+/// Note: all these instances fall inside `Def(V)`, so they do **not** produce a new atom.
 fn gen_candidates(preds: &[(String, u64)], n: usize) -> Vec<(String, u64)> {
     use std::collections::HashSet;
     let mut seen: HashSet<u64> = preds.iter().map(|(_, m)| *m).collect();
@@ -148,7 +148,7 @@ fn status(e: &Explorer) {
     println!("未决类: {free}   容量: 2^{} = {}", e.classes().len(), e.capacity());
 }
 
-// ---------------- 项目目录与台账子命令 ----------------
+// ---------------- project directory and ledger subcommands ----------------
 
 fn kv(args: &[String], key: &str) -> Option<String> {
     args.iter()
@@ -484,7 +484,7 @@ fn main() {
             }
             "status" => status(e.as_ref().expect("先 objects")),
             "vote" => {
-                // 带票数的回答：vote <id> <yes> <no>
+                // answer with vote counts: vote <id> <yes> <no>
                 let ex = e.as_mut().expect("先 objects");
                 let x: usize = rest.first().and_then(|s| s.parse().ok()).expect("vote 需要对象编号");
                 let yes: u8 = rest.get(1).and_then(|s| s.parse().ok()).unwrap_or(1);
@@ -522,7 +522,7 @@ fn main() {
                 );
             }
             "gen" => {
-                // 从当前词汇生成候选谓词池（metarule 式组合）。可写文件，供 cover 使用。
+                // generate a candidate predicate pool from the current vocabulary (metarule-style combinations). Can write a file for cover to use.
                 let ex = e.as_ref().expect("先 objects");
                 let preds: Vec<(String, u64)> = ex
                     .vocab
@@ -546,7 +546,7 @@ fn main() {
                 }
             }
             "cover" => {
-                // 读一个候选谓词池，贪心覆盖全部撞车对（T7 的动手版本）。
+                // read a candidate predicate pool and greedily cover all colliding pairs (the hands-on version of T7).
                 let ex = e.as_ref().expect("先 objects");
                 let path = rest.first().expect("cover 需要池文件路径");
                 let text = std::fs::read_to_string(path).expect("读不到池文件");
