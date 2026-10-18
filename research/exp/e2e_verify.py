@@ -36,7 +36,7 @@ def build() -> None:
         encoding="utf-8",
     )
     if r.returncode != 0:
-        raise SystemExit(f"cargo build 失败:\n{r.stderr[:600]}")
+        raise SystemExit(f"cargo build failed:\n{r.stderr[:600]}")
 
 
 def run(engine: Path) -> list[dict]:
@@ -44,7 +44,7 @@ def run(engine: Path) -> list[dict]:
         [str(engine), str(DEMO)], capture_output=True, text=True, encoding="utf-8"
     )
     if out.returncode != 0:
-        raise SystemExit(f"engine 退出码 {out.returncode}: {out.stderr[:400]}")
+        raise SystemExit(f"engine exited with {out.returncode}: {out.stderr[:400]}")
     rows = []
     for line in out.stdout.splitlines():
         line = line.strip()
@@ -56,7 +56,7 @@ def run(engine: Path) -> list[dict]:
 def cli(engine: Path, *args: str) -> str:
     r = subprocess.run([str(engine), *args], capture_output=True, text=True, encoding="utf-8")
     if r.returncode != 0:
-        raise SystemExit(f"`{' '.join(args)}` 退出码 {r.returncode}: {r.stderr[:300]}")
+        raise SystemExit(f"`{' '.join(args)}` exited with {r.returncode}: {r.stderr[:300]}")
     return r.stdout
 
 
@@ -64,7 +64,7 @@ def last_json(out: str) -> dict:
     for line in reversed(out.splitlines()):
         if line.strip().startswith("{"):
             return json.loads(line)
-    raise SystemExit("输出里没有 JSON")
+    raise SystemExit("no JSON in the output")
 
 
 def project_mode(engine: Path) -> None:
@@ -133,7 +133,7 @@ def main() -> None:
 
     project_mode(engine)
 
-    print("OK：脚本模式 VERIFY→PROPOSE→ASK→STOP；项目模式的报告随探测改变")
+    print("OK: script mode VERIFY->PROPOSE->ASK->STOP; in project mode the report changes with the probe")
 
 
 if __name__ == "__main__":

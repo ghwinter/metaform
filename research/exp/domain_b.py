@@ -82,7 +82,7 @@ def main() -> None:
     n = len(objs)
     idx = {o: i for i, o in enumerate(objs)}
     target_bits = sum(1 << idx[o] for o in objs if table[o][0])
-    print(f"oracle: lean  {lean_secs:.2f}s   rows={n}   正例 {bin(target_bits).count('1')}/{n}")
+    print(f"oracle: lean  {lean_secs:.2f}s   rows={n}   positives {bin(target_bits).count('1')}/{n}")
 
     e = Explorer(n)
     for name, fn in V0.items():
@@ -94,12 +94,12 @@ def main() -> None:
         if e.signature(idx[a]) == e.signature(idx[b]) and table[a][0] != table[b][0]:
             pair = (a, b)
             break
-    assert pair, "初始词汇竟然分得开正反例"
+    assert pair, "the initial vocabulary unexpectedly separates positives from negatives"
     a, b = pair
     pos, neg = (a, b) if table[a][0] else (b, a)
     e.answer(idx[pos], True)
     e.answer(idx[neg], False)
-    print(f"seed: +{pos}  -{neg}   V0 签名相同 → {e.status().value}")
+    print(f"seed: +{pos}  -{neg}   same V0 signature -> {e.status().value}")
 
     proposals = 0
     queries = 0
@@ -107,15 +107,15 @@ def main() -> None:
     # which looks like progress until a collision appears elsewhere (see the loop below, the status falls back to insufficient).
     decoys = [(k, f) for k, f in DECOYS.items() if f(pos) == f(neg)]
     pool = decoys + [("coprime30", None)]
-    print(f"可用诱饵: {[k for k, _ in decoys]}")
+    print(f"available decoys: {[k for k, _ in decoys]}")
 
     steps = 0
     while e.status() is not Status.IDENTIFIED:
         steps += 1
-        assert steps < 100, "循环没有收敛"
+        assert steps < 100, "the loop did not converge"
         if e.status() is Status.INSUFFICIENT:
             if not pool:
-                print("  ! 提议池耗尽，仍未脱离不足")
+                print("  ! proposal pool exhausted, still insufficient")
                 break
             name, fn = pool.pop(0)
             if fn is None:
@@ -135,9 +135,9 @@ def main() -> None:
         if c & e.pos:
             derived |= c
     ok = derived == target_bits
-    print(f"\nidentified: 提议 {proposals}，查询 {queries}")
-    print(f"外延 == 素数列: {ok}")
-    print(f"oracle 成本：批处理 1 次 = {lean_secs:.2f}s；若逐查询调用 = {queries} × {lean_secs:.2f}s "
+    print(f"\nidentified: {proposals} proposals, {queries} queries")
+    print(f"extension == the primes: {ok}")
+    print(f"oracle cost: 1 batched call = {lean_secs:.2f}s; one call per query = {queries} x {lean_secs:.2f}s "
           f"= {queries * lean_secs:.1f}s")
 
 

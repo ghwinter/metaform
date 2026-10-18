@@ -123,7 +123,7 @@ def main() -> None:
     rng = random.Random(args.seed)
     insts = [i for i in (make_instance(rng, args.objects, args.attrs) for _ in range(args.n)) if i]
     print(f"instances={len(insts)}  objects≈{args.objects}  attrs={args.attrs}")
-    print(f"{'eps':>5} {'theta':>5} | {'成功':>6} {'轮数':>6} {'提议':>6} {'浪费':>6}")
+    print(f"{'eps':>5} {'theta':>5} | {'succ':>6} {'rounds':>6} {'props':>6} {'waste':>6}")
 
     for eps in (0.0, 0.1, 0.2):
         for theta in (1, 3, 5):

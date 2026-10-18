@@ -95,13 +95,13 @@ def main() -> None:
     ap.add_argument("--pool", type=int, default=10)
     args = ap.parse_args()
 
-    print("=== A 提问策略（合取 k=%d, n=%d） ===" % (args.k, args.n))
+    print("=== A question policy (conjunctive k=%d, n=%d) ===" % (args.k, args.n))
     for policy in ("gain", "rand_inf", "random"):
         vals = [run_policy(s, policy, args.n, args.objects, args.attrs, args.k) for s in args.seeds]
         print(f"  {policy:9s} {statistics.mean(vals):6.2f} ± {statistics.stdev(vals):4.2f}   "
               f"seeds={['%.2f' % v for v in vals]}")
 
-    print("=== B 覆盖策略（pool=%d, n=%d） ===" % (args.pool, args.n))
+    print("=== B cover policy (pool=%d, n=%d) ===" % (args.pool, args.n))
     res = [run_cover(s, args.n, args.pool, args.objects) for s in args.seeds]
     names = ("greedy", "random", "optimal")
     for i, name in enumerate(names):

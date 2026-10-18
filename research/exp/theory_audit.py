@@ -114,49 +114,49 @@ def ops_audit(engine: str) -> int:
     try:
         doc = json.loads(out.stdout.strip().splitlines()[-1])
     except Exception:
-        print("  ! ops 输出不可解析")
+        print("  ! ops output is not parseable")
         return 1
     bad = 0
     audit = doc.get("audit", {})
     if audit.get("violations", 1) != 0:
         bad += 1
-        print(f"  ! ops 自检有违反: {audit}")
+        print(f"  ! ops self-check has violations: {audit}")
     for s in doc.get("scenarios", []):
         if s["fixed_cost"] - s["scheduled_cost"] != s["skipped_cost"]:
             bad += 1
-            print(f"  ! 代价恒等式不成立: {s['name']}")
+            print(f"  ! cost identity does not hold: {s['name']}")
 
     # no collision ≠ correct: early stopping must be wrong, the probe version must be right, and the verified version must pay more.
     probe = doc.get("probe", {})
     if probe.get("early_phi") != 1:
         bad += 1
-        print(f"  ! 早停时 Φ 不是 1: {probe}")
+        print(f"  ! Phi is not 1 on early stop: {probe}")
     if probe.get("early_correct") is not False:
         bad += 1
-        print(f"  ! 早停竟然给出了正确外延（探测演示失效）: {probe}")
+        print(f"  ! early stop produced a correct extension (the probe demo is broken): {probe}")
     if probe.get("verified_correct") is not True:
         bad += 1
-        print(f"  ! 探测之后仍然不正确: {probe}")
+        print(f"  ! still incorrect after probing: {probe}")
     if probe.get("verified_cost", 0) <= probe.get("early_queries", 0):
         bad += 1
-        print(f"  ! 验证版没有多付代价: {probe}")
+        print(f"  ! the verified version did not pay extra: {probe}")
     if probe.get("verified_queries") != 5 or probe.get("verified_cost") != 14:
         bad += 1
-        print(f"  ! 验证版的固定数字变了（期望 5 次查询、成本 14）: {probe}")
+        print(f"  ! the verified version's fixed numbers changed (expected 5 queries, cost 14): {probe}")
 
     # two-atom scenario: greedy must succeed in two steps, fixed order must fail.
     compose = doc.get("compose", {})
     if compose.get("greedy") != 2.0 or compose.get("greedy_ok") != 1.0:
         bad += 1
-        print(f"  ! 贪心没有两步成功: {compose}")
+        print(f"  ! greedy did not succeed in two steps: {compose}")
     if compose.get("fixed_ok") != 0.0:
         bad += 1
-        print(f"  ! 固定顺序竟然在预算内成功: {compose}")
+        print(f"  ! fixed order unexpectedly succeeded within budget: {compose}")
     if not compose.get("greedy", 9) < compose.get("random", 0):
         bad += 1
-        print(f"  ! 贪心不比随机好: {compose}")
+        print(f"  ! greedy is not better than random: {compose}")
 
-    print(f"ops: {len(doc.get('scenarios', []))} 场景 + {audit.get('trials', 0)} 次自检，违反 {bad}")
+    print(f"ops: {len(doc.get('scenarios', []))} scenarios + {audit.get('trials', 0)} self-checks, {bad} violations")
     return bad
 
 
@@ -164,7 +164,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--trials", type=int, default=300)
     ap.add_argument("--seed", type=int, default=7)
-    ap.add_argument("--engine", help="qde 可执行文件；给了就核对其判定与理论一致")
+    ap.add_argument("--engine", help="qde executable; when given, its verdicts are checked against the theory")
     args = ap.parse_args()
 
     rng = random.Random(args.seed)
@@ -242,18 +242,18 @@ def main() -> None:
             st = engine_status(args.engine, preds, pos, neg)
             if (st == "INSUFFICIENT") != collision:
                 mism += 1
-                print(f"  ! 引擎与理论不一致: status={st} collision={collision}")
-        print(f"engine: 25 次随机场景，不一致 {mism}")
+                print(f"  ! engine disagrees with the theory: status={st} collision={collision}")
+        print(f"engine: 25 random scenarios, {mism} mismatches")
         fails["engine"] = mism
         fails["ops"] = ops_audit(args.engine)
 
     print(f"trials={examples}  seed={args.seed}")
     for k, v in fails.items():
-        print(f"  {k:6s} 反例 {v}")
+        print(f"  {k:6s} counterexamples {v}")
     if any(fails.values()):
-        print("\n有定理被撞倒——陈述或实现有问题")
+        print("\na theorem was knocked down: the statement or the implementation is wrong")
         sys.exit(1)
-    print(f"\n{len(fails)} 项检查全部零反例")
+    print(f"\n{len(fails)} checks, zero counterexamples in all")
 
 
 if __name__ == "__main__":

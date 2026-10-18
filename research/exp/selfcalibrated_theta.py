@@ -144,7 +144,7 @@ def main() -> None:
     rng = random.Random(args.seed)
     insts = [i for i in (make_instance(rng, 12, 7) for _ in range(args.n)) if i]
     print(f"instances={len(insts)}")
-    print(f"{'eps':>5} {'policy':>9} | {'成功':>6} {'轮数':>6} {'提议':>6}")
+    print(f"{'eps':>5} {'policy':>9} | {'succ':>6} {'rounds':>6} {'props':>6}")
 
     for eps in (0.05, 0.10, 0.20, 0.30):
         line = {}
@@ -157,7 +157,7 @@ def main() -> None:
         for p in ("hat", "hat_q"):
             ds = line["true"][0] - line[p][0]
             dr = line[p][1] - line["true"][1]
-            print(f"   {p:>5} 差 | 成功 {ds:+.3f}   轮数 {dr:+.2f}")
+            print(f"   {p:>5} diff | succ {ds:+.3f}   rounds {dr:+.2f}")
 
 
 if __name__ == "__main__":

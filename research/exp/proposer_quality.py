@@ -77,7 +77,7 @@ def main() -> None:
     rng = random.Random(args.seed)
     insts = [i for i in (make_instance(rng, 12, 7) for _ in range(args.n)) if i]
     print(f"instances={len(insts)}  r={R}")
-    print(f"{'q':>6} {'总成本':>8} {'理论 r/q':>9} {'提议':>6} {'浪费':>6} {'轮数':>6} {'成功':>6}")
+    print(f"{'q':>6} {'cost':>8} {'theory r/q':>9} {'props':>6} {'waste':>6} {'rounds':>6} {'succ':>6}")
 
     for q in (1 / 8, 1 / 4, 1 / 2, 1.0):
         res = [run_once(i, q, rng) for i in insts]

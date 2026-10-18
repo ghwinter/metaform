@@ -56,7 +56,7 @@ def ensure_engine(path: Path) -> Path:
             capture_output=True, text=True, encoding="utf-8",
         )
         if r.returncode != 0:
-            print(f"! cargo build 失败:\n{r.stderr[:400]}")
+            print(f"! cargo build failed:\n{r.stderr[:400]}")
             sys.exit(1)
     return path
 
@@ -67,7 +67,7 @@ def check_ops(engine: Path) -> int:
     try:
         doc = json.loads(out.stdout.strip().splitlines()[-1])
     except Exception:
-        print("! ops 输出不可解析")
+        print("! ops output is not parseable")
         return 1
     bad = 0
     sel = doc.get("selection", {})
@@ -89,7 +89,7 @@ def check_ops(engine: Path) -> int:
     )
     if not msel:
         bad += 1
-        print("! 论文里 selection 的句子结构变了")
+        print("! the selection sentence in the paper changed shape")
     else:
         for k, got in zip(
             ("selected_cost", "random_cost", "fixed_cost"),
@@ -97,7 +97,7 @@ def check_ops(engine: Path) -> int:
         ):
             if abs(got - sel[k]) > 0.011:
                 bad += 1
-                print(f"! 论文的 {k}={got} 与 ops {sel[k]} 不一致")
+                print(f"! the paper's {k}={got} disagrees with ops {sel[k]}")
 
     mcost = re.search(
         r"total cost is \$([\d.]+)\$, \$([\d.]+)\$, \$([\d.]+)\$ and \$([\d.]+)\$",
@@ -105,13 +105,13 @@ def check_ops(engine: Path) -> int:
     )
     if not mcost:
         bad += 1
-        print("! 论文里成本四点那句的结构变了")
+        print("! the four-cost-points sentence in the paper changed shape")
     else:
         for (q, _), got in zip(COST_POINTS, (float(x) for x in mcost.groups())):
             want = next(p for qq, p in COST_POINTS if qq == q)
             if abs(got - want) > 0.05:
                 bad += 1
-                print(f"! 论文的实测点 q={q} 写成 {got}，期望 {want}")
+                print(f"! the paper's measured point q={q} is written {got}, expected {want}")
 
     # Third source: the three numbers in the README, compared item by item with the ops output,
     # so the paper and the constants cannot drift together.
@@ -138,7 +138,7 @@ def check_ops(engine: Path) -> int:
         probe.get("verified_cost"),
     ):
         bad += 1
-        print(f"! README 的 probe 数字 {mp.groups()} 与 ops 不一致")
+        print(f"! the README probe numbers {mp.groups()} disagree with ops")
     return bad
 
 
@@ -146,13 +146,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tolerance", type=float, default=0.06)
     ap.add_argument("--tamper", action="append", default=[], metavar="KEY=VALUE",
-                    help="故意改错一个期望值，用来验证门是活的")
+                    help="deliberately corrupt one expected value, to prove the gate is live")
     ap.add_argument("--tamper-cost", action="store_true",
-                    help="把第一个成本点改错，验证成本律检查是活的")
+                    help="corrupt the first cost point, to prove the cost-law check is live")
     ap.add_argument("--engine", default=str(DEFAULT_ENGINE),
-                    help="metaform 可执行文件（用于核对 ops 数字）")
+                    help="metaform executable (used to check the ops numbers)")
     ap.add_argument("--tamper-ops", action="store_true",
-                    help="改错 ops 期望值，验证该检查是活的")
+                    help="corrupt an ops expected value, to prove that check is live")
     args = ap.parse_args()
 
     if args.tamper_cost:
@@ -191,7 +191,7 @@ def main() -> None:
         print(f"{key:16s} {want:7.2f} {got:7.2f} {sd:6.2f} {diff:+7.2f}  {'OK' if ok else 'REG RESSED'}")
 
     if bad:
-        print(f"\n{bad} 项超出容差 {args.tolerance}")
+        print(f"\n{bad} items outside the tolerance {args.tolerance}")
         sys.exit(1)
 
     # --- cost-law consistency: the formula and the four measured points must hold at the same time ---
@@ -206,19 +206,19 @@ def main() -> None:
 
     text = PAPER_EN.read_text(encoding="utf-8")
     if "close to $r/q + 7.6$" not in text:
-        print("! 论文不再声明 close to r/q+7.6")
+        print("! the paper no longer states close to r/q+7.6")
         law_bad += 1
     if "exactly $r/q" in text:
-        print("! 论文又出现了 exactly r/q（与实测不符）")
+        print("! the paper says exactly r/q again (which the measurements contradict)")
         law_bad += 1
 
     if law_bad:
-        print(f"\n成本律 {law_bad} 处不自洽")
+        print(f"\ncost law inconsistent in {law_bad} places")
         sys.exit(1)
 
     ops_bad = check_ops(ensure_engine(Path(args.engine)))
     if ops_bad:
-        print(f"\nops 数字 {ops_bad} 处漂移")
+        print(f"\nops numbers drifted in {ops_bad} places")
         sys.exit(1)
     print("\nall claims within tolerance")
 

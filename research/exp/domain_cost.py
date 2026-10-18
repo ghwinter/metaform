@@ -64,7 +64,7 @@ def main() -> None:
     insts = [i for i in (make_instance(rng, 14, 8) for _ in range(300)) if i]
     print(f"instances={len(insts)}  objects≈14  attrs=8\n")
     for q in (1 / 8, 1 / 4, 1 / 2):
-        print(f"q={q:.3f} （平均 {1/q:.1f} 次提议命中）")
+        print(f"q={q:.3f} (a hit after {1/q:.1f} proposals on average)")
         for r in (5, 20, 100):
             a = mean(total_cost(i, "ask_first", r, q, rng) for i in insts)
             b = mean(total_cost(i, "propose_first", r, q, rng) for i in insts)

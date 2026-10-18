@@ -51,7 +51,7 @@ def initial() -> Explorer:
             e.answer(pos, True)
             e.answer(neg, False)
             return e
-    raise AssertionError("构造失败：初始词汇分得开正反例")
+    raise AssertionError("setup failed: the initial vocabulary separates positives from negatives")
 
 
 def scenario_masks(name: str) -> dict[str, int]:
@@ -154,8 +154,8 @@ def table(name: str, probe: bool) -> dict:
     }
     tag = "probe" if probe else "inherit"
     print(f"\n[{name} / {tag}]")
-    print(f"{'顺序':8s} {'提议':>6s} {'提问':>6s} {'成本':>7s} {'正确':>6s}")
-    for label, r in [("固定", fixed), ("随机", avg), ("贪心", greedy)]:
+    print(f"{'order':8s} {'props':>6s} {'asks':>6s} {'cost':>7s} {'ok':>6s}")
+    for label, r in [("fixed", fixed), ("random", avg), ("greedy", greedy)]:
         print(f"{label:8s} {r['proposals']:6.2f} {r['queries']:6.2f} {r['cost']:7.2f} {str(r['ok']):>6s}")
     return {"fixed": fixed, "random": avg, "greedy": greedy}
 
@@ -167,10 +167,10 @@ def main() -> None:
     two_p = table("two_atoms", probe=True)
 
     assert one_i["greedy"]["ok"] and one_i["greedy"]["proposals"] == 1
-    assert two_i["greedy"]["ok"] is False, "不探测时，两原子场景会以错误外延停机"
-    assert two_p["greedy"]["ok"] is True, "探测之后应当恢复正确"
-    assert two_p["greedy"]["proposals"] == 2, "两原子贪心应当两步"
-    print("\nOK：单原子 1 步；两原子在不探测时得到错误外延，探测后 2 步恢复正确")
+    assert two_i["greedy"]["ok"] is False, "without probing, the two-atom scenario stops with a wrong extension"
+    assert two_p["greedy"]["ok"] is True, "probing should restore correctness"
+    assert two_p["greedy"]["proposals"] == 2, "two-atom greedy should take two steps"
+    print("\nOK: one atom takes 1 step; two atoms give a wrong extension without probing, and probing restores correctness in 2 steps")
 
 
 if __name__ == "__main__":

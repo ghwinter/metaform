@@ -44,7 +44,7 @@ def main() -> None:
     args = ap.parse_args()
 
     print(f"trials={args.trials} objects={args.objects} attrs={args.attrs} examples={args.examples}")
-    print(f"{'eps':>5} {'r':>2} | {'A 假触发':>10} {'B 漏检':>8}")
+    print(f"{'eps':>5} {'r':>2} | {'A false':>10} {'B missed':>8}")
     rng = random.Random(args.seed)
 
     for eps in (0.0, 0.05, 0.1, 0.2, 0.3):

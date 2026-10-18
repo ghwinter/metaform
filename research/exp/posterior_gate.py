@@ -130,7 +130,7 @@ def main() -> None:
     rng = random.Random(args.seed)
     insts = [i for i in (make_instance(rng, 12, 7) for _ in range(args.n)) if i]
     print(f"instances={len(insts)}  delta=0.05")
-    print(f"{'eps':>5} {'policy':>7} | {'成功':>6} {'轮数':>6} {'提议':>6}")
+    print(f"{'eps':>5} {'policy':>7} | {'succ':>6} {'rounds':>6} {'props':>6}")
 
     for eps in (0.10, 0.20, 0.30):
         for policy in ("theta3", "theta5", "posterior"):

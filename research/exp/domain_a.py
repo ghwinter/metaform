@@ -181,10 +181,10 @@ def main() -> None:
 
     # E4: consistent conjunctive hypotheses within V0 are empty
     empty = sum(1 for i in insts if not consistent(conj_class(i.objects, i.attrs, args.k), i.pos, i.neg))
-    print(f"E4  V0 内一致合取假设为空: {empty}/{len(insts)} ({100*empty/len(insts):.1f}%)")
+    print(f"E4  consistent conjunctive hypotheses within V0 are empty: {empty}/{len(insts)} ({100*empty/len(insts):.1f}%)")
 
     # E2: arbitrary Boolean combinations (the v1 setting)
-    print("\nE2  假设类 = 任意布尔组合")
+    print("\nE2  hypothesis class = arbitrary Boolean combinations")
     for policy in ("gain", "balance", "rand_inf", "random", "first"):
         qs, hits = [], 0
         for i in insts:
@@ -197,7 +197,7 @@ def main() -> None:
         print(f"    {policy:8s} mean_queries={mean:5.2f}  hit={hits}/{len(insts)}")
 
     # E1: restricted conjunctive class
-    print("\nE1  假设类 = ≤%d 文字合取" % args.k)
+    print("\nE1  hypothesis class = conjunctions of at most %d literals" % args.k)
     for policy in ("gain", "balance", "rand_inf", "random", "first"):
         qs, hits = [], 0
         for i in insts:
@@ -210,7 +210,7 @@ def main() -> None:
         print(f"    {policy:8s} mean_queries={mean:5.2f}  hit={hits}/{len(insts)}")
 
     # E3: budget = 3
-    print("\nE3  预算=3 次提问的命中率（合取类）")
+    print("\nE3  hit rate with a budget of 3 questions (conjunctive class)")
     for policy in ("gain", "balance", "rand_inf", "random", "first"):
         hits = 0
         for i in insts:

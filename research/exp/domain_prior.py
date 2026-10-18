@@ -94,7 +94,7 @@ def main() -> None:
     rng = random.Random(23)
     insts = [i for i in (make_instance(rng, 12, 8) for _ in range(300)) if i]
     for k in (2, 3):
-        print(f"\nE5  先验 p(S) ∝ 2^-|S|，k={k}，n={len(insts)}")
+        print(f"\nE5  prior p(S) ∝ 2^-|S|, k={k}, n={len(insts)}")
         for policy in ("gain_w", "balance", "rand_inf"):
             qs = []
             fails = 0

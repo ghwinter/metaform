@@ -48,9 +48,9 @@ def build_request(case_name: str, cases, objs, pos, neg, existing) -> dict:
         "colliding_pairs": pairs,
         "existing_predicates": existing,
         "instruction": (
-            "提出 2-4 个候选谓词，要求：能分开 colliding_pairs 里的每一对；"
-            "以可执行表达式的形式给出（predicate_py: lambda case: ...）；"
-            "并给一句 rationale。输出 JSON 列表。"
+            "Propose 2-4 candidate predicates. Requirements: each must separate every pair in colliding_pairs; "
+            "give it as an executable expression (predicate_py: lambda case: ...); "
+            "add a one-line rationale. Output a JSON list."
         ),
     }
 
@@ -150,20 +150,20 @@ def main() -> None:
     ap.add_argument("--case", default="domain_c", choices=["domain_c"])
     ap.add_argument("--emit", action="store_true")
     ap.add_argument("--responses")
-    ap.add_argument("--pool-out", help="写出 qde cover 用的池文件（默认只留 P=R=1 的候选）")
+    ap.add_argument("--pool-out", help="write the pool file used by qde cover (by default only candidates with P=R=1 are kept)")
     ap.add_argument("--pool-filter", default="offline", choices=["definition", "cover", "offline", "all"],
-                    help="offline: 用隐藏外延的 P/R（评估）；empirical: 只信 oracle 对 predictions 的确认")
-    ap.add_argument("--ask-predictions", action="store_true", help="打印对 predictions 的逐条确认")
-    ap.add_argument("--plan", action="store_true", help="给出重问计划：按等价类合并冲突对象")
+                    help="offline: use P/R from the hidden extension (evaluation); empirical: trust only the oracle's confirmation of predictions")
+    ap.add_argument("--ask-predictions", action="store_true", help="print the per-item confirmation of predictions")
+    ap.add_argument("--plan", action="store_true", help="print a requery plan: merge conflicted objects by equivalence class")
     ap.add_argument("--rework-cost", default="auto",
-                    help="一个错标要花多少代价返工（相对一次询问）；auto = 从台账历史估计")
+                    help="what one mislabel costs to rework (relative to one query); auto = estimate from the ledger history")
     ap.add_argument("--p-pure", type=float, default=None,
-                    help="类纯度先验；不给就从台账估计（Laplace 平滑）")
-    ap.add_argument("--round", type=int, default=1, help="台账记录用：这是第几轮")
+                    help="class-purity prior; if omitted, estimate it from the ledger (Laplace smoothing)")
+    ap.add_argument("--round", type=int, default=1, help="for ledger records: which round this is")
     ap.add_argument("--ledger", default=str(HERE / "probe_ledger.json"),
-                    help="已确认反例的台账：新候选必须先过它")
-    ap.add_argument("--no-ledger-write", action="store_true", help="只读台账，不写回")
-    ap.add_argument("--scenario-out", help="写出 qde 场景文件（含 cover 调用）")
+                    help="ledger of confirmed counterexamples: a new candidate must pass it first")
+    ap.add_argument("--no-ledger-write", action="store_true", help="read the ledger only, do not write back")
+    ap.add_argument("--scenario-out", help="write the qde scenario file (including the cover call)")
     args = ap.parse_args()
 
     from domain_c import PREDICATES, mask_of
@@ -186,7 +186,7 @@ def main() -> None:
 
     req = build_request(args.case, cases, objs, pos, neg, existing)
     req["colliding_pairs"] = colliding
-    req["note"] = f"共 {len(colliding)} 对撞车（在现有特征下不可分辨）"
+    req["note"] = f"{len(colliding)} colliding pairs (indistinguishable under the existing features)"
     if args.emit or not args.responses:
         print(json.dumps(req, ensure_ascii=False, indent=2))
         return
@@ -253,7 +253,7 @@ def main() -> None:
                     groups.setdefault(i, []).append(case)
                     break
 
-        print(f"冲突对象 {sorted(conf)}；{len(groups)} 个类：")
+        print(f"conflicted objects {sorted(conf)}; {len(groups)} classes:")
         print(f"{'class':>6s} {'size':>5s} {'known +/-':>10s} {'purity':>14s} {'conflicted':>12s} {'asks':>5s}")
         total = 0
         for i, cases_in in groups.items():
@@ -283,13 +283,13 @@ def main() -> None:
                          f" cost(all)={c_:.2f}")
             print(f"{i:>6d} {len(members):>5d} {f'{len(kp)}/{len(kn)}':>10s} {purity:>16s} "
                   f"{str(cases_in):>12s} {asks:>5d}{extra}")
-        print(f"\n合计 {total} 次询问；逐个问需 {len(conf)} 次")
+        print(f"\ntotal {total} questions; asking one by one needs {len(conf)}")
         if any(len([j for j in range(len(cases)) if cls[i] >> j & 1]) > 1
                and not ([j for j in range(len(cases)) if cls[i] >> j & 1 and j in known_pos] and
                         [j for j in range(len(cases)) if cls[i] >> j & 1 and j in known_neg])
                for i in groups):
-            print("注意：unknown 类按期望成本在「问 1 个」与「问全部冲突成员」之间选；"
-                  "unknown(buy-safe) 表示错标代价高到不值得赌。")
+            print("note: for an unknown class, expected cost decides between \"ask 1\" and \"ask every conflicted member\"; "
+                  "unknown(buy-safe) means a mislabel is too costly to gamble on.")
         return
 
     resp = load_responses(Path(args.responses))
@@ -307,7 +307,7 @@ def main() -> None:
                       if c not in conflicted and d["pos"] > 0}
     print(f"[ledger] conflicts: {sorted(conflicted) if conflicted else 'none'}")
     ledger: set[int] = set(ledger_rel)
-    print(f"[ledger] {len(ledger)} 个已确认反例")
+    print(f"[ledger] {len(ledger)} confirmed counterexamples")
     rows = evaluate(resp, cases, req["colliding_pairs"], pos, ledger_rel)
 
     if args.pool_out:
@@ -319,11 +319,11 @@ def main() -> None:
             kept = [r for r in rows if r["ok"] and r["definition_ok"]]
         elif args.pool_filter in ("cover", "empirical"):
             if args.ask_predictions:
-                print(f"[ask] 向 oracle 询问候选的预测（共 "
-                      f"{sum(r['pred_total'] for r in rows)} 条）")
+                print(f"[ask] asking the oracle about the candidates' predictions ("
+                      f"{sum(r['pred_total'] for r in rows)} in total)")
                 for r in rows:
                     if r["pred_total"]:
-                        print(f"  {r['name']:26s} 确认 {r['pred_hits']}/{r['pred_total']}")
+                        print(f"  {r['name']:26s} confirmed {r['pred_hits']}/{r['pred_total']}")
             kept = [r for r in rows
                     if r["ok"] and r["pred_total"] > 0
                     and r["pred_hits"] == r["pred_total"] and r["covers"] > 0]
@@ -360,7 +360,7 @@ def main() -> None:
             lines.append(f"cover {args.pool_out}")
         Path(args.scenario_out).write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"[scenario] → {args.scenario_out}")
-    print(f"{'name':26s} {'覆盖':>9s} {'P':>5s} {'R':>5s} {'预测':>7s}  rationale")
+    print(f"{'name':26s} {'cover':>9s} {'P':>5s} {'R':>5s} {'preds':>7s}  rationale")
     for r in rows:
         err = (' ' + r.get("error", ""))[:46] if not r["ok"] else ""
         pred = f"{r['pred_hits']}/{r['pred_total']}" if r["pred_total"] else "—"

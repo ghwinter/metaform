@@ -117,7 +117,7 @@ def cmd_add(args) -> None:
     dup = [e["id"] for e in data["entries"]
            if e["case"] == args.case and e.get("status", "active") == "active"]
     if dup:
-        print(f"注意：case {args.case} 已有 active 条目 {dup}，将作为独立证据并存")
+        print(f"note: case {args.case} already has active entries {dup}; this one will coexist as independent evidence")
     e = {"id": next_id(data), "case": args.case, "by": args.by, "round": args.round,
          "kind": args.kind, "status": "active", "reason": args.reason or "",
          "created": now(), "history": [],
@@ -232,11 +232,11 @@ def cmd_conflicts(args) -> None:
         print(json.dumps({"requery": queue, "r_query": args.r_query}, ensure_ascii=False, indent=2))
         return
 
-    print(f"重问队列（按差距升序，r_query={args.r_query}）：")
-    print(f"{'case':>5s} {'pos':>6s} {'neg':>6s} {'gap':>6s} {'再问':>5s}")
+    print(f"requery queue (ascending gap, r_query={args.r_query}):")
+    print(f"{'case':>5s} {'pos':>6s} {'neg':>6s} {'gap':>6s} {'asks':>5s}")
     for q in queue:
         print(f"{q['case']:>5d} {q['pos']:6.2f} {q['neg']:6.2f} {q['gap']:6.2f} {q['votes']:>5d}")
-    print(f"\n{len(queue)} 个对象待重问；差距小的先问")
+    print(f"\n{len(queue)} objects to requery; smallest gap first")
 
 
 def cmd_corroborate(args) -> None:
@@ -250,11 +250,11 @@ def cmd_corroborate(args) -> None:
         r = combined(es)
         mark = "OK" if r >= args.threshold else "weak"
         ids = ", ".join(e["id"] for e in es)
-        print(f"case {case:>3d}: {len(es)} 条 [{ids}]  合并可信度 {r:.2f}  {mark}")
+        print(f"case {case:>3d}: {len(es)} entries [{ids}]  combined reliability {r:.2f}  {mark}")
         if args.apply and r >= args.threshold and len(es) > 1:
             new = {"id": next_id(data), "case": case, "by": "corroborated",
                    "round": max(e.get("round", 0) for e in es), "kind": "positive",
-                   "status": "active", "reason": f"由 {ids} 交叉确认", "created": now(),
+                   "status": "active", "reason": f"cross-confirmed by {ids}", "created": now(),
                    "history": [{"at": now(), "action": "corroborate",
                                 "note": f"{ids} → r={r:.2f}"}],
                    "evidence": {"source": "corroborated(" + ids + ")", "answer": True,
@@ -262,9 +262,9 @@ def cmd_corroborate(args) -> None:
                                 "derived_from": [e["id"] for e in es]}}
             for e in es:
                 e["status"] = "superseded"
-                log(e, "supersede", f"合并进 {new['id']}（r={r:.2f}）")
+                log(e, "supersede", f"merged into {new['id']} (r={r:.2f})")
             data["entries"].append(new)
-            print(f"  + {new['id']} 生效（原条目转为 superseded）")
+            print(f"  + {new['id']} in effect (the original entries become superseded)")
     if args.apply:
         save(args.ledger, data)
 
@@ -289,7 +289,7 @@ def cmd_retarget(args) -> None:
     data = load(args.ledger)
     n = retarget(data, args.to, args.reason)
     save(args.ledger, data)
-    print(f"~ retarget -> {args.to}: {n} 条挂起（stale），等待重新确认")
+    print(f"~ retarget -> {args.to}: {n} entries suspended (stale), waiting to be re-confirmed")
 
 
 def cmd_revalidate(args) -> None:
@@ -297,11 +297,11 @@ def cmd_revalidate(args) -> None:
     for e in data["entries"]:
         if e["id"] == args.id:
             if e.get("status") != "stale":
-                raise SystemExit(f"{args.id} 不是 stale（当前 {e.get('status')}）")
+                raise SystemExit(f"{args.id} is not stale (current {e.get('status')})")
             e["status"] = "active"
-            log(e, "revalidate", f"在目标 {data.get('target','S0')} 下重新确认；{args.reason}")
+            log(e, "revalidate", f"re-confirmed under target {data.get('target','S0')}; {args.reason}")
             save(args.ledger, data)
-            print(f"+ {e['id']} (case {e['case']}) 重新生效")
+            print(f"+ {e['id']} (case {e['case']}) active again")
             return
     raise SystemExit(f"no such id: {args.id}")
 
@@ -326,11 +326,11 @@ def main() -> None:
     p.add_argument("--round", type=int, default=0)
     p.add_argument("--kind", default="positive", choices=["positive", "negative"])
     p.add_argument("--reason", default="")
-    p.add_argument("--source", default="manual", help="这条判断凭什么：oracle / 测试 / 人工")
+    p.add_argument("--source", default="manual", help="what this judgement rests on: oracle / test / manual")
     p.add_argument("--answer", default="true", choices=["true", "false"])
-    p.add_argument("--votes", default="", help='票数，如 "3 0"')
+    p.add_argument("--votes", default="", help='vote counts, e.g. "3 0"')
     p.add_argument("--reliability", type=float, default=1.0,
-                   help="这条证据有多可信：单元测试/Lean=1.0，模型按 1-ε")
+                   help="how reliable this evidence is: unit test/Lean=1.0, model 1-epsilon")
     p.set_defaults(fn=cmd_add)
     p = sub.add_parser("retract")
     p.add_argument("id"); p.add_argument("--reason", required=True); p.set_defaults(fn=cmd_retract)
@@ -343,16 +343,16 @@ def main() -> None:
     p = sub.add_parser("normalize"); p.set_defaults(fn=cmd_normalize)
     p = sub.add_parser("conflicts")
     p.add_argument("--threshold", type=float, default=0.5)
-    p.add_argument("--ratio", type=float, default=0.7, help="min/max 低于此值就不算冲突")
-    p.add_argument("--json", action="store_true", help="输出机器可读的重问队列")
-    p.add_argument("--r-query", type=float, default=0.6, help="假设每次重问的可信度")
+    p.add_argument("--ratio", type=float, default=0.7, help="below this min/max ratio it is not a conflict")
+    p.add_argument("--json", action="store_true", help="print the requery queue in machine-readable form")
+    p.add_argument("--r-query", type=float, default=0.6, help="assumed reliability of each requery")
     p.set_defaults(fn=cmd_conflicts)
     p = sub.add_parser("corroborate")
     p.add_argument("--threshold", type=float, default=0.8)
-    p.add_argument("--apply", action="store_true", help="达到阈值就合并成一条")
+    p.add_argument("--apply", action="store_true", help="merge into one entry once the threshold is reached")
     p.set_defaults(fn=cmd_corroborate)
     p = sub.add_parser("retarget")
-    p.add_argument("--to", required=True, help="新的目标概念名，例如 S1")
+    p.add_argument("--to", required=True, help="the new target concept name, e.g. S1")
     p.add_argument("--reason", required=True)
     p.set_defaults(fn=cmd_retarget)
     p = sub.add_parser("revalidate")

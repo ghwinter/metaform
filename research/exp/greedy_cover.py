@@ -90,7 +90,7 @@ def main() -> None:
         r_vals.append(r)
         o_vals.append(o)
 
-    print(f"instances={len(g_vals)}  unsolved(不可覆盖)={unsolved}  pool={args.pool}")
+    print(f"instances={len(g_vals)}  unsolved(uncoverable)={unsolved}  pool={args.pool}")
     print(f"greedy  mean={mean(g_vals):.2f}")
     print(f"random  mean={mean(r_vals):.2f}")
     print(f"optimal mean={mean(o_vals):.2f}")

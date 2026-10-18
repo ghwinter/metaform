@@ -132,13 +132,13 @@ def main() -> None:
         if e.signature(i) == e.signature(j) and target(CASES[i]) != target(CASES[j]):
             pair = (i, j)
             break
-    assert pair, "构造失败：初始词汇竟然分得开正反例"
+    assert pair, "setup failed: the initial vocabulary separates positives from negatives"
     i, j = pair
     (pos, neg) = (i, j) if target(CASES[i]) else (j, i)
     e.answer(pos, True)
     e.answer(neg, False)
-    print(f"初始样本: +{pos} {CASES[pos]}   -{neg} {CASES[neg]}")
-    print(f"状态: {e.status().value}   （T2 触发，词汇不足）")
+    print(f"initial sample: +{pos} {CASES[pos]}   -{neg} {CASES[neg]}")
+    print(f"status: {e.status().value}   (T2 triggered, the vocabulary is insufficient)")
 
     # proposals: first propose three decoys that "look plausible but cannot separate this pair", and only then the right one.
     # This models a bad proposer, to quantify "proposal quality → cost".
@@ -148,19 +148,19 @@ def main() -> None:
     queries = 0
     while e.status() is Status.INSUFFICIENT:
         if not tail:
-            print("提议池耗尽，仍未脱离不足")
+            print("proposal pool exhausted, still insufficient")
             return
         name = tail.pop(0)
         fn = NEEDED[1] if name == NEEDED[0] else DECOYS[name]
         e.propose(name, mask_of(fn))
         proposals += 1
-        print(f"  提议 #{proposals}: {name:14s} → 状态 {e.status().value}")
+        print(f"  propose #{proposals}: {name:14s} -> status {e.status().value}")
 
     while e.status() is Status.UNDETERMINED:
         x = e.next_question()
         e.answer(x, target(CASES[x]))
         queries += 1
-        print(f"  提问 #{queries}: case {x} {CASES[x]!r} → {target(CASES[x])}")
+        print(f"  ask #{queries}: case {x} {CASES[x]!r} -> {target(CASES[x])}")
 
     # check: is the identified extension (the union of equivalence classes containing positives) exactly the target
     derived = 0
@@ -168,9 +168,9 @@ def main() -> None:
         if c & e.pos:
             derived |= c
     ok = derived == target_mask
-    print(f"\n最终状态: {e.status().value}")
-    print(f"提议次数 {proposals}，补充提问 {queries}，总成本 {proposals * 20 + queries}（假设提议单价 20）")
-    print(f"诱导外延 == 隐藏目标: {ok}  ({bin(derived).count('1')} 个正例)")
+    print(f"\nfinal status: {e.status().value}")
+    print(f"{proposals} proposals, {queries} follow-up questions, total cost {proposals * 20 + queries} (assuming a proposal costs 20)")
+    print(f"derived extension == hidden target: {ok}  ({bin(derived).count('1')} positives)")
     if not ok:
         print(f"  derived={derived:#014b}")
         print(f"  target ={target_mask:#014b}")

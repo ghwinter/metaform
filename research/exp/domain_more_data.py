@@ -24,7 +24,7 @@ from domain_a import consistent
 def main() -> None:
     rng = random.Random(31)
     insts = [i for i in (make_instance(rng, 14, 8) for _ in range(400)) if i]
-    print(f"instances={len(insts)}, objects≈14, attrs=8 (a* 不在 V0)")
+    print(f"instances={len(insts)}, objects≈14, attrs=8 (a* not in V0)")
 
     ks = [1, 2, 3, 4, 6, 8, 10]
     print("\nk  examples    P(F empty in V0)")
