@@ -1,0 +1,377 @@
+"""
+反例台账：**可增、可删、可改**的知识库，不是只增不减的集合。
+
+为什么需要改：一条反例可能来自噪声 oracle、可能记错了对象、也可能后来发现它只对某一类候选成立。
+只增不减的集合会把一次错误永久固化，之后每个候选都被它误杀。
+
+设计：
+  - 每条记录有 id、case、by（谁击破的）、round、kind、status、reason、history。
+  - status = active | retracted；只有 active 参与判定。
+  - 删除 = retract（保留在历史里，注明理由）；修改 = amend（写进 history）。
+  - 每次变更都留时间戳，任何一次判定都能回溯到当时台账的状态。
+
+命令行：
+  python ledger.py list [--all]
+  python ledger.py add --case 4 --by has_repeated_endpoint --round 1
+  python ledger.py retract L2 --reason "oracle 当时答错"
+  python ledger.py amend L3 --case 5 --reason "记错了对象"
+  python ledger.py history
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import pathlib
+from datetime import datetime
+
+HERE = pathlib.Path(__file__).resolve().parent
+DEFAULT = HERE / "probe_ledger.json"
+
+
+def now() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def load(path: pathlib.Path) -> dict:
+    if not path.exists():
+        return {"version": 2, "entries": []}
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if "entries" in raw:
+        # 旧条目没有 evidence：按已有信息补一个，不撒谎（source 写 by）
+        for e in raw["entries"]:
+            e.setdefault("evidence", {
+                "source": e.get("by", "migrated"),
+                "answer": e.get("kind", "positive") == "positive",
+                "votes": "",
+                "reliability": 1.0,
+                "recorded": e.get("created", now()),
+            })
+        return raw
+    # 迁移：v1 的 {"cases": [3,4,6]} 或 [{"id":...}]
+    entries = []
+    for i, x in enumerate(raw.get("cases", []), 1):
+        if isinstance(x, int):
+            entries.append({"id": f"L{i}", "case": x, "by": "migrated", "round": 0,
+                            "kind": "positive", "status": "active", "reason": "",
+                            "created": now(), "history": []})
+        else:
+            entries.append({"id": f"L{i}", "case": x.get("id"), "by": x.get("by", "migrated"),
+                            "round": x.get("round", 0), "kind": x.get("kind", "positive"),
+                            "status": "active", "reason": "", "created": now(), "history": [],
+                            "evidence": {"source": x.get("by", "migrated"), "answer": True,
+                                         "votes": "", "reliability": 1.0, "recorded": now()}})
+    return {"version": 2, "entries": entries}
+
+
+def save(path: pathlib.Path, data: dict) -> None:
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def active_cases(data: dict) -> set[int]:
+    return {e["case"] for e in data["entries"] if e.get("status", "active") == "active"}
+
+
+def stale_cases(data: dict) -> set[int]:
+    """被挂起、等待在新目标下重新确认的条目。"""
+    return {e["case"] for e in data["entries"] if e.get("status") == "stale"}
+
+
+def retarget(data: dict, to: str, reason: str) -> int:
+    """换目标概念：旧条目全部挂起（stale），不删除、不参与判定，等待逐条重新确认。"""
+    n = 0
+    for e in data["entries"]:
+        if e.get("status", "active") == "active":
+            e["status"] = "stale"
+            log(e, "stale", f"retarget {data.get('target','S0')} -> {to}: {reason}")
+            n += 1
+    data["target"] = to
+    return n
+
+
+def next_id(data: dict) -> str:
+    n = len(data["entries"]) + 1
+    while any(e["id"] == f"L{n}" for e in data["entries"]):
+        n += 1
+    return f"L{n}"
+
+
+def log(e: dict, action: str, note: str) -> None:
+    e.setdefault("history", []).append({"at": now(), "action": action, "note": note})
+
+
+def cmd_list(args) -> None:
+    data = load(args.ledger)
+    print(f"{'id':5s} {'case':>5s} {'status':>10s} {'by':22s} round  evidence  reason")
+    for e in data["entries"]:
+        if e["status"] != "active" and not args.all:
+            continue
+        ev = e.get("evidence", {})
+        evs = f"{ev.get('answer', '?')}/{ev.get('source', '?')[:10]}/r{ev.get('reliability', 1.0):.2f}"
+        print(f"{e['id']:5s} {e['case']:>5d} {e['status']:>10s} {e['by'][:22]:22s} "
+              f"{e.get('round', 0):>4d}  {evs:22s}  {e.get('reason', '')}")
+    print(f"\nactive cases: {sorted(active_cases(data))}")
+
+
+def cmd_add(args) -> None:
+    data = load(args.ledger)
+    dup = [e["id"] for e in data["entries"]
+           if e["case"] == args.case and e.get("status", "active") == "active"]
+    if dup:
+        print(f"注意：case {args.case} 已有 active 条目 {dup}，将作为独立证据并存")
+    e = {"id": next_id(data), "case": args.case, "by": args.by, "round": args.round,
+         "kind": args.kind, "status": "active", "reason": args.reason or "",
+         "created": now(), "history": [],
+         "evidence": {"source": args.source, "answer": args.answer == "true",
+                      "votes": args.votes, "reliability": args.reliability,
+                      "recorded": now()}}
+    log(e, "add", args.reason or "")
+    data["entries"].append(e)
+    save(args.ledger, data)
+    print(f"+ {e['id']} case {args.case}")
+
+
+def cmd_retract(args) -> None:
+    data = load(args.ledger)
+    for e in data["entries"]:
+        if e["id"] == args.id:
+            e["status"] = "retracted"
+            e["reason"] = args.reason
+            log(e, "retract", args.reason)
+            save(args.ledger, data)
+            print(f"- {e['id']} (case {e['case']}) retracted: {args.reason}")
+            return
+    raise SystemExit(f"no such id: {args.id}")
+
+
+def cmd_amend(args) -> None:
+    data = load(args.ledger)
+    for e in data["entries"]:
+        if e["id"] == args.id:
+            before = (e["case"], e["kind"])
+            if args.case is not None:
+                e["case"] = args.case
+            if args.kind:
+                e["kind"] = args.kind
+            if args.by:
+                e["by"] = args.by
+            if args.reliability is not None:
+                e["evidence"]["reliability"] = args.reliability
+            log(e, "amend", f"{before} -> {(e['case'], e['kind'])}; {args.reason}")
+            e["reason"] = args.reason
+            save(args.ledger, data)
+            print(f"~ {e['id']} amended to case {e['case']} ({e['kind']}): {args.reason}")
+            return
+    raise SystemExit(f"no such id: {args.id}")
+
+
+def combined(entries: list[dict]) -> float:
+    """独立证据的 noisy-OR：1 - Π(1 - r_i)。"""
+    prod = 1.0
+    for e in entries:
+        prod *= (1.0 - float(e.get("evidence", {}).get("reliability", 1.0)))
+    return 1.0 - prod
+
+
+def directions(data: dict) -> dict[int, dict[str, float]]:
+    """按方向合并可信度：{case: {"pos": r, "neg": r}}。"""
+    out: dict[int, dict[str, float]] = {}
+    for e in data["entries"]:
+        if e.get("status", "active") != "active":
+            continue
+        r = float(e.get("evidence", {}).get("reliability", 1.0))
+        d = "pos" if e.get("evidence", {}).get("answer", True) else "neg"
+        cur = out.setdefault(e["case"], {"pos": 0.0, "neg": 0.0})
+        cur[d] = 1.0 - (1.0 - cur[d]) * (1.0 - r)
+    return out
+
+
+def conflicts(data: dict, threshold: float = 0.5, ratio: float = 0.7) -> dict[int, dict[str, float]]:
+    """同一对象同时有正、负证据，且两边分量接近 → 冲突：真值未定。
+
+    若一边压倒另一边（min/max < ratio），不判冲突，让强的一边说话——
+    压倒性的证据不该被弱反对票取消。
+    """
+    out = {}
+    for c, d in directions(data).items():
+        lo, hi = d["pos"], d["neg"]
+        if lo > hi:
+            lo, hi = hi, lo
+        if lo >= threshold and hi > 0 and lo >= ratio * hi:
+            out[c] = d
+    return out
+
+
+def votes_needed(r_query: float, target: float = 0.95) -> int:
+    """还要几次独立确认，才能让某一侧达到 target（假设每次可信度 r_query）。"""
+    if r_query <= 0 or r_query >= 1:
+        return 0
+    n, acc = 0, 0.0
+    while acc < target and n < 50:
+        n += 1
+        acc = 1.0 - (1.0 - acc) * (1.0 - r_query)
+    return n
+
+
+def cmd_conflicts(args) -> None:
+    data = load(args.ledger)
+    conf = conflicts(data, args.threshold, args.ratio)
+    if not conf:
+        print("no conflicts")
+        return
+
+    # 工作队列：差距越小越优先；给出"再做几次独立确认"
+    queue = []
+    for case, d in conf.items():
+        gap = abs(d["pos"] - d["neg"])
+        queue.append({"case": case, "pos": round(d["pos"], 3), "neg": round(d["neg"], 3),
+                      "gap": round(gap, 3),
+                      "votes": votes_needed(args.r_query)})
+    queue.sort(key=lambda x: x["gap"])
+
+    if args.json:
+        print(json.dumps({"requery": queue, "r_query": args.r_query}, ensure_ascii=False, indent=2))
+        return
+
+    print(f"重问队列（按差距升序，r_query={args.r_query}）：")
+    print(f"{'case':>5s} {'pos':>6s} {'neg':>6s} {'gap':>6s} {'再问':>5s}")
+    for q in queue:
+        print(f"{q['case']:>5d} {q['pos']:6.2f} {q['neg']:6.2f} {q['gap']:6.2f} {q['votes']:>5d}")
+    print(f"\n{len(queue)} 个对象待重问；差距小的先问")
+
+
+def cmd_corroborate(args) -> None:
+    data = load(args.ledger)
+    groups: dict[int, list[dict]] = {}
+    for e in data["entries"]:
+        if e.get("status", "active") == "active":
+            groups.setdefault(e["case"], []).append(e)
+
+    for case, es in sorted(groups.items()):
+        r = combined(es)
+        mark = "OK" if r >= args.threshold else "weak"
+        ids = ", ".join(e["id"] for e in es)
+        print(f"case {case:>3d}: {len(es)} 条 [{ids}]  合并可信度 {r:.2f}  {mark}")
+        if args.apply and r >= args.threshold and len(es) > 1:
+            new = {"id": next_id(data), "case": case, "by": "corroborated",
+                   "round": max(e.get("round", 0) for e in es), "kind": "positive",
+                   "status": "active", "reason": f"由 {ids} 交叉确认", "created": now(),
+                   "history": [{"at": now(), "action": "corroborate",
+                                "note": f"{ids} → r={r:.2f}"}],
+                   "evidence": {"source": "corroborated(" + ids + ")", "answer": True,
+                                "votes": "", "reliability": r, "recorded": now(),
+                                "derived_from": [e["id"] for e in es]}}
+            for e in es:
+                e["status"] = "superseded"
+                log(e, "supersede", f"合并进 {new['id']}（r={r:.2f}）")
+            data["entries"].append(new)
+            print(f"  + {new['id']} 生效（原条目转为 superseded）")
+    if args.apply:
+        save(args.ledger, data)
+
+
+def cmd_normalize(args) -> None:
+    data = load(args.ledger)
+    save(args.ledger, data)
+    n = sum(1 for e in data["entries"] if "evidence" in e)
+    print(f"normalized: {n} entries now carry evidence")
+
+
+def cmd_show(args) -> None:
+    data = load(args.ledger)
+    for e in data["entries"]:
+        if e["id"] == args.id:
+            print(json.dumps(e, ensure_ascii=False, indent=2))
+            return
+    raise SystemExit(f"no such id: {args.id}")
+
+
+def cmd_retarget(args) -> None:
+    data = load(args.ledger)
+    n = retarget(data, args.to, args.reason)
+    save(args.ledger, data)
+    print(f"~ retarget -> {args.to}: {n} 条挂起（stale），等待重新确认")
+
+
+def cmd_revalidate(args) -> None:
+    data = load(args.ledger)
+    for e in data["entries"]:
+        if e["id"] == args.id:
+            if e.get("status") != "stale":
+                raise SystemExit(f"{args.id} 不是 stale（当前 {e.get('status')}）")
+            e["status"] = "active"
+            log(e, "revalidate", f"在目标 {data.get('target','S0')} 下重新确认；{args.reason}")
+            save(args.ledger, data)
+            print(f"+ {e['id']} (case {e['case']}) 重新生效")
+            return
+    raise SystemExit(f"no such id: {args.id}")
+
+
+def cmd_history(args) -> None:
+    data = load(args.ledger)
+    for e in data["entries"]:
+        print(f"{e['id']} case {e['case']} [{e['status']}]")
+        for h in e.get("history", []):
+            print(f"    {h['at']}  {h['action']:8s} {h['note']}")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ledger", type=pathlib.Path, default=DEFAULT)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("list"); p.add_argument("--all", action="store_true"); p.set_defaults(fn=cmd_list)
+    p = sub.add_parser("add")
+    p.add_argument("--case", type=int, required=True)
+    p.add_argument("--by", default="manual")
+    p.add_argument("--round", type=int, default=0)
+    p.add_argument("--kind", default="positive", choices=["positive", "negative"])
+    p.add_argument("--reason", default="")
+    p.add_argument("--source", default="manual", help="这条判断凭什么：oracle / 测试 / 人工")
+    p.add_argument("--answer", default="true", choices=["true", "false"])
+    p.add_argument("--votes", default="", help='票数，如 "3 0"')
+    p.add_argument("--reliability", type=float, default=1.0,
+                   help="这条证据有多可信：单元测试/Lean=1.0，模型按 1-ε")
+    p.set_defaults(fn=cmd_add)
+    p = sub.add_parser("retract")
+    p.add_argument("id"); p.add_argument("--reason", required=True); p.set_defaults(fn=cmd_retract)
+    p = sub.add_parser("amend")
+    p.add_argument("id"); p.add_argument("--case", type=int); p.add_argument("--kind",
+        choices=["positive", "negative"]); p.add_argument("--by")
+    p.add_argument("--reliability", type=float); p.add_argument("--reason", required=True)
+    p.set_defaults(fn=cmd_amend)
+    p = sub.add_parser("show"); p.add_argument("id"); p.set_defaults(fn=cmd_show)
+    p = sub.add_parser("normalize"); p.set_defaults(fn=cmd_normalize)
+    p = sub.add_parser("conflicts")
+    p.add_argument("--threshold", type=float, default=0.5)
+    p.add_argument("--ratio", type=float, default=0.7, help="min/max 低于此值就不算冲突")
+    p.add_argument("--json", action="store_true", help="输出机器可读的重问队列")
+    p.add_argument("--r-query", type=float, default=0.6, help="假设每次重问的可信度")
+    p.set_defaults(fn=cmd_conflicts)
+    p = sub.add_parser("corroborate")
+    p.add_argument("--threshold", type=float, default=0.8)
+    p.add_argument("--apply", action="store_true", help="达到阈值就合并成一条")
+    p.set_defaults(fn=cmd_corroborate)
+    p = sub.add_parser("retarget")
+    p.add_argument("--to", required=True, help="新的目标概念名，例如 S1")
+    p.add_argument("--reason", required=True)
+    p.set_defaults(fn=cmd_retarget)
+    p = sub.add_parser("revalidate")
+    p.add_argument("id"); p.add_argument("--reason", default="")
+    p.set_defaults(fn=cmd_revalidate)
+    p = sub.add_parser("history"); p.set_defaults(fn=cmd_history)
+
+    args = ap.parse_args()
+    args.fn(args)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+
+
+
+

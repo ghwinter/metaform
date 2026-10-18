@@ -1,0 +1,228 @@
+"""
+回归检查：论文里的关键数字，跑一遍是否还成立。
+
+数字与容差都在 EXPECTED 里；任何一项超出容差就非零退出。
+目的是避免"论文写着 2.01，代码改完变成 3.4，但没人发现"。
+
+运行：python verify_claims.py [--tolerance 0.06]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import statistics
+import subprocess
+import sys
+from pathlib import Path
+
+from multi_seed import run_cover, run_policy
+
+SEEDS = [1, 2, 3, 4, 5]
+N = 150
+
+# 成本律自洽检查：论文声称 total ≈ r/q + 7.6（r=20），下面是四个实测点。
+COST_R = 20.0
+COST_ROUNDS = 7.6
+COST_POINTS = [(1.0, 27.6), (0.5, 49.4), (0.25, 88.9), (0.125, 162.7)]
+PAPER_EN = Path(__file__).resolve().parents[2] / "paper" / "en" / "main.tex"
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_ENGINE = ROOT / "engine" / "target" / "debug" / "metaform.exe"
+
+# `metaform ops` 的三组数（论文与 README 引用过）
+OPS_SELECTION = {"selected_cost": 3.11, "random_cost": 3.50, "fixed_cost": 3.60}
+OPS_PROBE = {"early_queries": 1, "verified_queries": 5, "verified_cost": 14}
+
+# 论文里的值（RESULTS.md §3.18 / §3.5）
+EXPECTED = {
+    "gain": 2.01,
+    "rand_inf": 1.91,
+    "random_queries": 6.14,
+    "greedy": 2.10,
+    "optimal": 1.85,
+    "random_cover": 4.28,
+}
+
+
+def agg(fn) -> tuple[float, float]:
+    vals = [fn(s) for s in SEEDS]
+    return statistics.mean(vals), statistics.stdev(vals)
+
+
+def ensure_engine(path: Path) -> Path:
+    if not path.exists():
+        r = subprocess.run(
+            ["cargo", "build", "--quiet", "--manifest-path", str(ROOT / "engine" / "Cargo.toml")],
+            capture_output=True, text=True, encoding="utf-8",
+        )
+        if r.returncode != 0:
+            print(f"! cargo build 失败:\n{r.stderr[:400]}")
+            sys.exit(1)
+    return path
+
+
+def check_ops(engine: Path) -> int:
+    """跑 `metaform ops`，核对论文引用的 selection 与 probe 数字。"""
+    out = subprocess.run([str(engine), "ops"], capture_output=True, text=True, encoding="utf-8")
+    try:
+        doc = json.loads(out.stdout.strip().splitlines()[-1])
+    except Exception:
+        print("! ops 输出不可解析")
+        return 1
+    bad = 0
+    sel = doc.get("selection", {})
+    for k, want in OPS_SELECTION.items():
+        got = sel.get(k)
+        ok = got is not None and abs(got - want) <= 0.011
+        bad += 0 if ok else 1
+        print(f"ops.selection.{k:14s} want {want:5.2f} got {got!s:>6}  {'OK' if ok else 'DRIFT'}")
+    probe = doc.get("probe", {})
+    for k, want in OPS_PROBE.items():
+        got = probe.get(k)
+        ok = got == want
+        bad += 0 if ok else 1
+        print(f"ops.probe.{k:16s} want {want:>3} got {got!s:>4}  {'OK' if ok else 'DRIFT'}")
+    text = PAPER_EN.read_text(encoding="utf-8")
+    msel = re.search(
+        r"needs \$([\d.]+)\$ queries against \$([\d.]+)\$ for a random order and \$([\d.]+)\$ for a fixed one",
+        re.sub(r"\s+", " ", text),
+    )
+    if not msel:
+        bad += 1
+        print("! 论文里 selection 的句子结构变了")
+    else:
+        for k, got in zip(
+            ("selected_cost", "random_cost", "fixed_cost"),
+            (float(x) for x in msel.groups()),
+        ):
+            if abs(got - sel[k]) > 0.011:
+                bad += 1
+                print(f"! 论文的 {k}={got} 与 ops {sel[k]} 不一致")
+
+    mcost = re.search(
+        r"total cost is \$([\d.]+)\$, \$([\d.]+)\$, \$([\d.]+)\$ and \$([\d.]+)\$",
+        re.sub(r"\s+", " ", text),
+    )
+    if not mcost:
+        bad += 1
+        print("! 论文里成本四点那句的结构变了")
+    else:
+        for (q, _), got in zip(COST_POINTS, (float(x) for x in mcost.groups())):
+            want = next(p for qq, p in COST_POINTS if qq == q)
+            if abs(got - want) > 0.05:
+                bad += 1
+                print(f"! 论文的实测点 q={q} 写成 {got}，期望 {want}")
+
+    # 第三来源：README 的三处数字；与 ops 输出逐项比，避免"论文+常量一起漂"。
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    flat = re.sub(r"\s+", " ", readme)
+    m = re.search(r"逐步选择 ([\d.]+) 次、随机顺序 ([\d.]+) 次、固定顺序 ([\d.]+) 次", flat)
+    if not m:
+        bad += 1
+        print("! README 的 selection 句子结构变了（三处数字必须同现）")
+    else:
+        for k, got in zip(
+            ("selected_cost", "random_cost", "fixed_cost"),
+            (float(x) for x in m.groups()),
+        ):
+            if abs(got - sel[k]) > 0.011:
+                bad += 1
+                print(f"! README 的 {k}={got} 与 ops {sel[k]} 不一致")
+    mp = re.search(r"验证版 (\d+) 次查询、成本 (\d+)", flat)
+    if not mp:
+        bad += 1
+        print("! README 的 probe 句子结构变了")
+    elif (int(mp.group(1)), int(mp.group(2))) != (
+        probe.get("verified_queries"),
+        probe.get("verified_cost"),
+    ):
+        bad += 1
+        print(f"! README 的 probe 数字 {mp.groups()} 与 ops 不一致")
+    return bad
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tolerance", type=float, default=0.06)
+    ap.add_argument("--tamper", action="append", default=[], metavar="KEY=VALUE",
+                    help="故意改错一个期望值，用来验证门是活的")
+    ap.add_argument("--tamper-cost", action="store_true",
+                    help="把第一个成本点改错，验证成本律检查是活的")
+    ap.add_argument("--engine", default=str(DEFAULT_ENGINE),
+                    help="metaform 可执行文件（用于核对 ops 数字）")
+    ap.add_argument("--tamper-ops", action="store_true",
+                    help="改错 ops 期望值，验证该检查是活的")
+    args = ap.parse_args()
+
+    if args.tamper_cost:
+        COST_POINTS[0] = (1.0, 99.0)
+        print("[tamper] cost point q=1 := 99.0")
+
+    if args.tamper_ops:
+        OPS_SELECTION["selected_cost"] = 9.99
+        print("[tamper] ops.selection.selected_cost := 9.99")
+
+    for t in args.tamper:
+        k, v = t.split("=", 1)
+        if k not in EXPECTED:
+            print(f"unknown claim: {k}")
+            sys.exit(2)
+        EXPECTED[k] = float(v)
+        print(f"[tamper] {k} := {v}")
+
+    rows = []
+    for policy, key in (("gain", "gain"), ("rand_inf", "rand_inf"), ("random", "random_queries")):
+        m, sd = agg(lambda s, p=policy: run_policy(s, p, N, 12, 8, 2))
+        rows.append((key, EXPECTED[key], m, sd))
+
+    cover = [run_cover(s, N, 10, 12) for s in SEEDS]
+    for i, key in ((0, "greedy"), (1, "random_cover"), (2, "optimal")):
+        vals = [c[i] for c in cover]
+        rows.append((key, EXPECTED[key], statistics.mean(vals), statistics.stdev(vals)))
+
+
+    print(f"{'claim':16s} {'paper':>7s} {'now':>7s} {'sd':>6s} {'diff':>7s}  verdict")
+    bad = 0
+    for key, want, got, sd in rows:
+        diff = got - want
+        ok = abs(diff) <= args.tolerance
+        bad += 0 if ok else 1
+        print(f"{key:16s} {want:7.2f} {got:7.2f} {sd:6.2f} {diff:+7.2f}  {'OK' if ok else 'REG RESSED'}")
+
+    if bad:
+        print(f"\n{bad} 项超出容差 {args.tolerance}")
+        sys.exit(1)
+
+    # --- 成本律自洽：公式与四个实测点必须同时成立 ---
+    print(f"\n{'q':>6s} {'measured':>9s} {'20/q+7.6':>9s} {'rel.err':>8s}")
+    law_bad = 0
+    for q, measured in COST_POINTS:
+        predicted = COST_R / q + COST_ROUNDS
+        err = abs(measured - predicted) / predicted
+        ok = err <= 0.04
+        law_bad += 0 if ok else 1
+        print(f"{q:6.3f} {measured:9.2f} {predicted:9.2f} {err:8.1%}  {'OK' if ok else 'BROKEN'}")
+
+    text = PAPER_EN.read_text(encoding="utf-8")
+    if "close to $r/q + 7.6$" not in text:
+        print("! 论文不再声明 close to r/q+7.6")
+        law_bad += 1
+    if "exactly $r/q" in text:
+        print("! 论文又出现了 exactly r/q（与实测不符）")
+        law_bad += 1
+
+    if law_bad:
+        print(f"\n成本律 {law_bad} 处不自洽")
+        sys.exit(1)
+
+    ops_bad = check_ops(ensure_engine(Path(args.engine)))
+    if ops_bad:
+        print(f"\nops 数字 {ops_bad} 处漂移")
+        sys.exit(1)
+    print("\nall claims within tolerance")
+
+
+if __name__ == "__main__":
+    main()
+
+

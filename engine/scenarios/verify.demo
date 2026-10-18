@@ -1,0 +1,30 @@
+# 端到端：先 VERIFY 再 PROPOSE 的一个小域
+#
+# 6 个测试文件；隐藏概念 S = "集成测试"（碰网络或数据库）。
+# 初始词汇只有 slow 与 doc，于是有两对文件落在同一类里：
+#   {0,4} 与 {2,5}。先各问一个代表，状态是 IDENTIFIED，
+#   但 4 与 5 的标签是从同类继承的 —— need 应当要求 VERIFY。
+
+objects 6
+add slow 0 1 4
+add doc 0 2 4 5
+
+# 每个类问一个代表
+vote 0 3 0     # f0 是集成测试
+vote 1 0 3     # f1 不是
+vote 2 3 0     # f2 是
+vote 3 0 3     # f3 不是
+need           # 期望 IDENTIFIED / VERIFY / unverified=[4,5]
+
+# 探测 f4：真值不是集成测试 → 与 f0 撞车
+vote 4 0 3
+need           # 期望 INSUFFICIENT / PROPOSE
+
+# 提议新原子：碰网络（f0 与 f2）
+add net 0 2
+need           # 期望 UNDETERMINED / ASK（5 还没直接问过）
+vote 5 3 0     # f5 碰数据库 → 也是集成测试
+need           # 期望 IDENTIFIED / STOP（所有类都是单例、无继承标签）
+
+status
+explain

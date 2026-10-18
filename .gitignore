@@ -1,0 +1,26 @@
+# Local corpora, machine facts, and vendored references: not part of the project history.
+.library/
+.local/
+.repo/
+
+# Build outputs and generated artifacts.
+dist/
+engine/target/
+*.pdf
+*.aux
+*.log
+*.out
+*.toc
+engine/last-test.log
+research/lean/last-check.log
+.metaform/
+
+# Raw conversation logs and internal notes: inputs, not deliverables.
+1.md
+1-digest.md
+reasoning_engine_research_map.md
+HANDOFF.md
+
+# Python cache.
+__pycache__/
+*.pyc

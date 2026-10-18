@@ -1,0 +1,21 @@
+[package]
+name = "metaform"
+version = "0.3.0"
+edition = "2021"
+description = "查询驱动的表征变更：核心状态机（论文的形式化对应实现）"
+
+[lib]
+name = "metaform"
+path = "src/lib.rs"
+
+[[bin]]
+name = "metaform"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+
+
+

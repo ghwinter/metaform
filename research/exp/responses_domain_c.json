@@ -1,0 +1,60 @@
+[
+  {
+    "name": "overlap_or_touch",
+    "rationale": "两个区间相交或端点相接时才会合并，输出才会变短。",
+    "predicate_py": "lambda c: any(max(a1, a2) <= min(b1, b2) for (a1, b1), (a2, b2) in combinations(sorted(c), 2)) or any(c[i][1] == c[j][0] for i in range(len(c)) for j in range(len(c)) if i != j)",
+    "predictions": [
+      10,
+      11,
+      7
+    ],
+    "counterexamples": [
+      2
+    ]
+  },
+  {
+    "name": "has_repeated_endpoint",
+    "rationale": "端点重复意味着某两个区间首尾相接——但只覆盖链式相接，不含真重叠。",
+    "predicate_py": "lambda c: len({p for iv in c for p in iv}) < 2 * len(c)",
+    "predictions": [
+      6,
+      11
+    ],
+    "counterexamples": [
+      4
+    ]
+  },
+  {
+    "name": "input_has_three_or_more",
+    "rationale": "很长的输入更容易发生合并（这是相关性，不是定义）。",
+    "predicate_py": "lambda c: len(c) >= 3",
+    "predictions": [
+      9,
+      10,
+      11
+    ],
+    "counterexamples": [
+      3
+    ]
+  },
+  {
+    "name": "width_exceeds_gap",
+    "rationale": "若某区间宽度大于它与后一区间的间隔，二者必重叠。",
+    "predicate_py": "lambda c: any(sorted(c)[i+1][0] - sorted(c)[i][1] < 0 for i in range(len(c)-1))",
+    "predictions": [
+      4,
+      7,
+      10
+    ],
+    "counterexamples": [
+      6
+    ]
+  },
+  {
+    "name": "repeat_mistake_v2",
+    "rationale": "换一种写法重提同一个旧错误（端点重复），用来测台账有没有记忆。",
+    "predicate_py": "lambda c: sum(1 for iv in c for _ in iv) > len({p for iv in c for p in iv})",
+    "predictions": [],
+    "counterexamples": []
+  }
+]
