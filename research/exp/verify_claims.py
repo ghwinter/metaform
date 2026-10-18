@@ -33,6 +33,17 @@ DEFAULT_ENGINE = ROOT / "engine" / "target" / "debug" / "metaform.exe"
 OPS_SELECTION = {"selected_cost": 3.11, "random_cost": 3.50, "fixed_cost": 3.60}
 OPS_PROBE = {"early_queries": 1, "verified_queries": 5, "verified_cost": 14}
 
+# rows from `metaform portfolio` (paper §5, cheap proposals)
+PORTFOLIO = {
+    ("disagreement", "baseline", 5, "success"): 0.250,
+    ("disagreement", "portfolio", 3, "success"): 0.975,
+    ("disagreement", "portfolio", 5, "success"): 0.955,
+    ("disagreement", "portfolio", 5, "queries_per_decoy"): 1.53,
+    ("disagreement", "portfolio", 3, "conflict"): 0.025,
+    ("disagreement", "portfolio", 10, "success"): 0.890,
+    ("disagreement", "portfolio", 10, "conflict"): 0.110,
+}
+
 # values in the paper (RESULTS.md §3.18 / §3.5)
 EXPECTED = {
     "gain": 2.01,
@@ -142,6 +153,33 @@ def check_ops(engine: Path) -> int:
     return bad
 
 
+def check_portfolio(engine: Path) -> int:
+    """Run `metaform portfolio` and check the numbers the paper quotes for cheap proposals."""
+    out = subprocess.run(
+        [str(engine), "portfolio", "--trials", "200"],
+        capture_output=True, text=True, encoding="utf-8",
+    )
+    try:
+        doc = json.loads(out.stdout.strip().splitlines()[-1])
+    except Exception:
+        print("! portfolio output is not parseable")
+        return 1
+    rows = {(r["rule"], r["arm"], r["k"]): r for r in doc.get("rows", [])}
+    bad = 0
+    for (rule, arm, k, field), want in sorted(PORTFOLIO.items()):
+        row = rows.get((rule, arm, k), {})
+        got = row.get(field)
+        ok = got is not None and abs(got - want) <= 0.011
+        bad += 0 if ok else 1
+        print(f"portfolio.{arm:9s}.k{k:<2d}.{field:16s} want {want:5.2f} got {got!s:>6}  {'OK' if ok else 'DRIFT'}")
+    text = PAPER_EN.read_text(encoding="utf-8")
+    for token in ("$0.250$", "$0.955$", "$1.53$", "$0.025$", "$0.110$", "$0.975$", "$0.890$"):
+        if token not in text:
+            print(f"! the paper no longer cites {token}")
+            bad += 1
+    return bad
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tolerance", type=float, default=0.06)
@@ -153,6 +191,8 @@ def main() -> None:
                     help="metaform executable (used to check the ops numbers)")
     ap.add_argument("--tamper-ops", action="store_true",
                     help="corrupt an ops expected value, to prove that check is live")
+    ap.add_argument("--tamper-portfolio", action="store_true",
+                    help="corrupt a portfolio expected value, to prove that check is live")
     args = ap.parse_args()
 
     if args.tamper_cost:
@@ -162,6 +202,10 @@ def main() -> None:
     if args.tamper_ops:
         OPS_SELECTION["selected_cost"] = 9.99
         print("[tamper] ops.selection.selected_cost := 9.99")
+
+    if args.tamper_portfolio:
+        PORTFOLIO[("disagreement", "portfolio", 5, "success")] = 0.111
+        print("[tamper] portfolio.disagreement.portfolio.k5.success := 0.111")
 
     for t in args.tamper:
         k, v = t.split("=", 1)
@@ -219,6 +263,11 @@ def main() -> None:
     ops_bad = check_ops(ensure_engine(Path(args.engine)))
     if ops_bad:
         print(f"\nops numbers drifted in {ops_bad} places")
+        sys.exit(1)
+
+    portfolio_bad = check_portfolio(ensure_engine(Path(args.engine)))
+    if portfolio_bad:
+        print(f"\nportfolio numbers drifted in {portfolio_bad} places")
         sys.exit(1)
     print("\nall claims within tolerance")
 

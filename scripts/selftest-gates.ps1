@@ -14,6 +14,7 @@
       cost    break one measured cost point        -> expect exit code 1
       ops no. change one expected ops number        -> expect exit code 1
       probe   change probe.early_correct to true    -> expect exit code 1
+      portfolio change one portfolio row            -> expect exit code 1
 
     Only when every gate fails as expected are the gates "alive".
 
@@ -115,6 +116,15 @@ try {
 }
 finally { Pop-Location }
 $results += [pscustomobject]@{ Gate = 'claims / tampered ops number'; Got = $code; Want = 1 }
+
+# --- 3d. Portfolio numbers: deliberately use a wrong expected value ---
+Push-Location (Join-Path $root 'research\exp')
+try {
+    & $Python verify_claims.py --tamper-portfolio | Out-Null
+    $code = $LASTEXITCODE
+}
+finally { Pop-Location }
+$results += [pscustomobject]@{ Gate = 'claims / tampered portfolio'; Got = $code; Want = 1 }
 
 # --- 4. Probe demo: tamper with early_correct (no collision != correct) ---
 $fake = Join-Path $env:TEMP "fake_ops_$PID.cmd"

@@ -55,6 +55,7 @@ HANDOFF.md
 !/engine/src/main.rs
 !/engine/src/mcp.rs
 !/engine/src/operators.rs
+!/engine/src/portfolio.rs
 !/engine/src/plan.rs
 !/engine/src/report.rs
 !/engine/src/score.rs

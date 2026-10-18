@@ -19,6 +19,9 @@ use std::collections::HashMap;
 /// Multi-operator typing (paper §4): five classes of steps share one measure `Φ`, and each class is checked for what it can change.
 pub mod operators;
 
+/// Portfolio identification: several vocabularies, exactly one of which is sufficient (paper Theorem 2).
+pub mod portfolio;
+
 /// Bitmask over a set of objects. Enough for up to 64 objects; switch to `bitvec` if you need more.
 pub type Mask = u64;
 

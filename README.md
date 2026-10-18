@@ -77,7 +77,7 @@ This repository uses it too: the `.metaform/` directory at the root is its outpu
 ```powershell
 pwsh -File scripts/check-all.ps1                     # six assertion gates (Lean/Rust/references/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 63)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 67)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain
@@ -170,6 +170,8 @@ anything that pins what the results are (Lean version, Mathlib revision, the Rus
     instead of hand-writing `ledger add`.
 
 18. **Cheap proposals do not remove the evidence floor**: as the proposal cost falls toward zero the cost law tends to the 7.6 query rounds, so cheap thinking buys a better vocabulary, not fewer questions; queries spent under an insufficient vocabulary are unrecoverable (T5). A portfolio of candidate vocabularies is paid for in the very currency it is meant to save.
+
+19. **Cheap proposals buy the vocabulary, not the queries**: with `k` candidate vocabularies of which exactly one is sufficient, a baseline that draws one member succeeds `1/k` (0.250 at `k=5`) while the portfolio succeeds 0.955, paying 1.53 queries to eliminate each wrong candidate (`metaform portfolio`, 200 trials). The portfolio never decides a wrong extension; conflict is its only failure and rises from 0.025 at `k=3` to 0.110 at `k=10`, so success peaks at `k=3` (0.975) and falls back at `k=10` (0.890).
 
 ## Honest boundaries
 

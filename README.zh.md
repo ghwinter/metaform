@@ -73,7 +73,7 @@ metaform ops                                       # 五类算子调度对照：
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 六套断言门（Lean/Rust/引用/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 63）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 67）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接
@@ -165,6 +165,8 @@ pwsh -File scripts/bootstrap.ps1 -Write   # 用观测到的值写出 scripts/loc
     不再手写 `ledger add`。
 
 18. **廉价的提议去不掉证据地板**：提议成本趋近于零时，成本规律趋于 7.6 个提问轮，所以便宜的是词汇、不是问题；在不足的词汇下花掉的提问无法补回（T5）。候选词汇的组合，代价正好落在它想省下的那种货币上。
+
+19. **廉价的提议买的是词汇，不是提问**：`k` 个候选词汇中恰好一个足够时，随机抽一个成员的基线成功率为 `1/k`（`k=5` 时 0.250），组合为 0.955，代价是每淘汰一个错误候选多花 1.53 次提问（`metaform portfolio`，200 次试验）。组合从不错判扩展；它只以冲突失败，冲突从 `k=3` 的 0.025 升到 `k=10` 的 0.110，因此成功率在 `k=3` 达到峰值 0.975，到 `k=10` 回落到 0.890。
 
 ## 诚实边界
 

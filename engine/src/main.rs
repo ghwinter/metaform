@@ -428,6 +428,10 @@ fn main() {
             println!("{}", metaform::operators::demo_json());
             std::process::exit(0);
         }
+        Some("portfolio") => {
+            let v: Vec<String> = std::env::args().skip(2).collect();
+            std::process::exit(metaform::portfolio::run_cli(&v));
+        }
         Some("mcp") => {
             mcp::serve();
             std::process::exit(0);

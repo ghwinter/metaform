@@ -28,7 +28,7 @@ param(
     [switch]$SkipExperiments,
     [switch]$SkipAlign,
     [switch]$SkipTheory,
-    [int]$RustExpected = 63,
+    [int]$RustExpected = 67,
     [string]$Python = $env:METAFORM_PYTHON
 )
 
