@@ -1,7 +1,6 @@
 # 07 JEV / System One: Where It Sits in Our System
 
-Source: added in §6 of 1.md. Materials archived in `.library/11_decision_models/` (8 items, downloaded
-2026-10-19).
+Materials: 8 items on System One and decision models.
 
 ## 1. What it is
 
@@ -17,11 +16,11 @@ Key limitation: **the option set is given**. It can choose; it cannot invent.
 
 | Finding | Source |
 |---|---|
-| Once the threshold is frozen, "accept the confident verdicts and escalate the rest" is 0.9 points more accurate than GPT-6, at 41% of the cost | `jev_as_a_judge_2026.txt`: "accepting confident verdicts and escalating the rest is 0.9 points more accurate than GPT-6 on 1,610 held-out pairs at 41% of its fee" |
-| A decision model's standalone accuracy ≠ agent success rate: **handing tool choice to it without fitting the threshold drops the success rate by 19.0 points** | `jev_agent_harness_2026.txt`: "without a fitted confidence threshold, delegating tool choices lowered success by 19.0 points" |
-| Choice is sensitive to equivalent phrasings (0.771–0.978); calibration must be validated per task | `sys1cal_v1_calibration_2026.txt` |
-| No consistent advantage over LLMs (no advantage over Qwen) | `jev_vs_llms_political_science_2026.txt` |
-| The advantage depends on task, option count, threshold, and calibration method | `system_one_decision_gates_2026.txt` |
+| Once the threshold is frozen, "accept the confident verdicts and escalate the rest" is 0.9 points more accurate than GPT-6, at 41% of the cost | the 2026 study of JEV as a judge: "accepting confident verdicts and escalating the rest is 0.9 points more accurate than GPT-6 on 1,610 held-out pairs at 41% of its fee" |
+| A decision model's standalone accuracy ≠ agent success rate: **handing tool choice to it without fitting the threshold drops the success rate by 19.0 points** | the 2026 study of JEV in an agent harness: "without a fitted confidence threshold, delegating tool choices lowered success by 19.0 points" |
+| Choice is sensitive to equivalent phrasings (0.771–0.978); calibration must be validated per task | the 2026 System One calibration study (v1) |
+| No consistent advantage over LLMs (no advantage over Qwen) | the 2026 study comparing JEV with LLMs on political-science tasks |
+| The advantage depends on task, option count, threshold, and calibration method | the 2026 study of System One decision gates |
 
 ## 3. Where it sits in our system
 

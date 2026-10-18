@@ -47,18 +47,18 @@ Use 1.
 
 ## 6. Related-work comparison table (use the materials in the library directly)
 
-| System / theory | What is fixed | Allowed to change the language? | oracle | Selection criterion | Location in library |
-|---|---|---|---|---|---|
-| FCA attribute exploration | Attribute vocabulary (except additions during exploration) | Yes, but humans supply attributes and answer each question | Human expert | Implication-failure driven | `03a_fca` (concepts doc + zip) |
-| ILP | Predicate signature | Needs predicate invention; no criterion | Labeled data | Coverage + compression | `04_rule_program_induction/cropper2021_ilp_at_30.pdf` |
-| SME | Predicate vocabulary | No | — | Structural consistency + systematic mapping | `03b_structure_mapping` (+ SME4 source) |
-| DreamCoder | DSL (which it refactors) | Yes, driven by **corpus** compression | Task set | MDL / compression | `04_rule_program_induction/ellis2020_dreamcoder.pdf` |
-| Kemp structural form | Form family (tree / chain / ring / order) | Selects among forms, driven by the **dataset** | — | Bayesian model selection | `02_problem_finding/kemp2008_discovery_structural_form.pdf` |
-| VSA / HDC | Binding / bundling operators | No | — | — | `03c_vsa_hdc/kleyko2022_vsa_survey_part1.pdf` |
-| MDL / Bayesian model selection | Hypothesis space | No | — | Description length / posterior | `05_probability_model_selection` |
-| CEGAR | Abstraction layer | Yes (abstraction refinement) | Model checker | Counterexample driven | `08_counterexample_llm` |
-| RSA / intent inference | Plan space + utility | No | — | Bayesian inverse planning | `06_intent_pragmatics` |
-| LLM sampling | — | No | — | None | Baseline |
+| System / theory | What is fixed | Allowed to change the language? | oracle | Selection criterion |
+|---|---|---|---|---|
+| FCA attribute exploration | Attribute vocabulary (except additions during exploration) | Yes, but humans supply attributes and answer each question | Human expert | Implication-failure driven |
+| ILP | Predicate signature | Needs predicate invention; no criterion | Labeled data | Coverage + compression |
+| SME | Predicate vocabulary | No | — | Structural consistency + systematic mapping |
+| DreamCoder | DSL (which it refactors) | Yes, driven by **corpus** compression | Task set | MDL / compression |
+| Kemp structural form | Form family (tree / chain / ring / order) | Selects among forms, driven by the **dataset** | — | Bayesian model selection |
+| VSA / HDC | Binding / bundling operators | No | — | — |
+| MDL / Bayesian model selection | Hypothesis space | No | — | Description length / posterior |
+| CEGAR | Abstraction layer | Yes (abstraction refinement) | Model checker | Counterexample driven |
+| RSA / intent inference | Plan space + utility | No | — | Bayesian inverse planning |
+| LLM sampling | — | No | — | None |
 
 **The gap in one sentence**: no system treats "because these examples cannot be explained, replace the language that describes them" as an operation that is **triggered by a single query, decided by a program's criterion, and powered by a cheap oracle**.
 

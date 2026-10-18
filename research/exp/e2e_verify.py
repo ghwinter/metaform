@@ -1,7 +1,7 @@
 """
 End-to-end check, in two parts:
 
-1. Script mode: `scenarios/verify.demo` walks
+1. Script mode: `engine/scenarios/verify.demo` walks
    VERIFY → PROPOSE → ASK → STOP, and the JSON of each step is checked.
 2. Project mode: use `init / state / ledger / report` to build a real project in a temp directory,
    and check that the report really changes its verdict before and after the probe (VERIFY → INSUFFICIENT + collision (0,4)).

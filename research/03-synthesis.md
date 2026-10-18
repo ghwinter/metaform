@@ -1,14 +1,14 @@
 # 03 Literature synthesis: who fixed what
 
-v1.0 · 2026-10-19 03:30 · **coverage 36/36 papers** (six batches, all based on local text in `.library/_text/`)
+v1.0 · 2026-10-19 03:30 · **coverage 36/36 papers** (six batches, all based on the local text)
 
 ## 0 Method
 
-- 36 PDFs → `pdftotext` → `.library/_text/` (`scripts/extract-pdf-text.ps1`, 17.6 s).
+- 36 PDFs → `pdftotext` → plain text (17.6 s).
 - Extracted in six batches, with six fixed fields per paper: **research question / fixed representation or language / whether the representation can change / trigger signal / oracle / selection criterion**.
 - Trust only the local text; write "not stated" when the text does not say it; filling in from memory is forbidden. Quotes at most ≤ 25 words.
 - Known gaps: the body text of `gentner1983` is OCR-damaged and only the last page is readable; FCA's attribute exploration appears only in
-  the `03a` documents, with no corresponding implementation (`concepts` package does not include that algorithm), so it needs a citation from Ganter & Wille's original work.
+  the FCA material, with no corresponding implementation (`concepts` package does not include that algorithm), so it needs a citation from Ganter & Wille's original work.
 
 ## 1 Comparison table (36 papers)
 
@@ -82,24 +82,24 @@ v1.0 · 2026-10-19 03:30 · **coverage 36/36 papers** (six batches, all based on
 
 1. **ILP itself admits the bottleneck is the language.** "Even for ILP experts, determining a suitable language bias is
    often a frustrating and time-consuming process. We think the need for an almost perfect
-   language bias is severely holding back ILP" (`cropper2021_ilp_at_30.txt`).
+   language bias is severely holding back ILP" (Cropper, Dumančić & Evans, Inductive Logic Programming at 30, 2021).
 2. **Kemp says predicate invention is needed, yet sidesteps it with "two senses of hypothesis space."**
    "Predicate invention is crucial since part of our goal is to discover novel concepts, and new
-   predicates will be needed to refer to these concepts." (`kemp2010_probabilistic_theory_formation.txt`)
+   predicates will be needed to refer to these concepts." (Kemp, Goodman & Tenenbaum, A probabilistic model of theory formation, 2010)
    He then defends this by saying that "search often moves to regions far from the starting point" — **a trajectory argument, not a vocabulary argument**.
 3. **Vocabulary growth exists, but it is corpus-driven.** "as the model gains a richer conceptual vocabulary, its
-   representations evolve" (`ellis2020_dreamcoder.txt`); the criterion is compression.
+   representations evolve" (Ellis et al., DreamCoder, 2020); the criterion is compression.
 4. **Active inference itself admits the model space is unsolved.** "An outstanding issue is the elaboration of alternative
-   models; i.e., the specification of the model space." (`friston2026_active_inference.txt`)
+   models; i.e., the specification of the model space." (Friston et al., Active inference and artificial reasoning, 2026)
 5. **Bayesian learning only selects among existing hypotheses.** "all the model does is choose among hypotheses that already
-   exist" (`perfors2011_bayesian_tutorial.txt`)
+   exist" (Perfors, Tenenbaum, Griffiths & Xu, A tutorial introduction to Bayesian models of cognitive development, 2011)
 6. **CEGAR refines the partition, not the vocabulary.** Atomic formulas are "automatically extracted from the program";
-   and "The problem of finding the coarsest refinement is NP-hard" (`clarke2000_cegar.txt`).
+   and "The problem of finding the coarsest refinement is NP-hard" (Clarke et al., Counterexample-guided abstraction refinement, 2000).
 7. **The only normative mechanism for "coining new words" is creative abduction.** "introduction of a new term that is hitherto
-   undefined" (`abduction_conditionals_2022.txt`) — but there is no criterion for deciding whether to coin one, or which.
+   undefined" (the 2022 paper on abduction and conditionals) — but there is no criterion for deciding whether to coin one, or which.
 8. **On the LLM side there is no ability to change the language at all.** Six papers (four on self-correction + two on test-time compute) agree: feedback is self-scored from the same source,
    and the language does not change; the survey's own words are "no prior work demonstrates successful self-correction with feedback
-   from prompted LLMs" (`tacl2024_self_correction_survey.txt`).
+   from prompted LLMs" (Kamoi et al., When can LLMs actually correct their own mistakes? A critical survey of self-correction of LLMs, 2024).
 
 ## 3 Gap assessment (final version after full coverage of 36 papers)
 
@@ -112,7 +112,7 @@ v1.0 · 2026-10-19 03:30 · **coverage 36/36 papers** (six batches, all based on
 
 **Final conclusion**: among these 36 papers, **not one treats "the current language cannot express it" as a decidable trigger and pairs it with a questioning strategy of reasonable symbolic cost**. The three closest:
 
-1. FCA attribute exploration (`03a` has only the library, no algorithm implementation; the original work must be cited) — humans give attributes, humans answer questions;
+1. FCA attribute exploration (the FCA material has only the library, no algorithm implementation; the original work must be cited) — humans give attributes, humans answer questions;
 2. ILP predicate invention — it can coin words, but has no criterion;
 3. Creative abduction — it can introduce new terms, but has no trigger criterion.
 

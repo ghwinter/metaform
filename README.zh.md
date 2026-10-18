@@ -3,7 +3,7 @@
 一个可发表的理论工作 + 可执行参考实现：当目标概念不在当前词汇里时，增加搜索预算必然失败；
 系统必须判定"语言不够"，并借外部信号改写语言。
 
-论文：**英文为准** [paper/en/main.pdf](paper/en/main.pdf)（11 页）· 中文翻译 [paper/zh/main.pdf](paper/zh/main.pdf)（11 页）。
+论文：**英文为准** `paper/en/main.tex`（11 页）· 中文翻译 `paper/zh/main.tex`（11 页）。两者都由受跟踪的源文件构建；PDF 是构建产物。
 以后改内容只改 `paper/en/main.tex`，再同步 `paper/zh/main.tex`。
 
 ## 结构
@@ -12,12 +12,18 @@
 |---|---|
 | `paper/en/`, `paper/zh/` | 双语正文。en 用 `pdflatex` 两遍，zh 用 `xelatex` 两遍（ctex） |
 | `research/` | 命题（00）、形式核心（01）、论文骨架（02）、文献综合（03）、引擎设计（04）、可借机制（05）、AI 原生假设（06）、JEV 决策层（07）、断言审计（08）、长文摘记（09）、工具架构（10）、统一算子（11）、算子定型（12）、六种读法（13） |
-| `research/lean/` | Lean 4 形式化：11 条定理（13 个 Lean 名称：含多算子的 4 条）+ 3 条辅助引理，0 sorry |
+| `research/lean/` | Lean 4 形式化：13 条声明承载定理 1–11，不接受未证目标、无警告；`research/lean/mechanization.md` 把定理映射到声明 |
 | `research/exp/` | Python 实验：合成域、Lean 域、代码域、成本分解、数据总账 `RESULTS.md` |
-| `engine/` | Rust 内核 + `metaform` 命令行（`scenarios/` 里有示例脚本） |
-| `scripts/` | 资料库下载/校验、PDF 转文本、Lean 编译封装 |
-| `.library/` | **15 个主题目录**、约 8.7k 个文件的离线语料，含 Copycat 替代材料与 JEV 决策模型论文 |
-| `.local/` | 本机事实（工具链、路径、坑）与下载笔记 |
+| `engine/` | Rust 内核 + `metaform` 命令行（`engine/scenarios/` 里有示例脚本） |
+| `scripts/` | 断言门、对齐与引用检查、Lean/Rust 封装、打包 |
+
+## 引用规则
+
+受跟踪的文件只能指向仓库里存在的东西。`scripts/check-references.py` 会在这些情况下失败：绝对路径；
+git 未跟踪的反引号路径或 markdown 链接（生成的产物与 `local.ps1` 引导副本除外）；对未跟踪语料或
+对话的裸提及；以及两篇论文里出现的代码标识符、文件名、URL，或没有对应文献条目的引用。论文只通过
+文末参考文献接触外部工作，这是常规做法；把定理映射到 Lean 声明的那张表放在
+`research/lean/mechanization.md`，不再放进论文。
 
 ## `metaform`：把当前场景摆出来
 
@@ -61,11 +67,12 @@ metaform ops                                       # 五类算子调度对照：
 ## 三件套复现
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # 五套断言门（Lean/Rust/证伪/双语/数字），约 40 s
+pwsh -File scripts/check-all.ps1                     # 六套断言门（Lean/Rust/引用/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
 pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 63）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
-python scripts/align-papers.py                       # 双语结构/数字对齐 + 附录 Lean 表 ↔ 源文件
+python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
+python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接
 python research/exp/ledger.py list --all             # 反例台账（可增删改、挂起、带证据与历史）
 python research/exp/ledger.py show L2               # 看单条：来源、答案、票数、变更轨迹
 python research/exp/ledger.py corroborate --apply    # 同一对象的弱证据按 noisy-OR 合并
@@ -86,11 +93,11 @@ python research/exp/proposer.py --case domain_c --responses research/exp/respons
     --pool-out pool.txt --scenario-out case.demo                          # 生成 metaform 场景与候选池
 ```
 
-脚本从 `METAFORM_PYTHON`（或 PATH 上的 `python`）取解释器。本机的 `python` 是 Microsoft Store
-桩，所以每个 shell 设一次：
+脚本从 `METAFORM_PYTHON`（或 PATH 上的 `python`）取解释器。如果 PATH 上的 `python` 是应用商店桩
+而不是可用的解释器，每个 shell 设一次：
 
 ```powershell
-$env:METAFORM_PYTHON = 'C:\path\to\python.exe'
+$env:METAFORM_PYTHON = '<python.exe 的完整路径>'
 & $env:METAFORM_PYTHON research\exp\domain_a.py
 ```
 
@@ -159,8 +166,7 @@ Copy-Item scripts\local.example.ps1 scripts\local.ps1
 
 ## 出处
 
-- `1.md`：原始对话，提出问题。
-- `reasoning_engine_research_map.md`：跨学科资料地图（本仓库 36 篇文献即按它下载）。
+- 问题来自一次很长的研究对话。那份对话是输入而不是交付物，因此不在本仓库跟踪。
 - `research/03-synthesis.md`：36 篇逐篇对照，确认"查询失败 → 改写语言"的空位。
 
 

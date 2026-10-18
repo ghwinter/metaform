@@ -7,7 +7,7 @@
     This script copies the necessary files to dist/staging, keeps the directory structure,
     compresses them into dist/submission-<date>.zip, and writes a MANIFEST.txt.
 
-    Excluded: .library (offline corpus, too large), .lake (build cache), target (Rust build artifacts).
+    Excluded: the offline corpus (too large), build caches, and Rust build artifacts.
 
     Exit codes: 0 success; 1 a required file is missing.
 #>

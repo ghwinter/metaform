@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""Reference hygiene gate.
+
+The repository must be readable on its own: everything a tracked file points at
+is either tracked as well, or produced by the tracked code at run time. Nothing
+in the tree may leak a machine-local path, and the paper may not carry code
+identifiers, file names or links.
+
+Rules, applied to every tracked text file:
+
+1. No absolute path (drive letter, /home/<user>, /Users/<user>, file://).
+2. Every file-like token written in backticks must name a tracked file.
+   Two families of exceptions are declared below: artifacts the tracked code
+   generates, and the bootstrap copy of the tracked local template.
+3. Neither paper may contain a code identifier (\\texttt), a file name, a URL,
+   or a path. External works reach the paper only through the bibliography at
+   the end of the document.
+4. Every \\cite key used in a paper has a matching \\bibitem, and the
+   bibliography is the last environment before \\end{document}.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+SCAN_SUFFIXES = {".md", ".py", ".ps1", ".rs", ".tex", ".lean", ".toml"}
+PAPERS = [ROOT / "paper" / "en" / "main.tex", ROOT / "paper" / "zh" / "main.tex"]
+
+# Artifacts written by the tracked code at run time. A reference to one of
+# these is a statement about what the repository does, not about a file that
+# should have been committed.
+GENERATED_PREFIXES = (".metaform/", "dist/", "out/")
+GENERATED_NAMES = {
+    "state.json",
+    "ledger.tsv",
+    "VERSION.txt",
+    "report.md",
+    "last-check.log",
+    "last-test.log",
+    "pool.txt",
+    "case.demo",
+}
+# `local.ps1` is the machine-local copy of the tracked `local.example.ps1`:
+# a documented bootstrap handoff, not repository content.
+BOOTSTRAP_NAMES = {"local.ps1"}
+
+ABSOLUTE = [
+    # A drive letter must be followed by a real path: a directory separator after
+    # at least one segment, or a file name with an extension.
+    re.compile(r"(?<![A-Za-z])[A-Za-z]:[\\/][A-Za-z0-9_.~-]+[\\/]"),
+    re.compile(r"(?<![A-Za-z])[A-Za-z]:[\\/][A-Za-z0-9_~-]+\.[A-Za-z0-9]{2,5}"),
+    re.compile(r"/(?:home|Users|root)/[A-Za-z0-9._-]+"),  # POSIX home
+    re.compile(r"file://"),
+    re.compile(r"\\\\[A-Za-z0-9._-]+\\[A-Za-z0-9._$-]"),  # UNC path
+]
+
+TOKEN = re.compile(r"`([^`\n]+)`")
+LINK = re.compile(r"\]\(([^)\s]+)\)")
+FILE_EXT = (
+    "md|py|ps1|rs|tex|lean|json|toml|demo|log|txt|zip|pdf|csv|tsv|yaml|yml"
+)
+FILEISH = re.compile(rf"^[A-Za-z0-9_.\-/\\]+\.(?:{FILE_EXT})$")
+
+PAPER_FORBIDDEN = [
+    (re.compile(r"\\texttt\s*\{"), "code identifier (\\texttt)"),
+    (re.compile(r"\\url\s*\{"), "link (\\url)"),
+    (re.compile(r"\\href\s*\{"), "link (\\href)"),
+    (re.compile(r"https?://"), "URL"),
+    (re.compile(rf"\.(?:{FILE_EXT})\b(?!-)"), "file name"),
+    (re.compile(r"(?<![A-Za-z])[A-Za-z]:[\\/][A-Za-z0-9_.~-]+[\\/]"), "absolute path"),
+]
+
+# Names of material this repository deliberately does not track. A bare mention is
+# enough to break the rule, so they are matched without requiring backticks.
+UNTRACKED_NAMES = re.compile(r"(?<![\w.-])\.(?:library|local|repo)\b|reasoning_engine_research_map|\b1\.md\b")
+
+CITE = re.compile(r"\\cite[a-zA-Z]*\s*\{([^}]*)\}")
+BIBITEM = re.compile(r"\\bibitem(?:\[[^\]]*\])?\{([^}]*)\}")
+
+
+def tracked_files() -> list[str]:
+    out = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout
+    return [line for line in out.splitlines() if line]
+
+
+def is_generated(token: str) -> bool:
+    norm = token.replace("\\", "/")
+    if norm.startswith(GENERATED_PREFIXES):
+        return True
+    if norm.rsplit("/", 1)[-1] in GENERATED_NAMES:
+        return True
+    return bool(re.fullmatch(r"metaform-[0-9.]+-win64\.zip", norm.rsplit("/", 1)[-1]))
+
+
+def blank_math(text: str) -> str:
+    """Replace math with spaces, preserving line breaks, so that `$H:\\Epos$`
+    is not read as a drive path."""
+    def blank(m: re.Match[str]) -> str:
+        return re.sub(r"[^\n]", " ", m.group(0))
+
+    text = re.sub(r"\\\[.*?\\\]", blank, text, flags=re.S)
+    text = re.sub(r"\$\$.*?\$\$", blank, text, flags=re.S)
+    text = re.sub(r"\$[^$\n]*\$", blank, text)
+    return text
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Reference hygiene gate.")
+    parser.add_argument(
+        "--file",
+        action="append",
+        default=[],
+        help="scan this file instead of the tracked set; used by the gate self-test",
+    )
+    args = parser.parse_args()
+    tracked = tracked_files()
+    scan = args.file or tracked
+    tracked_paths = set(tracked)
+    basenames = {p.rsplit("/", 1)[-1] for p in tracked}
+    problems: list[str] = []
+
+    for rel in scan:
+        if Path(rel).suffix not in SCAN_SUFFIXES:
+            continue
+        path = ROOT / rel
+        text = path.read_text(encoding="utf-8", errors="replace")
+        in_paper = path.resolve() in {p.resolve() for p in PAPERS}
+        if path.suffix == ".tex":
+            text = blank_math(text)
+        for lineno, line in enumerate(text.splitlines(), 1):
+            for pattern in ABSOLUTE:
+                m = pattern.search(line)
+                if m:
+                    problems.append(f"{rel}:{lineno}: absolute path {m.group(0)!r}")
+            for m in TOKEN.finditer(line):
+                token = m.group(1).strip()
+                if not (FILEISH.match(token) or token.endswith("/")):
+                    continue
+                norm = token.replace("\\", "/")
+                if norm.rsplit("/", 1)[-1] in BOOTSTRAP_NAMES or is_generated(norm):
+                    continue
+                if norm.endswith("/"):
+                    known = any(p.startswith(norm) for p in tracked_paths)
+                elif "/" in norm:
+                    known = norm in tracked_paths
+                else:
+                    known = norm in basenames
+                if not known:
+                    problems.append(f"{rel}:{lineno}: untracked reference `{token}`")
+            for m in LINK.finditer(line):
+                target = m.group(1).strip().strip("<>")
+                if target.startswith(("http://", "https://", "#", "mailto:")):
+                    continue
+                norm = target.replace("\\", "/").lstrip("./")
+                if norm.rsplit("/", 1)[-1] in BOOTSTRAP_NAMES or is_generated(norm):
+                    continue
+                if norm not in tracked_paths:
+                    problems.append(f"{rel}:{lineno}: link to untracked `{target}`")
+            for m in UNTRACKED_NAMES.finditer(line):
+                problems.append(f"{rel}:{lineno}: names untracked material {m.group(0)!r}")
+            if in_paper:
+                body = line.split("%", 1)[0]
+                for pattern, label in PAPER_FORBIDDEN:
+                    m = pattern.search(body)
+                    if m:
+                        problems.append(f"{rel}:{lineno}: paper carries {label} {m.group(0)!r}")
+
+    for paper in PAPERS:
+        rel = paper.relative_to(ROOT).as_posix()
+        if not paper.exists():
+            problems.append(f"{rel}: missing")
+            continue
+        text = paper.read_text(encoding="utf-8")
+        body = re.sub(r"(?m)(?<!\\)%.*$", "", text)
+        keys: list[str] = []
+        for m in CITE.finditer(body):
+            keys.extend(k.strip() for k in m.group(1).split(",") if k.strip())
+        defined = set(BIBITEM.findall(text))
+        unknown = sorted(set(keys) - defined)
+        if unknown:
+            problems.append(f"{rel}: citations without a bibliography entry: {unknown}")
+        unused = sorted(defined - set(keys))
+        if unused:
+            problems.append(f"{rel}: bibliography entries never cited: {unused}")
+        bib = text.find("\\begin{thebibliography}")
+        tail = text.find("\\end{document}")
+        if bib == -1 or tail == -1:
+            problems.append(f"{rel}: bibliography or \\end{{document}} missing")
+        elif bib > tail:
+            problems.append(f"{rel}: bibliography is not before \\end{{document}}")
+
+    scanned = sum(1 for p in scan if Path(p).suffix in SCAN_SUFFIXES)
+    print(f"scanned {scanned} tracked text files")
+    if problems:
+        for p in problems:
+            print(f"  ! {p}")
+        print(f"\n{len(problems)} reference problem(s)")
+        return 1
+    print("every reference resolves inside the repository")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

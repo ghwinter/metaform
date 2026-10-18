@@ -60,9 +60,9 @@ This assertion can be checked by a program, refuted by a counterexample, and pro
 
 The experiment design is direct: oracle budget ∈ {0, 5, 20}, run once in each of the three domains. The three predictions are mutually exclusive and can be separated.
 
-## 7. Relation to 1.md
+## 7. Relation to the source conversation
 
-1.md gives a list of capabilities: association, induction, analogy, intent inference, meta-learning, decision-making…
+The source conversation gives a list of capabilities: association, induction, analogy, intent inference, meta-learning, decision-making…
 
 This paper cuts out a single slice: **representation change**.
 

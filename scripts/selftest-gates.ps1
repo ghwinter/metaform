@@ -8,6 +8,7 @@
 
       lean    create a file with an unused variable -> expect exit code 2 (warning)
       rust    set the expected pass count to 999    -> expect exit code 1
+      refs    point a file at a name git does not track -> expect exit code 1
       claims  change the expected value of gain to 2.5 -> expect exit code 1
       cost    break one measured cost point        -> expect exit code 1
       ops no. change one expected ops number        -> expect exit code 1
@@ -57,6 +58,21 @@ $results += [pscustomobject]@{ Gate = 'lean / warning file'; Got = $code; Want =
 # --- 2. Rust: wrong expected count ---
 & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'check-rust.ps1') -Expected 999 | Out-Null
 $results += [pscustomobject]@{ Gate = 'rust / wrong expected'; Got = $LASTEXITCODE; Want = 1 }
+
+# --- 2b. References: a file that points at a name git does not track ---
+# The marker is assembled at run time so that this script does not contain a
+# dangling file name of its own.
+$refFile = Join-Path $root '_selftest_ref.md'
+$marker = '_selftest' + '_missing.md'
+('see `' + $marker + '` for the argument') | Set-Content -Path $refFile -Encoding utf8
+try {
+    & $Python (Join-Path $PSScriptRoot 'check-references.py') --file '_selftest_ref.md' | Out-Null
+    $code = $LASTEXITCODE
+}
+finally {
+    Remove-Item $refFile -Force -ErrorAction SilentlyContinue
+}
+$results += [pscustomobject]@{ Gate = 'refs / untracked file'; Got = $code; Want = 1 }
 
 # --- 3. Number regression: tamper with an expected value ---
 Push-Location (Join-Path $root 'research\exp')

@@ -234,8 +234,7 @@ end QueryDriven
 编译方式（重要，别踩坑）：
 
 1. **不能**在 `research/lean` 里新建 Lake 工程跑。新建工程会让 Lake 重新 materialize
-   batteries / aesop / Qq / proofwidgets 等依赖，而这些包**没有预编译产物**；
-   mathlib 的 `cache get` 钩子在本机失效（见 `.local/machine-facts.md`），
+   batteries / aesop / Qq / proofwidgets 等依赖，而这些包**没有预编译产物**，
    于是 `lake env lean` 直接报 `unknown module prefix 'Batteries'`。实测就是这么挂的。
 2. 可用做法：源码留在 `research/lean/`（进论文仓库），编译借一个能加载 Mathlib 的现成 Lake 工程（`METAFORM_LEAN_PROJECT`）
    的环境——那里依赖已编译好，且 mathlib 走 `path` 指向全局唯一副本。

@@ -1,6 +1,6 @@
 # 12 Operators Are Not a Checklist: Typing Them by "Which Slice of State They Read and Write"
 
-I was reading the 2026-10-19 05:18 version of 1.md (2135 lines, 9 rounds of Q&A). The center of gravity of
+I was reading a 2135-line source conversation, nine rounds of Q&A. The center of gravity of
 v1 (1301 lines, 5 rounds) is **representation**: a sample ≠ an object, and the missing primitive is
 "re-representation". v2 adds 4 rounds and shifts the center of gravity to **control**:
 
@@ -10,7 +10,7 @@ v1 (1301 lines, 5 rounds) is **representation**: a sample ≠ an object, and the
 | Keywords | intension φ_S, attribute exploration, distinguishing questions | operators, meta-reasoning, typed state-transition, JEV |
 | Form already given | P(h\|E⁺,E⁻,K) | s=(X,R,H,E,C,B), o:s→P(S), argmax E[ΔQ]−λCost |
 
-So the sentence in §8, "operators sound like different quotients/elements", is right: 1.md gives 15
+So the sentence in §8, "operators sound like different quotients/elements", is right: the source conversation gives 15
 mechanisms (§7), 5 operator examples (§8), and one state tuple (§9), but **does not give them types**.
 Without types, they can only be a checklist.
 
@@ -23,7 +23,7 @@ like a list of coordinate elements, because they are not at the same layer, do n
 do not produce the same thing.
 
 The right axis is: **which blocks of the state it reads, and which blocks of the state it writes.** §9 of
-1.md already cuts the state into six blocks:
+The source conversation already cuts the state into six blocks:
 
 ```
 s = (X, R, H, E, C, B)
@@ -33,7 +33,7 @@ s = (X, R, H, E, C, B)
 Once this axis is used, the 15 mechanisms collapse into **5 classes**, and the warrant and falsifier of each
 class have a fixed form:
 
-| Class | Reads | Writes | Members (1.md §7 numbering) | warrant | falsifier |
+| Class | Reads | Writes | Members (§7 numbering of the source conversation) | warrant | falsifier |
 |---|---|---|---|---|---|
 | ① Closure | H,C,X,R | a new judgment J (a conclusion about X) | deduction (1), constraint checking | derivation chain, machine-checkable | a premise is false / a rule is false |
 | ② Hypothesis generation | X,R,E | H | induction (2), abduction (3), analogy (4), abstraction (5), anti-unification (6), hierarchy (7), causality (10), intent inference (11) | coverage + simplicity / can derive the observation / structural correspondence / compression | one counterexample / a better explanation not ruled out / the mapping breaks a constraint |
@@ -48,27 +48,27 @@ Three points are immediately visible:
    not in type. The intuition in §8, "they are not the same kind of mathematical object" — correct, but it
    can be put precisely: they are the same type with different warrants.
 2. **③ is the most lacking class, and also the easiest to miss.** The center of gravity of v1
-   (re-representation) falls in this class; among the 15 items of v2 it has only 8 and 9, and 1.md itself
+   (re-representation) falls in this class; among the 15 items of v2 it has only 8 and 9, and the source conversation itself
    admits that "changing representation is undecidable" (§3 cites Kolmogorov's uncomputability).
 3. **⑤ cannot use the same warrant as ①②③④.** Its warrant is a **prediction** (whether this step is worth
    it), and its falsifier is **realized gain below the baseline**. The argmax E[ΔQ]−λCost given in §9 of
-   1.md is precisely this class, but the whole text never says where this E[·] comes from — which is
+   The source conversation is precisely this class, but never says where this E[·] comes from — which is
    exactly where one can run experiments oneself.
 
 ## 2. Four operational conditions for being brain-like
 
 "Brain-like" is usually rhetoric in engineering. Strip the rhetoric, and among the differences between the
 human brain and current LLMs, only four can be written as code, and all four line up with the requirements
-of 1.md:
+of the source conversation:
 
-| Condition | Correspondent in the brain | Engineering construct | Where 1.md says it |
+| Condition | Correspondent in the brain | Engineering construct | Where the source conversation says it |
 |---|---|---|---|
 | Competition | multiple hypotheses active at once, inhibiting each other | H must be a set, and its members **irreducible** (not restatements of the same answer) | line 1021, "generate a hundred phrasings but never compare a hundred explanations" |
 | Prediction error as a universal currency | predictive processing / dopamine error | every operator must be able to emit "what I predicted", for ④ to gather evidence on | line 716 E_predict, line 1683 error-driven correction |
 | Offline recombination | hippocampal replay | the ledger is not an audit log, it is the **scheduler's training data**: replay historical (s,o,gain) | line 1094, "keep what rules once worked" |
 | Choice under cost | basal-ganglia option selection | the argmax of ⑤ must use **additive** cost (the same unit across operators) | line 2058, line 792 |
 
-The third is the most valuable: it turns §4 of 1.md, "continuous verification and memory module", from an
+The third is the most valuable: it turns §4 of the source conversation, "continuous verification and memory module", from an
 archiving feature into **the only path to self-improvement**. Without replay, the E[ΔQ] of ⑤ can only be
 hand-written; with replay, it can be estimated from its own history.
 
@@ -81,7 +81,7 @@ replay, and drop "brain-like" as a criterion.
 
 ## 3. A new criterion for unification
 
-At the end of §8, 1.md says "allowing function composition formally does not mean any composition is
+At the end of §8, the source conversation says "allowing function composition formally does not mean any composition is
 meaningful. Every operator needs its input and output types, preconditions, computational cost, and failure
 modes made explicit". This sentence is the closest the whole text comes to an executable specification, but
 it stops at "needs".
@@ -99,7 +99,7 @@ op = (read ⊆ {X,R,H,E,C,B}, write ⊆ {X,R,H,E,C,B}, warrant, cost, falsifier)
 - `cost` uses the same unit (query count / experiment count / tokens), otherwise it is neither addable nor
   schedulable.
 
-This also answers, in passing, the ambiguity the agent raised (line 1104 of 1.md, "it suffices to be aware
+This also answers, in passing, the ambiguity the agent raised about awareness ("it suffices to be aware
 that the structure exists", vs line 625, "matrix computation is required"): **"be aware" = the trigger
 condition of ③ is met** (the current representation cannot express some already-confirmed evidence), not a
 mysterious act of noticing. The observable signal is that the evidence brought back by ④ has nowhere to sit
@@ -115,7 +115,7 @@ in X,R.
    abstract". This one can be knocked down by constructing a counterexample.
 3. **Adding operators alone does not add capability**: without explicitly adding inductive bias, merely
    increasing the number of ② operators will not improve monotonically on an open domain (No Free Lunch +
-   Gold's ceiling, which 1.md cites itself at lines 2086–2088). If monotone improvement is observed, the
+   Gold's ceiling, which the source conversation itself cites). If monotone improvement is observed, the
    improvement comes from bias rather than operator count, and the framework's "unification" claim must give
    ground.
 

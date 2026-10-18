@@ -33,3 +33,19 @@ __pycache__/
 
 # Machine-local configuration (see scripts/local.example.ps1).
 scripts/local.ps1
+
+# Library tooling: it serves the local corpus above, which is not tracked.
+scripts/download-library.ps1
+scripts/extract-archives.ps1
+scripts/extract-pdf-text.ps1
+scripts/verify-library.ps1
+scripts/library-manifest.json
+
+# Notes written line-by-line against untracked inputs.
+research/10-tool-architecture.md
+research/10-tool-architecture.zh.md
+research/13-six-readings.md
+research/13-six-readings.zh.md
+
+# Later conversation dumps: inputs, not deliverables.
+2.md

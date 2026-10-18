@@ -1,10 +1,11 @@
 <#
 .SYNOPSIS
-    Run all five assertion-bearing checks with one command: Lean formalization, Rust kernel tests, theorem falsification, bilingual alignment, and paper-number regression.
+    Run all six assertion-bearing checks with one command: Lean formalization, Rust kernel tests, theorem falsification, bilingual alignment, and paper-number regression.
 
 .DESCRIPTION
     - check-lean: fail on any warning
     - check-rust: the pass count must equal the expected value, and ignored must be 0
+    - check-references.py: no path, file name or link that the repository does not contain
     - verify_claims.py: key numbers in the paper must match measured values within tolerance
 
     If any check fails, the whole run fails.
@@ -62,6 +63,11 @@ $results += [pscustomobject]@{ Check = 'rust'; Exit = $LASTEXITCODE }
 if (-not $SkipAlign) {
     & $Python (Join-Path $PSScriptRoot 'align-papers.py') | Out-Host
     $results += [pscustomobject]@{ Check = 'align'; Exit = $LASTEXITCODE }
+}
+
+if (-not $SkipReferences) {
+    & $Python (Join-Path $PSScriptRoot 'check-references.py') | Out-Host
+    $results += [pscustomobject]@{ Check = 'refs'; Exit = $LASTEXITCODE }
 }
 
 if (-not $SkipTheory) {

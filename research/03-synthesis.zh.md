@@ -1,14 +1,14 @@
 # 03 文献综合：谁固定了什么
 
-v1.0 · 2026-10-19 03:30 · **覆盖 36/36 篇**（六个批次，全部基于 `.library/_text/` 本地文本）
+v1.0 · 2026-10-19 03:30 · **覆盖 36/36 篇**（六个批次，全部基于本地文本）
 
 ## 0 方法
 
-- 36 篇 PDF → `pdftotext` → `.library/_text/`（`scripts/extract-pdf-text.ps1`，17.6 s）。
+- 36 篇 PDF → `pdftotext` → 纯文本（17.6 s）。
 - 分六批抽取，每篇固定六字段：**研究问题 / 固定的表示或语言 / 能否改变表示 / 触发信号 / oracle / 选择准则**。
 - 只信本地文本；文本没写的写"未说明"，禁止凭记忆补全。引用原文 ≤ 25 词。
-- 已知缺口：`gentner1983` 正文 OCR 损坏，只有末页可读；FCA 的 attribute exploration 只在
-  `03a` 的文档里没有对应实现（`concepts` 包不含该算法），需要用 Ganter & Wille 原著补引。
+- 已知缺口：`gentner1983` 正文 OCR 损坏，只有末页可读；FCA 的 attribute exploration 只见于
+  FCA 资料，没有对应实现（`concepts` 包不含该算法），需要用 Ganter & Wille 原著补引。
 
 ## 1 对照表（36 篇）
 
@@ -82,24 +82,24 @@ v1.0 · 2026-10-19 03:30 · **覆盖 36/36 篇**（六个批次，全部基于 `
 
 1. **ILP 自己承认瓶颈在语言。** "Even for ILP experts, determining a suitable language bias is
    often a frustrating and time-consuming process. We think the need for an almost perfect
-   language bias is severely holding back ILP"（`cropper2021_ilp_at_30.txt`）。
+   language bias is severely holding back ILP"（Cropper, Dumančić & Evans, Inductive Logic Programming at 30, 2021）。
 2. **Kemp 说需要 predicate invention，却用"假设空间的两种意义"绕开。**
    "Predicate invention is crucial since part of our goal is to discover novel concepts, and new
-   predicates will be needed to refer to these concepts."（`kemp2010_probabilistic_theory_formation.txt`）
+   predicates will be needed to refer to these concepts."（Kemp, Goodman & Tenenbaum, A probabilistic model of theory formation, 2010）
    随后以"搜索常走到与起点很远的区域"辩护——**轨迹论证，不是词汇论证**。
 3. **词汇增长存在，但由语料驱动。** "as the model gains a richer conceptual vocabulary, its
-   representations evolve"（`ellis2020_dreamcoder.txt`），判据是压缩。
+   representations evolve"（Ellis et al., DreamCoder, 2020），判据是压缩。
 4. **主动推断自己承认模型空间没解决。** "An outstanding issue is the elaboration of alternative
-   models; i.e., the specification of the model space."（`friston2026_active_inference.txt`）
+   models; i.e., the specification of the model space."（Friston et al., Active inference and artificial reasoning, 2026）
 5. **贝叶斯学习只在既有假设里选。** "all the model does is choose among hypotheses that already
-   exist"（`perfors2011_bayesian_tutorial.txt`）
+   exist"（Perfors, Tenenbaum, Griffiths & Xu, A tutorial introduction to Bayesian models of cognitive development, 2011）
 6. **CEGAR 细化的是分区，不是词汇。** 原子公式"automatically extracted from the program"；
-   且"The problem of finding the coarsest refinement is NP-hard"（`clarke2000_cegar.txt`）。
+   且"The problem of finding the coarsest refinement is NP-hard"（Clarke et al., Counterexample-guided abstraction refinement, 2000）。
 7. **唯一给出"造新词"规范机制的是创造型溯因。** "introduction of a new term that is hitherto
-   undefined"（`abduction_conditionals_2022.txt`）——但没有判定该不该造、造哪个的准则。
+   undefined"（2022 年关于溯因与条件句的论文）——但没有判定该不该造、造哪个的准则。
 8. **LLM 一侧完全没有换语言的能力。** 六篇（自纠四篇 + 测试时计算两篇）一致：反馈同源自评，
    语言不变；综述的原话是"no prior work demonstrates successful self-correction with feedback
-   from prompted LLMs"（`tacl2024_self_correction_survey.txt`）。
+   from prompted LLMs"（Kamoi et al., When can LLMs actually correct their own mistakes? A critical survey of self-correction of LLMs, 2024）。
 
 ## 3 空位判断（36 篇全覆盖后的定稿）
 
@@ -113,7 +113,7 @@ v1.0 · 2026-10-19 03:30 · **覆盖 36/36 篇**（六个批次，全部基于 `
 **定稿结论**：这 36 篇里，**没有任何一篇把"当前语言表达不了"作为可判定触发，并配一个符号成本
 合理的提问策略**。最接近的三处：
 
-1. FCA 的属性探索（`03a` 只有库，没有算法实现；需引原著）——人给属性、人答题；
+1. FCA 的属性探索（FCA 资料只有库，没有算法实现；需引原著）——人给属性、人答题；
 2. ILP 的 predicate invention——能造词，但没有准则；
 3. 创造型溯因——能引入新词项，但没有触发判据。
 

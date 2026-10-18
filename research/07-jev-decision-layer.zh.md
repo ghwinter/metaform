@@ -1,6 +1,6 @@
 # 07 JEV / System One：它在我们系统里的位置
 
-来源：1.md 第 6 节新增。材料已归档到 `.library/11_decision_models/`（8 项，2026-10-19 下载）。
+材料：8 项 System One 与决策模型资料。
 
 ## 1 它是什么
 
@@ -14,11 +14,11 @@ TypeSafe AI 的 System One 模型，三类原语：**Noul**（二元判断，返
 
 | 结论 | 出处 |
 |---|---|
-| 阈值冻结后，"置信就采纳、其余升级"比 GPT-6 准 0.9 分，代价 41% | `jev_as_a_judge_2026.txt`："accepting confident verdicts and escalating the rest is 0.9 points more accurate than GPT-6 on 1,610 held-out pairs at 41% of its fee" |
-| 决策模型单独准确率 ≠ Agent 成功率：**不拟合阈值就把工具选择交给它，成功率掉 19.0 分** | `jev_agent_harness_2026.txt`："without a fitted confidence threshold, delegating tool choices lowered success by 19.0 points" |
-| Choice 对等价表述敏感（0.771–0.978），校准要按任务验证 | `sys1cal_v1_calibration_2026.txt` |
-| 与 LLM 相比没有一致优势（对 Qwen 无优势） | `jev_vs_llms_political_science_2026.txt` |
-| 优势依赖任务、选项数、阈值、校准方式 | `system_one_decision_gates_2026.txt` |
+| 阈值冻结后，"置信就采纳、其余升级"比 GPT-6 准 0.9 分，代价 41% | 2026 年 JEV 作为评判者的研究："accepting confident verdicts and escalating the rest is 0.9 points more accurate than GPT-6 on 1,610 held-out pairs at 41% of its fee" |
+| 决策模型单独准确率 ≠ Agent 成功率：**不拟合阈值就把工具选择交给它，成功率掉 19.0 分** | 2026 年 JEV 在 Agent harness 中的研究："without a fitted confidence threshold, delegating tool choices lowered success by 19.0 points" |
+| Choice 对等价表述敏感（0.771–0.978），校准要按任务验证 | 2026 年 System One 校准研究（v1） |
+| 与 LLM 相比没有一致优势（对 Qwen 无优势） | 2026 年 JEV 与 LLM 在政治学任务上的对比研究 |
+| 优势依赖任务、选项数、阈值、校准方式 | 2026 年 System One 决策门研究 |
 
 ## 3 对我们系统的位置
 

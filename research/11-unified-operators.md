@@ -2,7 +2,7 @@
 
 ## 1. The misunderstanding
 
-I read 1.md as: "find the missing predicate from A/B/C, then patch it in with set cover". So I built
+I read the source conversation as: "find the missing predicate from A/B/C, then patch it in with set cover". So I built
 `metaform`: an engine for **deciding vocabulary insufficiency + adding words by coverage**.
 
 That is **one operator** (induction within a given language, plus expanding the language when it is

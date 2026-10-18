@@ -47,14 +47,14 @@ v0.1 · 2026-10-19 · 正文英文，笔记中文
 
 ## 6. 相关工作对照表（直接用库里的材料）
 
-| 系统 / 理论 | 固定的东西 | 允许改语言？ | oracle | 选择准则 | 库内位置 |
+| 系统 / 理论 | 固定的东西 | 允许改语言？ | oracle | 选择准则 |
 |---|---|---|---|---|---|
-| FCA 属性探索 | 属性词表（除探索时增补） | 是，但人给属性、人答每题 | 人类专家 | 蕴含失败驱动 | `03a_fca`（concepts 文档 + zip） |
-| ILP | 谓词签名 | 需 predicate invention，无准则 | 标注数据 | 覆盖 + 压缩 | `04_rule_program_induction/cropper2021_ilp_at_30.pdf` |
-| SME | 谓词词表 | 否 | — | 结构一致 + 系统映射 | `03b_structure_mapping`（+ SME4 源码） |
-| DreamCoder | DSL（会重构） | 是，由**语料**压缩驱动 | 任务集 | MDL / 压缩 | `04_rule_program_induction/ellis2020_dreamcoder.pdf` |
-| Kemp 结构形式 | 形式族（树/链/环/序） | 在形式之间选，由**数据集**驱动 | — | 贝叶斯模型选择 | `02_problem_finding/kemp2008_discovery_structural_form.pdf` |
-| VSA / HDC | 绑定/捆绑算子 | 否 | — | — | `03c_vsa_hdc/kleyko2022_vsa_survey_part1.pdf` |
+| FCA 属性探索 | 属性词表（除探索时增补） | 是，但人给属性、人答每题 | 人类专家 | 蕴含失败驱动 |
+| ILP | 谓词签名 | 需 predicate invention，无准则 | 标注数据 | 覆盖 + 压缩 |
+| SME | 谓词词表 | 否 | — | 结构一致 + 系统映射 |
+| DreamCoder | DSL（会重构） | 是，由**语料**压缩驱动 | 任务集 | MDL / 压缩 |
+| Kemp 结构形式 | 形式族（树/链/环/序） | 在形式之间选，由**数据集**驱动 | — | 贝叶斯模型选择 |
+| VSA / HDC | 绑定/捆绑算子 | 否 | — | — |
 | MDL / 贝叶斯模型选择 | 假设空间 | 否 | — | 描述长度 / 后验 | `05_probability_model_selection` |
 | CEGAR | 抽象层 | 是（抽象细化） | 模型检查器 | 反例驱动 | `08_counterexample_llm` |
 | RSA / 意图推断 | 规划空间 + 效用 | 否 | — | 贝叶斯逆规划 | `06_intent_pragmatics` |

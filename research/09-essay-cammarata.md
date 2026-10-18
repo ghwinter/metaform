@@ -1,7 +1,7 @@
 # 09 Cammarata's "Neural Networks Are Already Clean": The three points we can use
 
-Source: `.library/to_be_achived/essay.md` (943 lines, 2026). What I read was the argument skeleton, not
-all of the experiments. Line numbers refer to that file.
+Source: Cammarata's Neural Networks Are Already Clean (2026; 943 lines). What I read was the argument skeleton, not
+all of the experiments. Line numbers refer to that essay.
 
 ## 1. What it argues
 

@@ -1,7 +1,7 @@
 # 09 Cammarata《Neural Networks Are Already Clean》：能用的三点
 
-来源：`.library/to_be_achived/essay.md`（943 行，2026）。读的是论证骨架，不是全部实验。
-行号对应该文件。
+来源：Cammarata《Neural Networks Are Already Clean》（2026；943 行）。读的是论证骨架，不是全部实验。
+行号对应该文。
 
 ## 1 它主张什么
 

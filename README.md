@@ -2,7 +2,7 @@
 
 A publishable theoretical work plus an executable reference implementation: when the target concept is not in the current vocabulary, increasing the search budget is bound to fail; the system must decide that "the language is insufficient" and rewrite the language using an external signal.
 
-Paper: **English is authoritative** [paper/en/main.pdf](paper/en/main.pdf) (11 pages) · Chinese translation [paper/zh/main.pdf](paper/zh/main.pdf) (11 pages).
+Paper: **English is authoritative**, `paper/en/main.tex` (11 pages) · Chinese translation, `paper/zh/main.tex` (11 pages). Both build from the tracked sources; the PDFs are build artifacts.
 From now on, edit only `paper/en/main.tex`, then sync `paper/zh/main.tex`.
 
 ## Layout
@@ -10,13 +10,21 @@ From now on, edit only `paper/en/main.tex`, then sync `paper/zh/main.tex`.
 | Directory | Contents |
 |---|---|
 | `paper/en/`, `paper/zh/` | Bilingual body text. en uses `pdflatex` twice; zh uses `xelatex` twice (ctex) |
-| `research/` | Propositions (00), formal core (01), paper outline (02), literature synthesis (03), engine design (04), borrowable mechanisms (05), AI-native hypotheses (06), JEV decision layer (07), claim audit (08), long-form notes (09), tool architecture (10), unified operators (11), operator typing (12), six readings (13) |
-| `research/lean/` | Lean 4 formalization: 11 theorems (13 Lean names: 4 with multiple operators) + 3 auxiliary lemmas, 0 sorry |
+| `research/` | Propositions (00), formal core (01), paper outline (02), literature synthesis (03), engine design (04), borrowable mechanisms (05), AI-native hypotheses (06), JEV decision layer (07), claim audit (08), long-form notes (09), unified operators (11), operator typing (12) |
+| `research/lean/` | Lean 4 formalization: 13 declarations carrying Theorems 1–11, no admitted goal and no warnings; `research/lean/mechanization.md` maps theorem to declaration |
 | `research/exp/` | Python experiments: synthetic domains, Lean domain, code domain, cost breakdown, data ledger `RESULTS.md` |
-| `engine/` | Rust kernel + `metaform` command line (`scenarios/` holds example scripts) |
-| `scripts/` | Library download/verification, PDF-to-text, Lean build wrapper |
-| `.library/` | **15 topic directories**, an offline corpus of about 8.7k files, including Copycat substitute material and JEV decision-model papers |
-| `.local/` | Machine facts (toolchain, paths, pitfalls) and download notes |
+| `engine/` | Rust kernel + `metaform` command line (`engine/scenarios/` holds example scripts) |
+| `scripts/` | Assertion gates, alignment and reference checks, Lean/Rust wrappers, bundle builder |
+
+## Reference rules
+
+A tracked file may only point at something the repository contains. `scripts/check-references.py`
+fails on an absolute path, on a backticked path or a markdown link that git does not track (generated
+artifacts and the `local.ps1` bootstrap copy excepted), on a bare mention of the untracked corpus or
+conversation, and, inside either paper, on a code identifier, a file name, a URL, or a citation
+without a bibliography entry. The paper reaches external work only through the bibliography at the
+end, which is the usual convention; the table that maps theorems to Lean declarations lives in
+`research/lean/mechanization.md` instead of the paper.
 
 ## `metaform`: lay out the current scenario
 
@@ -62,11 +70,12 @@ This repository uses it too: the `.metaform/` directory at the root is its outpu
 ## Reproducing the three-part setup
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # five assertion gates (Lean/Rust/falsification/bilingual/numbers), about 40 s
+pwsh -File scripts/check-all.ps1                     # six assertion gates (Lean/Rust/references/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
 pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 63)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
-python scripts/align-papers.py                       # bilingual structure/number alignment + appendix Lean table ↔ source files
+python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
+python scripts/check-references.py                   # no path, file name or link that the repository does not contain
 python research/exp/ledger.py list --all             # counterexample ledger (add/amend/retract, suspend, with evidence and history)
 python research/exp/ledger.py show L2               # inspect one entry: source, answer, votes, change history
 python research/exp/ledger.py corroborate --apply    # merge weak evidence for the same object via noisy-OR
@@ -87,11 +96,11 @@ python research/exp/proposer.py --case domain_c --responses research/exp/respons
     --pool-out pool.txt --scenario-out case.demo                          # generate a metaform scenario and candidate pool
 ```
 
-The scripts take the interpreter from `METAFORM_PYTHON` (or from `python` on PATH). On this
-machine `python` is a Microsoft Store stub, so set the variable once per shell:
+The scripts take the interpreter from `METAFORM_PYTHON` (or from `python` on PATH). If `python` on
+PATH is a Store stub rather than a working interpreter, set the variable once per shell:
 
 ```powershell
-$env:METAFORM_PYTHON = 'C:\path\to\python.exe'
+$env:METAFORM_PYTHON = '<full path to python.exe>'
 & $env:METAFORM_PYTHON research\exp\domain_a.py
 ```
 
@@ -159,7 +168,8 @@ Copy-Item scripts\local.example.ps1 scripts\local.ps1
 
 ## Provenance
 
-- `1.md`: the original conversation that posed the problem.
-- `reasoning_engine_research_map.md`: an interdisciplinary source map (the repository's 36 papers were downloaded according to it).
-- `research/03-synthesis.md`: paper-by-paper comparison of the 36 works, confirming the gap of "query failure → rewrite the language".
+- The problem was posed in one long research conversation. That conversation is an input, not a
+  deliverable, so it is not tracked here.
+- `research/03-synthesis.md`: paper-by-paper comparison of 36 works, confirming the gap of
+  "query failure -> rewrite the language".
 
