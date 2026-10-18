@@ -1,4 +1,5 @@
-# 场景：V0 只有一个谓词，把两个正例和两个反例放在同一侧 → 同一等价类 → 撞车
+# Scenario: V0 has one predicate and puts two positives and two negatives on the same side,
+# so they share one equivalence class and collide.
 objects 8
 add half 0 1 4 5
 pos 0 1
@@ -7,22 +8,22 @@ neg 4 5
 status
 explain
 
-# 三个候选谓词，各自能劈开不同的撞车对
+# Three candidate predicates, each separating a different colliding pair.
 score p_left  0
 score p_right 4
 score p_diag  0 4
 
-# 采纳 p_left：还剩 2 对
+# Adopt p_left: two pairs remain.
 add p_left 0
 status
 explain
 
-# 再采纳 p_right：还剩 1 对
+# Adopt p_right: one pair remains.
 add p_right 4
 status
 explain
 
-# 最后需要第三个谓词才能全部劈开
+# A third predicate is needed to separate the last pair.
 add p_top 1 5
 status
 explain
