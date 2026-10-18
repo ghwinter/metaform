@@ -46,14 +46,16 @@
 
 \section{引言}
 
-用户列出四个例子，期望系统找出生成它们的概念。系统返回的却是与所用词语语义相邻的材料。
-这种失败通常被归因于搜索不足或知识不足。我们认为它有逻辑形式：该概念无法用系统正在搜索的
-词汇表达，而在一种语言内部搜索，永远不会产出这门语言之外的句子。
+从有限个例子做归纳，有两种熟悉的失败模式：搜索到不了目标，或者背景知识里没有这个模式。
+第三种失败是逻辑的，不是计算的。目标概念可能无法在搜索所及的词汇上表达；此时假设空间里没有
+任何一致元素，而在一种语言内部无论搜索多久，都产不出这门语言之外的句子。这种失败看起来像
+证据不足，通常也被当作证据不足来报告，尽管再多的例子都去不掉它。
 
-本文只隔离这一步。我们的贡献是：
+本文的贡献是：
 \begin{enumerate}
   \item 给出“语言不够”的一个可判定判据（定理~\ref{thm:necessary}），把表征变更从启发式
-        升级为逻辑必然；并证明追加例子无法修复不足的词汇（定理~\ref{thm:monodata}）；
+        升级为逻辑必然；并证明追加例子无法修复不足的词汇（定理~\ref{thm:monodata}），
+        以及改写问题不能提供缺失的谓词（推论~\ref{cor:rephrase}）；
   \item 一个覆盖判据（定理~\ref{thm:cover}），把谓词提议变成正反例对上的集合覆盖问题；
         实测贪心需要 $2.10 \pm 0.06$ 个谓词，最优 $1.85 \pm 0.06$，随机顺序 $4.28 \pm 0.09$；
   \item 说明为什么仅凭一致性无法选出词汇（定理~\ref{thm:capacity}），以及要做得更好需要多少
@@ -78,7 +80,7 @@
 没有真正的语言模型），因此除 $r/q$ 这套核算外，我们不对提议质量作任何断言。噪声保证在每次回答
 错误率约 $0.2$ 以内成立；再高，我们所用的票差阈值就饱和了。
 
-\section{设定}
+\section{设定}\label{sec:setting}
 
 \begin{definition}[词汇与签名]
 设 $\dom$ 为有限对象集，$\Vocab \subseteq (\dom \to \{0,1\})$ 为有限谓词集。$x \in \dom$ 的
@@ -158,6 +160,15 @@ $2^{m}$ 个。
 追加的例子能暴露词汇不足，但永远不能修复它。
 \end{theorem}
 
+\begin{corollary}[改写问题不能分离]\label{cor:rephrase}
+在模型中，一个问题就是对某个对象做成员测试，措辞不是查询的一部分。若目标不是
+$\Vocab$-可定义的，且一致集里有两个 $\Indist$-等价的候选，那么任意有限多个措辞不同的问题
+都会让两者同时存活，即 $\Phi \ge 2$ 始终成立；由定理~\ref{thm:mono}，只有表征变更加入一个
+让两者不同的谓词之后，势才降到 $1$。
+\end{corollary}
+
+这个诊断值得写出来，因为它把通常的读法倒过来：一个在多次改写之下都分不开的目标，不是描述不足，
+而是未被表征——每次改写都是关于同一个签名的同一份证据，缺的是谓词，不是例子。
 \begin{theorem}[查询下界]\label{thm:lower}
 设 $\mathcal{F}$ 是一族在 $\dom$ 上两两不同的候选内涵。仅用成员查询识别 $\mathcal{F}$ 中的
 元素，至少需要 $\lceil \log_2 |\mathcal{F}| \rceil$ 次查询。
@@ -171,11 +182,11 @@ $2^{m}$ 个。
 
 \section{算子作为带类型的转移}\label{sec:operators}
 
-上面的结果只分析了一步：词汇之内的归纳，以及打断它的词汇增长。然而一个必须决定“下一步做什么”
-的系统，手上有不止一种步骤：它可以生成候选（归纳、溯因、类比），用已接受的规则把它们闭合
-（演绎、一致性检查），更换词汇，购买证据（反例搜索、实验），或者把预算花在“在这些之间选”上。
-这些步骤通常被编成不同种类的“推理”而无法互相比较，于是“该用哪个算子”始终是口号。我们给这五类
-同一个状态、同一个度量、同一个类型，并逐类证明它能改变什么、不能改变什么。
+第~\ref{sec:setting}~节的模型固定词汇，让证据累积；词汇的增长是外部施加的修复。一个决策流程
+需要的步骤不止一种：它可以生成候选（归纳、溯因、类比），用已接受的规则把它们闭合（演绎、
+一致性检查），更换词汇，购买证据（反例搜索、实验），或者把预算花在“在这些之间选”上。这些步骤
+通常被编成不同种类的“推理”而无法互相比较，于是“该用哪个算子”始终是口号。我们给这五类同一个
+状态、同一个度量、同一个类型，下面四条定理逐类确定它能改变什么、不能改变什么。
 
 \begin{definition}[状态、活集、势]
 一个\emph{状态}是 $s=(H,\Vocab,E,B)$：候选内涵的有限族 $H$、词汇 $\Vocab$、证据
@@ -281,10 +292,10 @@ $\Phi=0$ 时每个 $\Vocab$-可定义候选都与 $E$ 不一致；在 $\Vocab$ �
 变化在 $\pm 6\%$ 以内，而 $r/q$ 的跨度是 $45$ 倍——因为有信息的问题之间只差在“把活集劈开多少”，
 而判定所需的提问次数落在定理~\ref{thm:lower} 的计数下界与平凡上界 $\Phi-1$ 之间。在单位查询
 代价、八个活候选的合成状态上，按劈开大小选择需要 $3.11$ 次查询，随机顺序 $3.50$ 次，固定顺序
-$3.60$ 次（\texttt{metaform ops}）：约十分之四次查询的差别，这就是"二阶"在这里的意思。
+$3.60$ 次，差距约十分之四次查询，这就是"二阶"在这里的意思。
 若单个原子就足够，覆盖排序会把它排在最前——此时这个分数是判据本身而不是代理：由
 定理~\ref{thm:cover}，这样的原子必分开每一对撞车。贪心组合也能越出单原子情形：需要两个原子时，
-它在预算两次内成功，随机顺序很少成功，而固定顺序（整类原子在前）从不成功（\texttt{metaform ops}）。
+它在预算两次内成功，随机顺序很少成功，而固定顺序（整类原子在前）从不成功。
 
 这套定型没有说该生成哪个候选，也没有说活下来的假设是否就是用户心里那个概念。它说的是：其余四类
 算子的任何序列都改变不了判决，因此“往固定词汇上不断加算子”或“反复重算闭包”的设计不可能收敛。
@@ -302,7 +313,7 @@ $3.60$ 次（\texttt{metaform ops}）：约十分之四次查询的差别，这�
         贪心是 $H_{|\Epos||\Eneg|}$ 近似。在合成覆盖实验里（$3\times3$ 对、十个随机候选），
         贪心平均需要 $2.10 \pm 0.06$ 个谓词，最优是 $1.85 \pm 0.06$，随机顺序要 $4.28 \pm 0.09$（五个 seed）。
         用 metarule 式组合找出口是不行的：由当前谓词拼出来的候选仍是 $\Vocab$-可定义的，
-        在只有一个谓词 \texttt{half} 的场景里，生成的候选池只有一个谓词，它一对撞车都分不开。
+        在唯一的谓词是把自变量减半的场景里，生成的候选池只有一个谓词，它一对撞车都分不开。
         **逃出不足的词汇需要的不是新组合，而是新原子。**
 \end{enumerate}
 提议、选题、裁决三种角色保持分离，使它们不共享同一个错误来源。有噪 oracle 下再加一条规则：
@@ -310,7 +321,7 @@ $3.60$ 次（\texttt{metaform ops}）：约十分之四次查询的差别，这�
 每次回答错误率 $\varepsilon \le 0.1$ 时 $\theta = 3$ 够用。该状态机有一个小型 Rust
 参考实现，其测试分别对应定理~\ref{thm:necessary}、\ref{thm:capacity} 与 \ref{thm:monodata}，
 以及第~\ref{sec:operators}~节算子的定理~\ref{thm:gen} 至~\ref{thm:recomb}（含一个验证继承标签的
-探测算子，停机规则依赖它）；\texttt{metaform ops} 打印调度对照，其中"全部执行"与"跳过冗余"的差额
+探测算子，停机规则依赖它）；它的调度对照把"全部执行"与"跳过冗余"的差额
 恰好等于被跳过步骤的代价。
 
 \section{实验}\label{sec:experiments}
@@ -385,7 +396,7 @@ $R=1$ 时问一个，$R=3$ 时全问。纯度先验同样不是手填的：它�
 于是这个成本比较里唯一的自由参数也系在记录下来的证据上。最后一个参数——返工代价 $R$——也这样估：
 台账里 9 条需要修复的条目上发生了 11 次修复动作，得 $R=1.22$；于是计划只问一个代表，而手填 $R=3$
 时会两个都问。轨迹见
-\texttt{research/exp/domain\_c.py} 与 \texttt{research/exp/proposer.py}。
+记录随实验产物一起保留。
 
 \textbf{域 B（数学，Lean 作为 oracle）。} $[11,31]$ 上的二十一个整数；隐藏概念是素数性。一个
 不导入 Mathlib 的 Lean 文件算出真值表，并在 Lean 内部证明：在该区间上素数性与“与 30 互素”
@@ -501,55 +512,16 @@ $r=5$ 在 $\varepsilon \le 0.2$ 时把假触发压到 $0.5\%$ 以下、漏检清
 
 \section{形式化条目}
 
-表~\ref{tab:lean} 列出 \texttt{research/lean/QueryDriven.lean} 中已证命题的 Lean 名称。该文件
-在 Lean 4.35.0 + Mathlib 下编译，无 \texttt{sorry}、无警告；Mathlib 已预热时编译约 $25$\,s。\texttt{scripts/check-lean.ps1} 在出现任何警告时返回非零并保存日志，
-所以这条是脚本检查的，不是口头保证。
-单调性证明还用到两个辅助引理（\texttt{sig\_apply\_of\_mem}、\texttt{sig\_apply\_of\_not\_mem}），
-未在表中列出；第~\ref{sec:operators}~节的算子陈述建立在定义 \texttt{live} 与 \texttt{Phi} 之上，
-这两个定义同样不在表里。推论~\ref{cor:alt} 是定理~\ref{thm:gen} 至定理~\ref{thm:recomb} 的
-论文级推论，未单独形式化。
+13 条 Lean~4~\cite{lean4} 陈述（基于 Mathlib~\cite{mathlib}）承载定理~1--11：一条刻画、必要性
+陈述、两条单调性引理、容量界的计数形式、不修复陈述、查询下界、覆盖判据，以及每个算子类一条
+陈述，其中重组拆成两条。该开发不接受任何未证目标、不产生警告，Mathlib 预热后编译约 $25$\,s；
+构建在出现警告时失败，因此机器检查由构建强制，而不是由本文断言。两个签名引理与容量界的弱形式
+支撑上述证明，未计入。算子陈述写在 第~\ref{sec:operators}~节的活集与势之上。第~\ref{sec:setting}~节
+关于改写的推论与第~\ref{sec:operators}~节关于交替的推论是论文层面的结论，未单独形式化。
 
-\begin{table}[h]
-\centering
-\begin{tabular}{lll}
-\toprule
-结果 & Lean 名称 & 说明 \\
-\midrule
-定理 1 & \texttt{definable\_iff} & 按等价类刻画 \\
-定理 2 & \texttt{no\_consistent\_concept} & 必要性（主结果） \\
-定理 3 & \texttt{indist\_mono}, \texttt{indist\_insert} & 增长的单调性 \\
-定理 4 & \texttt{capacity\_bound\_strong} & 计数形式（$2^m$） \\
-定理 5 & \texttt{no\_consistent\_concept\_mono} & 更多数据不修复 \\
-定理 6 & \texttt{query\_lower\_bound} & 计数论证，$|\mathcal{F}| \le 2^k$ \\
-定理 7 & \texttt{no\_collision\_of\_separated} & 覆盖判据（集合覆盖） \\
-定理 8 & \texttt{phi\_mono} & 生成不减小活集 \\
-定理 9 & \texttt{phi\_closure\_idem} & 闭包幂等 \\
-定理 10 & \texttt{phi\_evidence\_lt} & 证据严格减小活集 \\
-定理 11 & \texttt{recomb\_cannot\_separate}, \texttt{indist\_insert\_of\_eq} & 重组保留撞车 \\
-\bottomrule
-\end{tabular}
-\caption{哪个形式化陈述承载哪条定理。定理~4 的弱形式（\texttt{capacity\_bound}）保留为计数形式的引理。}
-\label{tab:lean}
-\end{table}
-
-\section{复现}
-
-\begin{verbatim}
-pwsh -File scripts/check-all.ps1                   # Lean + Rust + 数字回归
-python research/exp/verify_claims.py               # 论文数字对账
-pwsh -File scripts/check-lean.ps1                  # 只跑 Lean（约 25 秒）
-pwsh -File scripts/check-rust.ps1                  # 63 个测试，计数被断言
-python research/exp/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
-python research/exp/domain_b.py                    # Lean oracle，约 3 秒
-python research/exp/domain_c.py                    # 代码不变量
-python research/exp/domain_cost.py                 # 成本分解
-python research/exp/domain_more_data.py            # 定理 5 的经验版
-pwsh -File scripts/extract-pdf-text.ps1            # 重建本地语料
-\end{verbatim}
-
-合成实验只使用 Python 标准库。域 B 需要 \texttt{PATH} 上有 \texttt{lean}（或使用
-\texttt{check.lean} 所用的路径）。域 C 会运行它试图刻画的函数；循环从不读取那个不变量。
-
+第~\ref{sec:experiments}~节引用的每个数字都由自动门禁与实验和内核的一次新运行对照，数字漂移
+即构建失败。合成实验只使用 Python 标准库；域~B 需要 Lean 工具链；域~C 运行它试图刻画的函数，
+循环从不读取那个不变量。
 \begin{thebibliography}{9}
 \small
 \bibitem{cropper2021} A.~Cropper, S.~Duman\v{c}i\'c, and R.~Evans.
@@ -573,6 +545,11 @@ pwsh -File scripts/extract-pdf-text.ps1            # 重建本地语料
 \bibitem{russell1991} S.~Russell and E.~Wefald. Principles of metareasoning.
   \emph{Artificial Intelligence}, 49(1--3):361--395, 1991.
 \bibitem{grunwald2019} P.~Gr\"unwald and J.~Roos. Minimum description length revisited. 2019.
+\bibitem{lean4}
+  L.~de Moura and S.~Ullrich. The Lean~4 theorem prover and programming language.
+  \emph{CADE}, 2021.
+\bibitem{mathlib}
+  The Mathlib community. The Lean mathematical library. \emph{CPP}, 2020.
 \bibitem{ganter1999} B.~Ganter and R.~Wille. \emph{Formal Concept Analysis: Mathematical
   Foundations}. Springer, 1999.
 \normalsize

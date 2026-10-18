@@ -2,11 +2,12 @@
 Bilingual alignment check: English is authoritative, Chinese is the translation.
 This script checks whether the translation has quietly drifted.
 
-It compares four things:
+It compares five things:
   1. section count and order
   2. environment counts (theorem / definition / figure / table / axis)
   3. the set of citation keys used
   4. whether the key numbers in the paper appear on both sides
+  5. whether the mechanization map still matches the Lean development and both papers
 
 It does not judge translation quality; it only catches mechanical problems such as
 missing structure or numbers.
@@ -51,15 +52,18 @@ def cites(t: str) -> set[str]:
 
 
 LEAN = ROOT / "research" / "lean" / "QueryDriven.lean"
+MECH = ROOT / "research" / "lean" / "mechanization.md"
 
 
-def lean_table_names(tex: str) -> list[str]:
-    """Lean names listed in the appendix table."""
-    m = re.search(r"\\midrule(.*?)\\bottomrule", tex, re.S)
-    if not m:
-        return []
-    raw = re.findall(r"\\texttt\{([A-Za-z0-9_\\]+)\}", m.group(1))
-    return [n.replace("\\_", "_") for n in raw]
+def mechanization_names() -> list[str]:
+    """Declaration names in the second column of the maintenance table."""
+    names: list[str] = []
+    for line in MECH.read_text(encoding="utf-8").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 2 or not re.fullmatch(r"Theorem \d+", cells[0]):
+            continue
+        names += re.findall(r"`([A-Za-z0-9_]+)`", cells[1])
+    return names
 
 
 def main() -> None:
@@ -95,17 +99,21 @@ def main() -> None:
         problems += 1
         print(f"  ! present on one side only: {missing}")
 
-    names = lean_table_names(en)
+    names = mechanization_names()
     if not names:
         problems += 1
-        print("  ! no Lean names parsed out of the appendix table")
+        print("  ! no Lean names parsed out of the mechanization map")
     else:
         lean = LEAN.read_text(encoding="utf-8")
         absent = [n for n in names if f"theorem {n}" not in lean and f"def {n}" not in lean]
-        print(f"lean table: {len(names)} names, {len(absent)} missing")
+        print(f"mechanization map: {len(names)} names, {len(absent)} missing from the Lean file")
         if absent:
             problems += 1
-            print(f"  ! listed in the appendix table but absent from the Lean file: {absent}")
+            print(f"  ! listed in the map but absent from the Lean file: {absent}")
+        claimed = {int(n) for t in (en, zh) for n in re.findall(r"(\d+)\s*Lean", t)}
+        if claimed != {len(names)}:
+            problems += 1
+            print(f"  ! paper claims {sorted(claimed)} declarations, the map lists {len(names)}")
 
     if problems:
         print(f"\n{problems} structural drift(s)")

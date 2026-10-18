@@ -55,18 +55,20 @@ proposal and $q$ its hit rate. The core statements are mechanized in Lean~4 with
 
 \section{Introduction}
 
-A user lists four examples and expects the system to find the concept that generates them.
-The system returns material adjacent to the words used. This failure is usually attributed to
-insufficient search or insufficient knowledge. We argue it has a logical form: the concept is
-not expressible in the vocabulary the system is searching over, and no amount of search
-inside a language can produce a sentence outside it.
+Induction from finitely many examples has two familiar failure modes: the search does not reach the
+target, or the background knowledge does not contain the pattern. A third failure is logical rather
+than computational. The target concept may fail to be expressible over the vocabulary the search
+ranges over; the hypothesis space then holds no consistent element, and no amount of search inside a
+language produces a sentence outside it. The failure looks like weak evidence, and it is usually
+reported as weak evidence, although no further example can remove it.
 
-This paper isolates that step. Our contributions are:
+The contributions of this paper are:
 \begin{enumerate}
   \item a decidable criterion for ``the language is insufficient'' (Theorem~\ref{thm:necessary}),
         turning representation change from a heuristic into a logical necessity, together with the
         proof that more examples cannot repair an insufficient vocabulary
-        (Theorem~\ref{thm:monodata});
+        (Theorem~\ref{thm:monodata}) and the corollary that rephrasing a question cannot supply the
+        missing predicate (Corollary~\ref{cor:rephrase});
   \item a covering criterion (Theorem~\ref{thm:cover}) that turns predicate proposal into a
         set-cover problem over cross pairs, with greedy measured at $2.10 \pm 0.06$ predicates
         against $1.85 \pm 0.06$ for the optimum and $4.28 \pm 0.09$ for a random order;
@@ -101,7 +103,7 @@ model was in the loop, so we make no claim about proposer quality beyond the $r/
 Noise guarantees hold for per-answer error up to about $0.2$; beyond that the vote margins we use
 saturate.
 
-\section{Setting}
+\section{Setting}\label{sec:setting}
 
 \begin{definition}[Vocabulary and signature]
 Let $\dom$ be a finite set of objects and let $\Vocab \subseteq (\dom \to \{0,1\})$ be a finite
@@ -188,6 +190,17 @@ candidate set can only shrink as examples are added, so additional examples can 
 insufficient vocabulary but never fix it.
 \end{theorem}
 
+\begin{corollary}[Rephrasing cannot separate]\label{cor:rephrase}
+In the model a question is a membership test on an object, so its wording is not part of the query.
+If the target is not $\Vocab$-definable and the consistent set contains two $\Indist$-equivalent
+candidates, any finite number of differently worded questions leaves both live, so $\Phi \ge 2$
+throughout; by Theorem~\ref{thm:mono} the set drops to $1$ only after a representation change adds a
+predicate on which the candidates differ.
+\end{corollary}
+
+The diagnostic is worth stating because it inverts the usual reading. A target that survives many
+rephrasings is not under-described but unrepresented: each phrasing is the same evidence about the same
+signature, and the missing element is a predicate, not an example.
 \begin{theorem}[Query lower bound]\label{thm:lower}
 Let $\mathcal{F}$ be a family of candidate intensions pairwise distinct on $\dom$. Identifying
 an element of $\mathcal{F}$ using only membership queries requires at least
@@ -202,13 +215,13 @@ pair, so the vocabulary suffices exactly when the chosen predicates separate eve
 
 \section{Operators as typed transitions}\label{sec:operators}
 
-The results above analyse a single step: induction inside a vocabulary, interrupted by vocabulary
-growth. A system that has to decide what to do next has more than one kind of step available. It can
-generate candidates (induction, abduction, analogy), close them under rules it already accepts
-(deduction, consistency filtering), change the vocabulary, buy evidence (counterexample search,
-experiment), or spend budget deciding among these. Catalogued as different kinds of reasoning they stay
-incomparable, so ``use the right operator'' is a slogan; one state, one measure and one type make it
-checkable, and we prove for each class what it can and cannot change.
+The model of \S\ref{sec:setting} fixes the vocabulary and lets evidence accumulate; enlarging the
+vocabulary enters as a repair applied from outside. A decision procedure needs more than one kind of
+step. It can generate candidates (induction, abduction, analogy), close them under rules it already
+accepts (deduction, consistency filtering), change the vocabulary, buy evidence (counterexample
+search, experiment), or spend budget deciding among these. Catalogued as different kinds of reasoning
+they stay incomparable, so ``use the right operator'' is a slogan; one state, one measure and one type
+make it checkable, and the four theorems below fix for each class what it can and cannot change.
 
 \begin{definition}[State, live set, potential]
 A \emph{state} is $s=(H,\Vocab,E,B)$: a finite family $H$ of candidate intensions, a vocabulary
@@ -330,11 +343,11 @@ moved total cost within $\pm 6\%$ while $r/q$ spanned a factor of $45$, because 
 differ in how much they split the live set, and the number of questions needed to decide lies between
 the counting bound of Theorem~\ref{thm:lower} and the trivial bound $\Phi-1$. On uniform query costs
 with eight live hypotheses, selecting by split size needs $3.11$ queries against $3.50$ for a random
-order and $3.60$ for a fixed one (\texttt{metaform ops}): about four tenths of a query, which is what
+order and $3.60$ for a fixed one, a gap of about four tenths of a query, which is what
 second order means here. When a single atom suffices, coverage ranks it first, and then the score is
 the criterion rather than a proxy: by Theorem~\ref{thm:cover} such an atom separates every colliding
 pair. Greedy composition extends past the single-atom case: with two atoms required, it succeeds
-within a budget of two, a random order rarely, a fixed order never (\texttt{metaform ops}).
+within a budget of two, a random order rarely, a fixed order never.
 
 It does not say which candidate to generate, or whether the survivor is the user's concept. It says
 that no sequence of the other four classes changes the verdict, so adding operators to a fixed
@@ -358,7 +371,7 @@ State: a vocabulary $\Vocab$ and the candidate set $\mathcal{F}$. Loop:
         $1.85 \pm 0.06$ for the optimum and $4.28 \pm 0.09$ for a random order (five seeds).
         Metarule-style combination is not a way out: every
         candidate built from the current predicates is again $\Vocab$-definable, so on a run with
-        the single predicate \texttt{half} the derived candidate pool contained one predicate that
+        whose only predicate halved its argument, the derived candidate pool contained one predicate that
         separated none of the four colliding pairs. Escaping an insufficient vocabulary requires a
         new atom, not a new combination.
 \end{enumerate}
@@ -369,7 +382,7 @@ re-confirmed before a predicate is proposed; $\theta = 3$ suffices for per-answe
 $\varepsilon \le 0.1$. A small Rust library mirrors Theorems~\ref{thm:necessary}, \ref{thm:capacity}, \ref{thm:monodata}
 and, for the operators of \S\ref{sec:operators}, Theorems~\ref{thm:gen}--\ref{thm:recomb}, including
 a probe operator that validates an inherited class label and on which the stopping rule depends;
-\texttt{metaform ops} prints the scheduling comparison, whose cost difference equals the skipped
+Its scheduling comparison reports the cost difference as the number of skipped
 steps.
 
 \section{Experiments}\label{sec:experiments}
@@ -477,8 +490,7 @@ from the ledger by Laplace smoothing over classes that carry at least two confir
 $1$ impure gives $p=0.67$ in our run, and the estimate is printed with the plan), so the one free
 parameter of the cost comparison is tied to recorded evidence. The last parameter, the rework cost
 $R$, is estimated the same way: eleven repair actions over nine repaired entries give $R=1.22$ in
-our ledger, and the plan then asks one representative where a hand-set $R=3$ would have asked both. Trace in \texttt{research/exp/domain\_c.py} and
-\texttt{research/exp/proposer.py}.
+our ledger, and the plan then asks one representative where a hand-set $R=3$ would have asked both. The trace is kept with the artifacts.
 
 \textbf{Domain B (mathematics, Lean oracle).} Twenty-one integers in $[11,31]$; the hidden concept is
 primality. A Lean file with no Mathlib imports computes the truth table and, inside Lean, proves
@@ -620,58 +632,21 @@ does not deduplicate extensionally equivalent predicates.
 
 \section{Mechanized statements}
 
-Table~\ref{tab:lean} lists the Lean names of the statements proved in
-\texttt{research/lean/QueryDriven.lean}. The file compiles against Lean 4.35.0 with Mathlib, with
-no \texttt{sorry} and no warnings; compilation takes about 25\,s once Mathlib is warm.
-\texttt{scripts/check-lean.ps1} fails on any warning and keeps the log, so the claim is checked by the
-script rather than asserted. Two helper lemmas (\texttt{sig\_apply\_of\_mem}, \texttt{sig\_apply\_of\_not\_mem})
-are used by the monotonicity proof and are not listed; the operator statements of
-\S\ref{sec:operators} are stated over the definitions \texttt{live} and \texttt{Phi}, which are not
-listed either. Corollary~\ref{cor:alt} is a paper-level consequence of Theorems~\ref{thm:gen}
-to~\ref{thm:recomb} and is not separately mechanized.
+13 Lean~4~\cite{lean4} declarations, over Mathlib~\cite{mathlib}, carry Theorems~1--11: one
+characterization, the necessity statement, the two monotonicity lemmas, the counting form of the
+capacity bound, the no-repair statement, the query lower bound, the covering criterion, and one
+statement per operator class, recombination split into two. The development compiles with no admitted
+goal and no warnings, in about 25\,s once Mathlib is warm, and the build fails on a warning, so the
+machine check is enforced by the build rather than reported here. Two signature lemmas and the weak
+counting form support those proofs and are not counted. The operator statements are phrased over the
+live set and the potential of \S\ref{sec:operators}. The corollary of \S\ref{sec:setting} on rephrasing
+and the corollary of \S\ref{sec:operators} on alternation are paper-level consequences and are not
+separately mechanized.
 
-\begin{table}[h]
-\centering
-\begin{tabular}{lll}
-\toprule
-Result & Lean name & Note \\
-\midrule
-Theorem 1 & \texttt{definable\_iff} & characterization by classes \\
-Theorem 2 & \texttt{no\_consistent\_concept} & necessity (main result) \\
-Theorem 3 & \texttt{indist\_mono}, \texttt{indist\_insert} & monotonicity of growth \\
-Theorem 4 & \texttt{capacity\_bound\_strong} & counting form ($2^m$) \\
-Theorem 5 & \texttt{no\_consistent\_concept\_mono} & more data does not repair \\
-Theorem 6 & \texttt{query\_lower\_bound} & counting argument, $|\mathcal{F}| \le 2^k$ \\
-Theorem 7 & \texttt{no\_collision\_of\_separated} & covering criterion (set cover) \\
-Theorem 8 & \texttt{phi\_mono} & generation cannot reduce the live set \\
-Theorem 9 & \texttt{phi\_closure\_idem} & closure is idempotent \\
-Theorem 10 & \texttt{phi\_evidence\_lt} & evidence strictly reduces the live set \\
-Theorem 11 & \texttt{recomb\_cannot\_separate}, \texttt{indist\_insert\_of\_eq} & recombination keeps collisions \\
-\bottomrule
-\end{tabular}
-\caption{Which formal statement carries which theorem. The weak form of Theorem~4 (\texttt{capacity\_bound})
-is kept as a helper for the counting form.}
-\label{tab:lean}
-\end{table}
-
-\section{Reproduction}
-
-\begin{verbatim}
-pwsh -File scripts/check-all.ps1                   # Lean + Rust + claim regression
-python research/exp/verify_claims.py               # headline numbers vs paper
-pwsh -File scripts/check-lean.ps1                  # Lean only (~25 s)
-python research/exp/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
-python research/exp/domain_b.py                    # Lean oracle, ~3 s
-python research/exp/domain_c.py                    # code invariants
-python research/exp/domain_cost.py                 # cost decomposition
-python research/exp/domain_more_data.py            # Theorem 5, empirically
-pwsh -File scripts/extract-pdf-text.ps1            # rebuild the local corpus
-\end{verbatim}
-
-The synthetic experiments use only the Python standard library. Domain~B requires
-\texttt{lean} on \texttt{PATH} (or at the path used by \texttt{check.lean}). Domain~C runs the
-function it is trying to characterize; the invariant is never read by the loop.
-
+Every number quoted in \S\ref{sec:experiments} is re-compared by an automated gate against a fresh run
+of the experiments and of the kernel, so a number that drifts fails the build. The synthetic
+experiments use only the Python standard library; domain~B requires a Lean toolchain; domain~C runs the
+function it characterizes and never reads the invariant.
 \begin{thebibliography}{9}
 \small
 \bibitem{cropper2021} A.~Cropper, S.~Duman\v{c}i\'c, and R.~Evans.
@@ -695,6 +670,11 @@ function it is trying to characterize; the invariant is never read by the loop.
 \bibitem{russell1991} S.~Russell and E.~Wefald. Principles of metareasoning.
   \emph{Artificial Intelligence}, 49(1--3):361--395, 1991.
 \bibitem{grunwald2019} P.~Gr\"unwald and J.~Roos. Minimum description length revisited. 2019.
+\bibitem{lean4}
+  L.~de Moura and S.~Ullrich. The Lean~4 theorem prover and programming language.
+  \emph{CADE}, 2021.
+\bibitem{mathlib}
+  The Mathlib community. The Lean mathematical library. \emph{CPP}, 2020.
 \bibitem{ganter1999} B.~Ganter and R.~Wille. \emph{Formal Concept Analysis: Mathematical
   Foundations}. Springer, 1999.
 \normalsize
