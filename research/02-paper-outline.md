@@ -1,107 +1,107 @@
-# 02 论文骨架：Vocabulary Before Search
+# 02 Paper skeleton: Vocabulary Before Search
 
-v0.1 · 2026-10-19 · 正文英文，笔记中文
+v0.1 · 2026-10-19 · body in English, notes in Chinese
 
-## 1. 标题（三选一）
+## 1. Title (three candidates, pick one)
 
 1. **Vocabulary Before Search: Query-Driven Representation Change for Concept Discovery**
 2. *When More Search Cannot Help: A Necessity Criterion for Vocabulary Growth*
 3. *Learning What to Ask: Attribute Exploration with Machine-Proposed Predicates*
 
-用 1。
+Use 1.
 
-## 2. 摘要骨架（五句）
+## 2. Abstract skeleton (five sentences)
 
-1. 从少量例子恢复未明说的概念 S，是归纳的核心任务；现有系统（FCA、ILP、程序归纳）都在**给定语言内**搜索。
-2. 我们证明：当正例与反例在给定词汇下不可分辨时，该语言内不存在任何一致假设，**增加搜索预算不改变结论**（T2）。
-3. 于是问题从"如何搜得更好"变成"如何、依据什么信号、以多少代价改写语言"。
-4. 我们给出一个三件套：可定义性判据（T1）、容量上界（T4）、查询下界（T5），以及一个由 LLM 提议谓词、程序按信息增益选查询、oracle 裁决的探索算法。
-5. 在三个 oracle 可判定的域上，我们测量识别 S 所需的提问数与留出准确率，并与固定词汇的全预算搜索对比。核心定理已在 Lean 4 + Mathlib 中形式化。
+1. Recovering an unstated concept S from a few examples is a core task of induction; existing systems (FCA, ILP, program induction) all search **within a given language**.
+2. We prove that when positive and negative examples are indistinguishable under the given vocabulary, no consistent hypothesis exists in that language, and **increasing the search budget does not change the conclusion** (T2).
+3. The question therefore shifts from "how to search better" to "how, by what signal, and at what cost to rewrite the language."
+4. We give a three-piece kit: a definability criterion (T1), a capacity upper bound (T4), a query lower bound (T5), and an exploration algorithm in which an LLM proposes predicates, a program selects queries by information gain, and an oracle adjudicates.
+5. On three oracle-decidable domains we measure the number of questions needed to identify S and held-out accuracy, and compare against fixed-vocabulary full-budget search. The core theorem has been formalized in Lean 4 + Mathlib.
 
-## 3. 贡献（三条，不多写）
+## 3. Contributions (three, no more)
 
-1. **判据**：一个可判定的"语言不够"信号（候选内涵集为空），把表征变更从启发式升级为逻辑必然。
-2. **算法 + 约束**：谓词提议、查询选择、容量约束三分离的探索循环；给出为什么不能只靠一致性（T4）。
-3. **基准**：三个 oracle 可判定的域，使"是否找到 S"第一次可查；核心定理 Lean 形式化。
+1. **Criterion**: a decidable "language is insufficient" signal (the candidate intension set is empty), which upgrades representation change from a heuristic to a logical necessity.
+2. **Algorithm + constraints**: an exploration loop that separates predicate proposal, query selection, and the capacity constraint; and why consistency alone is not enough (T4).
+3. **Benchmark**: three oracle-decidable domains that make "was S found" checkable for the first time; core theorems formalized in Lean.
 
-## 4. 章节与体量（目标 8–10 页 + 附录）
+## 4. Sections and volume (target 8–10 pages + appendix)
 
-| 节 | 内容 | 页 |
+| Section | Content | Pages |
 |---|---|---|
-| 1 Intro | 现象：给了 A/B/C/D，系统只在邻近语义里打转；固定语言内搜索为何必然失败 | 1 |
-| 2 Setting | 词汇、签名、可定义、查询、候选内涵集（01 的 §1） | 1 |
-| 3 Results | T1–T5，证明放附录；主文只留 T2 与 T4 的推论 | 2 |
-| 4 Algorithm | 探索循环、`F = ∅` 触发、信息增益选查询、谓词提议的受限语言 | 1.5 |
-| 5 Experiments | 三域 × 基线 × oracle 预算 | 2.5 |
-| 6 Related work | 谁固定了什么（见 §6 表） | 1 |
-| 7 Limits | 噪声 oracle、自然语言谓词不可判定、单步增长 | 0.5 |
-| 附录 | 全部证明 + Lean 文件清单 + 复现脚本 | — |
+| 1 Intro | Phenomenon: given A/B/C/D, the system only circles in nearby semantics; why search within a fixed language must fail | 1 |
+| 2 Setting | Vocabulary, signature, definability, query, candidate intension set (§1 of 01) | 1 |
+| 3 Results | T1–T5, proofs in the appendix; the main text keeps only T2 and the corollary of T4 | 2 |
+| 4 Algorithm | Exploration loop, `F = ∅` trigger, information-gain query selection, restricted language for predicate proposals | 1.5 |
+| 5 Experiments | Three domains × baselines × oracle budget | 2.5 |
+| 6 Related work | Who fixed what (see the table in §6) | 1 |
+| 7 Limits | Noisy oracle, undecidable natural-language predicates, single-step growth | 0.5 |
+| Appendix | All proofs + Lean file list + reproduction scripts | — |
 
-## 5. 图表
+## 5. Figures and tables
 
-- **Fig 1** 表征—查询循环（框图）：`V → F → (F=∅? 扩词 : 提问) → oracle → F`。
-- **Fig 2** 一张形式背景的概念格，标出"词汇不足时正反例落在同一格"的可视化。**这张图是论文的说服力核心**：审稿人看图就懂 T2。
-- **Fig 3** 提问数 vs 恢复率曲线（信息增益 vs 随机 vs LLM 直觉）。
-- **Table 1** 相关工作对照（§6）。
-- **Table 2** 实验结果主表。
+- **Fig 1** The representation–query loop (block diagram): `V → F → (F=∅? expand : ask) → oracle → F`.
+- **Fig 2** A concept lattice of a formal context, visualizing "when the vocabulary is insufficient, positive and negative examples fall in the same cell." **This figure is the persuasive core of the paper**: a reviewer understands T2 just by looking at it.
+- **Fig 3** Questions vs recovery-rate curves (information gain vs random vs LLM intuition).
+- **Table 1** Related-work comparison (§6).
+- **Table 2** Main experimental results table.
 
-## 6. 相关工作对照表（直接用库里的材料）
+## 6. Related-work comparison table (use the materials in the library directly)
 
-| 系统 / 理论 | 固定的东西 | 允许改语言？ | oracle | 选择准则 | 库内位置 |
+| System / theory | What is fixed | Allowed to change the language? | oracle | Selection criterion | Location in library |
 |---|---|---|---|---|---|
-| FCA 属性探索 | 属性词表（除探索时增补） | 是，但人给属性、人答每题 | 人类专家 | 蕴含失败驱动 | `03a_fca`（concepts 文档 + zip） |
-| ILP | 谓词签名 | 需 predicate invention，无准则 | 标注数据 | 覆盖 + 压缩 | `04_rule_program_induction/cropper2021_ilp_at_30.pdf` |
-| SME | 谓词词表 | 否 | — | 结构一致 + 系统映射 | `03b_structure_mapping`（+ SME4 源码） |
-| DreamCoder | DSL（会重构） | 是，由**语料**压缩驱动 | 任务集 | MDL / 压缩 | `04_rule_program_induction/ellis2020_dreamcoder.pdf` |
-| Kemp 结构形式 | 形式族（树/链/环/序） | 在形式之间选，由**数据集**驱动 | — | 贝叶斯模型选择 | `02_problem_finding/kemp2008_discovery_structural_form.pdf` |
-| VSA / HDC | 绑定/捆绑算子 | 否 | — | — | `03c_vsa_hdc/kleyko2022_vsa_survey_part1.pdf` |
-| MDL / 贝叶斯模型选择 | 假设空间 | 否 | — | 描述长度 / 后验 | `05_probability_model_selection` |
-| CEGAR | 抽象层 | 是（抽象细化） | 模型检查器 | 反例驱动 | `08_counterexample_llm` |
-| RSA / 意图推断 | 规划空间 + 效用 | 否 | — | 贝叶斯逆规划 | `06_intent_pragmatics` |
-| LLM 采样 | — | 否 | — | 无 | 基线 |
+| FCA attribute exploration | Attribute vocabulary (except additions during exploration) | Yes, but humans supply attributes and answer each question | Human expert | Implication-failure driven | `03a_fca` (concepts doc + zip) |
+| ILP | Predicate signature | Needs predicate invention; no criterion | Labeled data | Coverage + compression | `04_rule_program_induction/cropper2021_ilp_at_30.pdf` |
+| SME | Predicate vocabulary | No | — | Structural consistency + systematic mapping | `03b_structure_mapping` (+ SME4 source) |
+| DreamCoder | DSL (which it refactors) | Yes, driven by **corpus** compression | Task set | MDL / compression | `04_rule_program_induction/ellis2020_dreamcoder.pdf` |
+| Kemp structural form | Form family (tree / chain / ring / order) | Selects among forms, driven by the **dataset** | — | Bayesian model selection | `02_problem_finding/kemp2008_discovery_structural_form.pdf` |
+| VSA / HDC | Binding / bundling operators | No | — | — | `03c_vsa_hdc/kleyko2022_vsa_survey_part1.pdf` |
+| MDL / Bayesian model selection | Hypothesis space | No | — | Description length / posterior | `05_probability_model_selection` |
+| CEGAR | Abstraction layer | Yes (abstraction refinement) | Model checker | Counterexample driven | `08_counterexample_llm` |
+| RSA / intent inference | Plan space + utility | No | — | Bayesian inverse planning | `06_intent_pragmatics` |
+| LLM sampling | — | No | — | None | Baseline |
 
-**空位一句话**：没有任何一个系统把"因为解释不了这几个例子，所以更换描述它们的语言"作为**由单个 query 触发、由程序的判据决定、由廉价 oracle 供能**的操作。
+**The gap in one sentence**: no system treats "because these examples cannot be explained, replace the language that describes them" as an operation that is **triggered by a single query, decided by a program's criterion, and powered by a cheap oracle**.
 
-## 7. 实验矩阵
+## 7. Experiment matrix
 
-三域 × 四基线 × 三 oracle 预算（0 / 5 / 20 次提问）。
+Three domains × four baselines × three oracle budgets (0 / 5 / 20 questions).
 
-**域 A（主实验，合成）**：形式背景，20–50 个对象，隐藏 S 由某个属性组合定义；初始词汇 `V₀` 故意缺一个区分属性。S 完全可知，恢复与否可精确判定。
+**Domain A (main experiment, synthetic)**: formal contexts, 20–50 objects, hidden S defined by some attribute combination; the initial vocabulary `V₀` deliberately lacks one distinguishing attribute. S is fully known, so recovery is exactly decidable.
 
-**域 B（数学）**：给定若干整数序列/结构例子，猜一个代数性质；oracle = Lean 检查命题。
-注意：Lean 冷启动 `import Mathlib` 448 秒，必须**批量脚本**，不能交互。
+**Domain B (mathematics)**: given several integer sequences / structure examples, guess an algebraic property; oracle = Lean checks the proposition.
+Note: Lean cold start `import Mathlib` takes 448 seconds, so a **batch script** is mandatory and there is no interactivity.
 
-**域 C（代码）**：给定若干输入输出样例，猜一个函数不变量；oracle = 运行测试。
+**Domain C (code)**: given several input–output examples, guess a function invariant; oracle = running tests.
 
-**基线**：① 单次 LLM ② 多候选采样 ③ 固定 `V₀` 全预算搜索（证明 T2 的实证版：预算拉满也恢复不了）④ 本方法 · 三种停止规则（候选集空才换 / 预算用完才换 / 按期望收益换）。
+**Baselines**: ① single-shot LLM ② multi-candidate sampling ③ fixed `V₀` full-budget search (the empirical version of T2: even with the budget maxed out, recovery fails) ④ this method · three stopping rules (switch only when the candidate set is empty / switch only when the budget is exhausted / switch by expected payoff).
 
-**指标**：**总成本下的恢复率**（成本 = 对象查询 × c_obj + 谓词提议 × c_pred，比值取 5 / 20 / 100）、精确恢复率、表征变更次数、留出准确率。
-单独报告"提问数"已经不够——域 A 已证明对象级选题几乎免费（见 `research/exp/RESULTS.md`）。
+**Metrics**: **recovery rate under total cost** (cost = object queries × c_obj + predicate proposals × c_pred, with ratios 5 / 20 / 100), exact recovery rate, number of representation changes, held-out accuracy.
+Reporting "number of questions" alone is no longer enough — domain A has already shown that object-level question selection is nearly free (see `research/exp/RESULTS.md`).
 
-## 8. 预演审稿人会问的五件事
+## 8. Five things a reviewer will ask in rehearsal
 
-1. **"数学是 folklore。"** 承认。贡献在判据、算法、基准，不在新定理。Lean 形式化是为了让"判据"可被机器检查，不是炫技。
-2. **"FCA 的属性探索不是已经做了？"** 差别三条：属性由 LLM 提议而非人给；oracle 廉价且有噪；查询按信息增益选而非按格顺序。
-3. **"Kemp 2008 已经在形式间选择。"** 那是语料驱动，不是单 query 驱动；且形式族是预先枚举的有限集。
-4. **"实验太小。"** 承认，声明为可行性研究，并给出可扩展协议（域 A 可自动生成上万实例）。
-5. **"LLM 提议的谓词不可判定。"** 限定域：只处理成员关系可判定的谓词；自然语言谓词实验只做盲评，不进主结论。
+1. **"The math is folklore."** Acknowledged. The contribution is the criterion, the algorithm, and the benchmark, not new theorems. Lean formalization is there to make the "criterion" machine-checkable, not to show off.
+2. **"Hasn't FCA attribute exploration already done this?"** Three differences: attributes are proposed by an LLM rather than given by humans; the oracle is cheap and noisy; queries are chosen by information gain rather than by lattice order.
+3. **"Kemp 2008 already selects among forms."** That is corpus-driven, not driven by a single query; and the form family is a finite set enumerated in advance.
+4. **"The experiments are too small."** Acknowledged; declared as a feasibility study, with a scalable protocol (domain A can auto-generate tens of thousands of instances).
+5. **"LLM-proposed predicates are not decidable."** Restrict the domain: handle only predicates whose membership relation is decidable; natural-language predicate experiments are used only for blind evaluation and do not enter the main conclusions.
 
-## 9. 顺序与时间（个人项目尺度）
+## 9. Order and timeline (personal-project scale)
 
-| 周 | 事 |
+| Week | Tasks |
 |---|---|
-| 1 | 01 的定理写成 note；T1–T3 进 Lean；Fig 2 画出来 |
-| 2 | T4/T5 进 Lean；论文 §1–§3 初稿 |
-| 3 | 域 A 的生成器 + 四个基线；跑第一批数 |
-| 4 | 域 B/C 接入；§4–§5 初稿 |
-| 5 | 相关工作 + 局限；全文通读；LaTeX 排版（`pdflatex` 两遍，**不要用 latexmk**） |
-| 6 | 内部评审、补实验、投稿版本 |
+| 1 | Write the theorems of 01 into a note; bring T1–T3 into Lean; draw Fig 2 |
+| 2 | Bring T4/T5 into Lean; first draft of paper §1–§3 |
+| 3 | Generator for domain A + four baselines; run the first batch of numbers |
+| 4 | Hook up domains B/C; first draft of §4–§5 |
+| 5 | Related work + limitations; full read-through; LaTeX typesetting (`pdflatex` twice, **do not use latexmk**) |
+| 6 | Internal review, additional experiments, submission version |
 
-## 10. 与代码的关系（先理论后代码）
+## 10. Relation to the code (theory first, code later)
 
-代码只在两处出现，且都很晚：
+Code appears in only two places, and both are late:
 
-1. **实验脚手架**（Python 更快：numpy/pandas 已在，FCA 有现成库）——第 3 周才写。
-2. **引擎本体**（Rust 更合适：状态机、搜索、确定性、性能）——论文有结果之后再写。
+1. **Experiment scaffolding** (Python is faster: numpy/pandas are already there, and FCA has ready-made libraries) — written only in week 3.
+2. **The engine proper** (Rust is more suitable: state machines, search, determinism, performance) — written only after the paper has results.
 
-理由：现在写代码等于把还没定义清楚的对象实体化，返工成本高于收益。
+Reason: writing code now amounts to reifying objects that are not yet clearly defined, and the rework cost exceeds the benefit.

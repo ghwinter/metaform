@@ -1,103 +1,103 @@
-# 04 引擎设计：三层对应物
+# 04 Engine design: three-layer counterparts
 
 v0.1 · 2026-10-19
 
-## 0 一句话
+## 0 In one sentence
 
-理论（Lean）、参考内核（Rust）、实验台（Python）三者共用同一组定义；
-引擎本身刻意保持"笨"——只做三件事：判断词汇够不够、问一个代表、记账。
+The theory (Lean), the reference kernel (Rust), and the experiment bench (Python) share the same set of definitions;
+the engine itself is deliberately kept "dumb" — it does only three things: decide whether the vocabulary is sufficient, ask about a representative, and keep the books.
 
-## 1 三层对应
+## 1 Three-layer correspondence
 
-| 论文 | Lean | Rust | Python |
+| Paper | Lean | Rust | Python |
 |---|---|---|---|
-| 签名 `sig_V(x)` | `QueryDriven.sig` | `Explorer::signature` | `signature()` |
-| 等价类 | `Indist` | `Explorer::classes` | `classes()` |
-| T2 词汇不足 | `no_consistent_concept` | `Status::Insufficient` | `consistent(...) == []` |
-| T4 容量 | `capacity_bound` | `Explorer::capacity` | `full_class` 的基数 |
-| T6 更多数据无救 | `no_consistent_concept_mono` | `t6_more_data_never_repairs_insufficiency` | `domain_more_data.py` |
-| 扩词表 | `Vocab` 增项 | `Explorer::propose` | `attrs + [a*]` |
+| Signature `sig_V(x)` | `QueryDriven.sig` | `Explorer::signature` | `signature()` |
+| Equivalence classes | `Indist` | `Explorer::classes` | `classes()` |
+| T2 vocabulary insufficiency | `no_consistent_concept` | `Status::Insufficient` | `consistent(...) == []` |
+| T4 capacity | `capacity_bound` | `Explorer::capacity` | cardinality of `full_class` |
+| T6 more data does not help | `no_consistent_concept_mono` | `t6_more_data_never_repairs_insufficiency` | `domain_more_data.py` |
+| Vocabulary expansion | adding items to `Vocab` | `Explorer::propose` | `attrs + [a*]` |
 
-Rust 内核：`engine/src/lib.rs`，6 个测试，`cargo test` 全绿（2.7 s）。
-Lean：`research/lean/QueryDriven.lean`，6 条定理，0 sorry。
-Python 实验：`research/exp/*.py`，`RESULTS.md` 是数据总账。
+Rust kernel: `engine/src/lib.rs`, 6 tests, `cargo test` all green (2.7 s).
+Lean: `research/lean/QueryDriven.lean`, 6 theorems, 0 sorry.
+Python experiments: `research/exp/*.py`; `RESULTS.md` is the data ledger.
 
-## 2 状态机（唯一的控制逻辑）
+## 2 State machine (the only control logic)
 
 ```
         ┌──────────────┐
-        │  Insufficient │  ← 存在正反例同类（T2）
+        │  Insufficient │  ← positive and negative examples share a class (T2)
         └──────┬───────┘
                │ propose(p)
                ▼
         ┌──────────────┐
-        │ Undetermined  │  ← 还有未覆盖的类
+        │ Undetermined  │  ← there are still uncovered classes
         └──────┬───────┘
                │ answer(next_question(), ·)
                ▼
         ┌──────────────┐
-        │  Identified   │  ← 每个类都被正例或反例覆盖
+        │  Identified   │  ← every class is covered by a positive or a negative example
         └──────────────┘
 ```
 
-三条规则，没有别的：
+Three rules, nothing else:
 
-1. `Insufficient` → 必须换词（不能靠再问对象，T6）。
-2. `Undetermined` → 问一个未覆盖类的代表（问哪个都行，域 A 已证）。
-3. `Identified` → 停，输出外延，不输出故事。
+1. `Insufficient` → the vocabulary must change (asking more objects cannot help, T6).
+2. `Undetermined` → ask about a representative of an uncovered class (any one will do; domain A has already shown this).
+3. `Identified` → stop, output the extension, not a story.
 
-### 噪声下的三条附加规则（`status_with(theta)`）
+### Three additional rules under noise (`status_with(theta)`)
 
-1. **弱票阻塞**：某类里还有"投过票但未达票差 θ"的成员 → 不算已决（返回 `Undetermined`）。
-   否则"一个强标签 + 一个弱反对"会被静默接受，给出错误外延。
-2. **先补票再提问**：`next_question_with(theta)` 先返回待补票的对象，再返回未覆盖类的代表。
-3. **冲突复核**：撞车先复核两轮再提议谓词（由驱动方做；内核只提供 `strong(theta)` 供判定）。
+1. **Weak-vote blocking**: if a class still contains a member that "has voted but has not reached the vote margin θ" → it is not counted as decided (return `Undetermined`).
+   Otherwise "one strong label + one weak objection" would be silently accepted, yielding a wrong extension.
+2. **Top up votes before asking**: `next_question_with(theta)` returns objects with pending votes first, then representatives of uncovered classes.
+3. **Conflict re-check**: on a collision, re-check for two rounds before proposing predicates (done by the driver; the kernel only provides `strong(theta)` for the judgment).
 
-默认 θ=3（依据 `RESULTS.md` §3.11：ε=0.1 时 θ=1 只有 25% 成功，θ=3 是 98%）。
+Default θ=3 (based on `RESULTS.md` §3.11: with ε=0.1, θ=1 succeeds only 25% of the time, θ=3 is 98%).
 
-## 3 引擎明确不做的事
+## 3 What the engine explicitly does not do
 
-| 不做 | 为什么 |
+| Does not | Why |
 |---|---|
-| 用信息增益选对象 | 与"去冗余随机"持平，收益来自避免冗余而非择优（RESULTS §2） |
-| 给谓词打分排序 | 没有可靠信号：谓词的外延要 oracle 才知，语义好坏无人判 |
-| 自评答案质量 | 同源自评不可靠（TACL 2024 综述结论） |
-| 自动提交"最可能的 S" | 词汇不足时任何提交都是编造；宁可返回 `Insufficient` |
+| Use information gain to select objects | On par with "deduplicated random"; the gain comes from avoiding redundancy, not from selecting well (RESULTS §2) |
+| Score and rank predicates | No reliable signal: a predicate's extension requires the oracle, and semantic quality has no judge |
+| Self-assess answer quality | Self-scoring from the same source is unreliable (TACL 2024 survey conclusion) |
+| Automatically submit "the most likely S" | When the vocabulary is insufficient, any submission is fabrication; returning `Insufficient` is preferable |
 
-## 4 接口契约（下一步要实现的 trait）
+## 4 Interface contracts (traits to implement next)
 
 ```rust
 pub trait Proposer {
-    /// 给定样本与当前词汇，提出候选谓词。实现方可以是 LLM、检索、人。
+    /// Given the samples and the current vocabulary, propose candidate predicates. The implementer may be an LLM, retrieval, or a human.
     fn propose(&self, ctx: &Explorer, k: usize) -> Vec<Predicate>;
 }
 
 pub trait Oracle {
-    /// 成员查询。可返回 `Unknown`，为噪声/拒答留位置。
+    /// Membership query. May return `Unknown`, leaving room for noise / refusal.
     fn ask(&mut self, x: usize) -> Option<bool>;
 }
 
 pub trait CapacityGuard {
-    /// T4：限制词汇的可增长方式，防止"样本内可定义、样本外胡来"。
+    /// T4: restrict how the vocabulary may grow, preventing "definable inside the sample, arbitrary outside it."
     fn allow(&self, ctx: &Explorer, p: &Predicate) -> bool;
 }
 ```
 
-职责分离是本文的结构性原则：**提议方不能裁决，裁决方不能提议，选择方不能自评。**
+Separation of responsibilities is this paper's structural principle: **the proposer cannot adjudicate, the adjudicator cannot propose, and the selector cannot self-assess.**
 
-## 5 已知限制（写进论文 §7）
+## 5 Known limitations (to be written into paper §7)
 
-1. 对象数 ≤ 64（`Mask = u64`）；换 `bitvec` 即可，不影响语义。
-2. oracle 无噪声；`Oracle::ask` 返回 `Option<bool>` 只是留了位置，没有纠错逻辑。
-3. 谓词外延等价的去重没做（两个不同谓词可能同外延，会让容量计数虚高）。
-4. >64 类时 `capacity` 会饱和（`checked_shl`）。
+1. Number of objects ≤ 64 (`Mask = u64`); switching to `bitvec` is enough, semantics unaffected.
+2. The oracle is noise-free; `Oracle::ask` returning `Option<bool>` only leaves room, there is no error-correction logic.
+3. Deduplication of extensionally equivalent predicates is not done (two different predicates may share an extension, which inflates the capacity count).
+4. With >64 classes, `capacity` saturates (`checked_shl`).
 
-## 6 复现
+## 6 Reproduction
 
 ```powershell
 cd D:\GitHub\metaform\engine
-cargo test                      # 6 项，覆盖 T2/T4/T6
-pwsh -File ..\scripts\check-lean.ps1   # 6 条定理
+cargo test                      # 6 items, covering T2/T4/T6
+pwsh -File ..\scripts\check-lean.ps1   # 6 theorems
 cd ..\research\exp
 & $py domain_a.py --n 300 --objects 12 --attrs 8 --k 2
 & $py domain_cost.py

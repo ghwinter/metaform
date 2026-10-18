@@ -1,160 +1,160 @@
-# 01 形式核心：定义、定理、Lean 计划
+# 01 Formal core: definitions, theorems, Lean plan
 
 v0.1 · 2026-10-19
 
-## 1. 对象
+## 1. Objects
 
-固定有限域 `X`（对象集）。词汇是一个有限谓词集 `V ⊆ (X → Bool)`。
+Fix a finite domain `X` (the object set). A vocabulary is a finite predicate set `V ⊆ (X → Bool)`.
 
-**签名**：把谓词集压成一个函数，避免依赖类型。
+**Signature**: compress the predicate set into a single function to avoid dependent types.
 
 ```
-sig V x  :  X → Bool        --  sig V x v = (v ∈ V) ∧ v x，即 v ∉ V 时取 false
+sig V x  :  X → Bool        --  sig V x v = (v ∈ V) ∧ v x, i.e. false when v ∉ V
 Indist V x y  :⟺  sig V x = sig V y
 ```
 
-**可定义**：`S` 在 `V` 下可定义，当且仅当存在布尔函数 `φ` 使 `S = {x | φ (sig V x)}`。
-这就是"用 V 的任意布尔组合写出来的集合"，等价于 FCA 里"属性概念 / 属性集合的外延"。
+**Definable**: `S` is definable under `V` if and only if there is a Boolean function `φ` with `S = {x | φ (sig V x)}`.
+This is exactly "the set written out as an arbitrary Boolean combination of V," equivalent to "the extension of an attribute concept / attribute set" in FCA.
 
-**查询**：`Q = (E⁺, E⁻)`；oracle 是一个偏函数 `O : X ⇀ Bool`，每次调用给一个对象、返回它属于不属于 S。真实 S 未知。
+**Query**: `Q = (E⁺, E⁻)`; the oracle is a partial function `O : X ⇀ Bool` that, on each call, takes an object and returns whether it belongs to S. The true S is unknown.
 
-**候选内涵集**：`F_V(Q) = { S : S 在 V 下可定义, E⁺ ⊆ S, S ∩ E⁻ = ∅ }`。
+**Candidate intension set**: `F_V(Q) = { S : S definable under V, E⁺ ⊆ S, S ∩ E⁻ = ∅ }`.
 
-## 2. 定理
+## 2. Theorems
 
-### T1（可定义性的等价刻画）
+### T1 (equivalent characterization of definability)
 
-对任意 `V`、`S`：
+For any `V`, `S`:
 
 ```
-S 在 V 下可定义  ⟺  ∀ x y, Indist V x y → (x ∈ S ↔ y ∈ S)
+S definable under V  ⟺  ∀ x y, Indist V x y → (x ∈ S ↔ y ∈ S)
 ```
 
-即：可定义集恰好是 `Indist V` 等价类的并。
+That is: the definable sets are exactly the unions of `Indist V` equivalence classes.
 
-*证明。* ⇐：取 `φ s := ∃ x, sig V x = s ∧ x ∈ S`（经典选择，不要求可计算）。若 `x ∈ S` 则 `φ (sig V x)` 成立；反之 `φ (sig V x)` 给出 `y` 使 `sig V y = sig V x` 且 `y ∈ S`，由前提得 `x ∈ S`。
-⇒：`x ∈ S ⟺ φ (sig V x) = φ (sig V y) ⟺ y ∈ S`。∎
+*Proof.* ⇐: take `φ s := ∃ x, sig V x = s ∧ x ∈ S` (classical choice, computability not required). If `x ∈ S` then `φ (sig V x)` holds; conversely `φ (sig V x)` yields `y` with `sig V y = sig V x` and `y ∈ S`, and the premise gives `x ∈ S`.
+⇒: `x ∈ S ⟺ φ (sig V x) = φ (sig V y) ⟺ y ∈ S`. ∎
 
-*Lean 难度*：低，约 60–80 行。需要 `Classical`，不需要 choice 公理之外的额外假设。
+*Lean difficulty*: low, about 60–80 lines. Requires `Classical`; no assumptions beyond the choice axiom.
 
-### T2（必要性判据 —— 本文的主定理）
+### T2 (necessity criterion — the main theorem of this paper)
 
-若存在 `x ∈ E⁺`、`y ∈ E⁻` 使 `Indist V x y`，则 `F_V(Q) = ∅`。
+If there exist `x ∈ E⁺` and `y ∈ E⁻` with `Indist V x y`, then `F_V(Q) = ∅`.
 
-*证明。* 任一 `S ∈ F_V(Q)` 含 `x`、不含 `y`，与 T1 的等价刻画矛盾。∎
+*Proof.* Any `S ∈ F_V(Q)` contains `x` and does not contain `y`, contradicting the equivalent characterization in T1. ∎
 
-*推论（搜索无用）*：在 `V` 内无论增加多少预算、换多少搜索算法，都不可能产出与样本一致的假设。**表征变更是逻辑必然，不是优化选项。**
+*Corollary (search is useless)*: within `V`, no matter how much budget is added or which search algorithm is substituted, it is impossible to produce a hypothesis consistent with the samples. **Representation change is a logical necessity, not an optimization option.**
 
-*Lean 难度*：极低，三行（由 T1）。
+*Lean difficulty*: extremely low, three lines (from T1).
 
-### T3（增长是单调的）
+### T3 (growth is monotone)
 
 ```
 V ⊆ V'  ⟹  Indist V' ⊆ Indist V
 ```
 
-若 `p` 分开 `x, y`（`p x ≠ p y`）且 `p ∉ V`，则 `¬ Indist (V ∪ {p}) x y`。
+If `p` separates `x, y` (`p x ≠ p y`) and `p ∉ V`, then `¬ Indist (V ∪ {p}) x y`.
 
-*证明。* 对 `v ∈ V`，`v ∈ V'`，故 `v x = v y`；`v ∉ V` 时两边都取 false。∎
+*Proof.* For `v ∈ V`, `v ∈ V'`, hence `v x = v y`; when `v ∉ V` both sides take false. ∎
 
-*意义*：扩词表只能变细，不能变粗。所以"先粗后细"是安全的搜索方向，这也解释了为什么属性探索可以增量进行。
+*Significance*: expanding the vocabulary can only refine it, never coarsen it. So "coarse first, fine later" is a safe search direction, which also explains why attribute exploration can proceed incrementally.
 
-*Lean 难度*：低。
+*Lean difficulty*: low.
 
-### T4（容量：表达力在样本内免费）
+### T4 (capacity: expressive power is free inside the sample)
 
-设 `m = |{sig V x : x ∈ E}|`（样本上实现的签名数）。则
-
-```
-|{ S ∩ E : S 在 V 下可定义 }| ≤ 2^m
-```
-
-且当每个签名单元要么全含于 `E⁺`、要么全含于 `E⁻` 时等号成立。
-
-*证明。* `S` 在 `E` 上的限制只由"哪些签名被选中"决定，共 `2^m` 种。∎
-
-*推论*：样本一致的候选概念数随签名数指数增长。若 `m` 接近 `|E|`，任何标注都几乎可定义——一致性检验对词汇没有任何约束力。**要泛化，必须 `m ≪ |E|`，也就是必须有偏置类限制词汇的可增长方式。**
-
-*Lean*：
-- 弱形式 `capacity_bound`（两个可定义集在 `E` 上取到的签名集合相同 ⇒ 在 `E` 上处处一致）；
-- **强形式 `capacity_bound_strong`**（已于 2026-10-19 通过）：把限制 `T` 映到它在 `E` 上取到的签名集合，
-  该映射落在签名集合的幂集内、且在限制族上单射，于是 `#R ≤ 2^m`。
-  `R` 以参数形式给出（"每个 `T ∈ R` 都是某可定义集与 `E` 的交"），这样不必构造 `Finset (Finset X)` 的全集。
-
-### T5（查询下界）
-
-设候选内涵族 `F` 满足：任意两个不同元素在 `X` 上不同。若算法只允许成员查询（每次问 `x ∈ S?`，答 1 bit），则识别 `F` 中任一目标至少需要 `⌈log₂ |F|⌉` 次查询。
-
-*证明。* `k` 次查询把 `F` 映到 `{0,1}^k`；识别要求该映射单射，故 `|F| ≤ 2^k`。∎
-
-*Lean 难度*：低（`Fintype.card_le_of_injective` 类）。比预想的容易，可以先做。
-
-### T6（样本单调性：更多例子不修复词汇不足）
-
-若 `F_V(E⁺, E⁻) = ∅`，则对任意 `E⁺ ⊆ E⁺'`、`E⁻ ⊆ E⁻'` 也有 `F_V(E⁺', E⁻') = ∅`。
-
-*证明。* 任一 `S ∈ F_V(E⁺', E⁻')` 必然也满足更弱的约束 `E⁺ ⊆ S`、`S ∩ E⁻ = ∅`，与 `F_V = ∅` 矛盾。∎
-
-*意义*：这是"再给模型几个例子"这个直觉的正式反驳。更多例子只增加约束，不改变可用语言。
-反过来，样本从小到大时 `F` 只可能从非空变空——**更多数据会暴露而不是修复词汇不足**。
-经验版见 `research/exp/RESULTS.md`（P(F 为空) 随例子数从 2.5% 升到 98.7%）。
-
-*Lean*：`no_consistent_concept_mono`（已验证）。
-
-### T7（MDL 与词汇的非单调性，存在性命题）
-
-存在 `Q` 与 `V ⊂ V'`，使 `L(V') + L(E | V') < L(V) + L(E | V)`，也存在反向的例子。
-
-*意义*：词汇扩张的收益不是单调的，"更多谓词更好"是错的。这条只用构造反例，不做一般定理。
-
-*Lean 难度*：低（两个 `decide` 级小例），但价值也低，可选。
-
-## 3. 由定理直接得到的算法
+Let `m = |{sig V x : x ∈ E}|` (the number of signatures realized on the sample). Then
 
 ```
-状态：V（词汇），F（候选内涵集，初始 = 全部 V-可定义集）
-循环：
-  1. 若 F = ∅          → 由 T2，当前词汇已被证明不够；进入扩词
-  2. 若 |F| = 1        → 已识别，停止
-  3. 选查询对象 x* = argmax_x  H(F) − E[H(F | 答 x ∈ S?)]   （期望信息增益）
-  4. 问 oracle，按答案过滤 F
-扩词：
-  5. LLM 提议 k 个新谓词 p₁..p_k（自然语言描述 + 可执行判定）
-  6. 对每个 p，估计它能把 F 中多少对候选分开，并按"提问成本"折算
-  7. 采纳使 期望增益 / 成本 最大者，或直接对 p 做成员查询（这个对象满足 p 吗？）
-  8. V ← V ∪ {p}，重算 F，回到循环
+|{ S ∩ E : S definable under V }| ≤ 2^m
 ```
 
-三个要点：
+with equality when every signature cell is either entirely contained in `E⁺` or entirely contained in `E⁻`.
 
-1. **"语言不够"的判据是 `F = ∅`**，不是模型自我感觉。这是 T2 的直接工程化，也是整个系统唯一可靠的元认知信号。
-2. **提问与提议分离**：LLM 只提议谓词（生成），程序决定问什么（选择），oracle 决定真假（验证）。三者不共享同一个错误来源。
-3. **T4 的约束体现在第 5 步**：谓词不能任意生成，必须落在一个受限的语言里（布尔组合 / 一阶子句 / DSL 片段），否则容量爆炸，学到的 S 没有泛化意义。
+*Proof.* The restriction of `S` to `E` is determined only by "which signatures are selected," giving `2^m` possibilities in total. ∎
 
-## 4. Lean 形式化计划
+*Corollary*: the number of sample-consistent candidate concepts grows exponentially with the number of signatures. If `m` approaches `|E|`, almost any labeling is definable — the consistency test has no binding force on the vocabulary at all. **To generalize, one must have `m ≪ |E|`, that is, there must be a bias class restricting the ways the vocabulary can grow.**
 
-### 4.1 工程选择（重要，省钱）
+*Lean*:
+- weak form `capacity_bound` (two definable sets that attain the same signature set on `E` ⇒ they agree everywhere on `E`);
+- **strong form `capacity_bound_strong`** (passed on 2026-10-19): map the restriction `T` to the signature set it attains on `E`;
+  this map lands in the power set of the signature set and is injective on the restriction family, so `#R ≤ 2^m`.
+  `R` is given as a parameter ("every `T ∈ R` is the intersection of some definable set with `E`"), so the universe `Finset (Finset X)` does not have to be constructed.
 
-本机已有两处**已编译**的 Mathlib（各 6.5 GB，commit `56a00585`，Lean `v4.35.0`）。
-**不要新建独立工程**——那要重新下 6.5 GB。直接在现成工程里加一个库：
+### T5 (query lower bound)
+
+Let the candidate intension family `F` satisfy: any two distinct elements differ on `X`. If the algorithm is allowed only membership queries (each asking `x ∈ S?`, answered with 1 bit), then identifying any target in `F` requires at least `⌈log₂ |F|⌉` queries.
+
+*Proof.* `k` queries map `F` to `{0,1}^k`; identification requires this map to be injective, hence `|F| ≤ 2^k`. ∎
+
+*Lean difficulty*: low (of the `Fintype.card_le_of_injective` kind). Easier than expected, so it can be done first.
+
+### T6 (sample monotonicity: more examples do not repair an insufficient vocabulary)
+
+If `F_V(E⁺, E⁻) = ∅`, then for any `E⁺ ⊆ E⁺'` and `E⁻ ⊆ E⁻'` we also have `F_V(E⁺', E⁻') = ∅`.
+
+*Proof.* Any `S ∈ F_V(E⁺', E⁻')` necessarily also satisfies the weaker constraints `E⁺ ⊆ S` and `S ∩ E⁻ = ∅`, contradicting `F_V = ∅`. ∎
+
+*Significance*: this is the formal rebuttal of the intuition "give the model a few more examples." More examples only add constraints; they do not change the available language.
+Conversely, as the sample grows from small to large, `F` can only go from nonempty to empty — **more data exposes rather than repairs an insufficient vocabulary**.
+For the empirical version see `research/exp/RESULTS.md` (`P(F empty)` rising from 2.5% to 98.7% as the number of examples grows).
+
+*Lean*: `no_consistent_concept_mono` (verified).
+
+### T7 (non-monotonicity of MDL and vocabulary, an existence claim)
+
+There exist `Q` and `V ⊂ V'` such that `L(V') + L(E | V') < L(V) + L(E | V)`, and there also exist counterexamples in the other direction.
+
+*Significance*: the payoff of vocabulary expansion is not monotone, and "more predicates is better" is false. This one only requires constructing counterexamples, not a general theorem.
+
+*Lean difficulty*: low (two small `decide`-level examples), but the value is low too; optional.
+
+## 3. Algorithms obtained directly from the theorems
+
+```
+State: V (vocabulary), F (candidate intension set, initially = all V-definable sets)
+Loop:
+  1. If F = ∅          → by T2, the current vocabulary is proven insufficient; enter vocabulary expansion
+  2. If |F| = 1        → identified, stop
+  3. Choose query object x* = argmax_x  H(F) − E[H(F | answer to x ∈ S?)]   (expected information gain)
+  4. Ask the oracle, filter F by the answer
+Vocabulary expansion:
+  5. The LLM proposes k new predicates p₁..p_k (natural-language description + executable decision procedure)
+  6. For each p, estimate how many pairs of candidates in F it separates, and convert via "questioning cost"
+  7. Adopt the one maximizing expected gain / cost, or run a membership query on p directly (does this object satisfy p?)
+  8. V ← V ∪ {p}, recompute F, return to the loop
+```
+
+Three key points:
+
+1. **The criterion for "the language is insufficient" is `F = ∅`**, not the model's self-assessment. This is the direct engineering of T2, and the only reliable metacognitive signal in the whole system.
+2. **Questioning is separated from proposing**: the LLM only proposes predicates (generation), the program decides what to ask (selection), and the oracle decides truth (verification). The three do not share the same source of error.
+3. **T4's constraint shows up in step 5**: predicates cannot be generated arbitrarily; they must fall inside a restricted language (Boolean combinations / first-order clauses / DSL fragments), otherwise capacity explodes and the learned S has no generalization meaning.
+
+## 4. Lean formalization plan
+
+### 4.1 Engineering choices (important, saves money)
+
+Two **already compiled** copies of Mathlib exist on this machine (6.5 GB each, commit `56a00585`, Lean `v4.35.0`).
+**Do not create a new standalone project** — that would mean downloading 6.5 GB again. Add a library to the existing project instead:
 
 ```
 D:\GitHub\workspace\ReasearchLean\
-  lakefile.toml          # 已 require mathlib rev v4.35.0
+  lakefile.toml          # already requires mathlib rev v4.35.0
   ReasearchLean/
   Research/
-    QueryDriven.lean     # 新增
+    QueryDriven.lean     # new
 ```
 
-`lake env lean Research/QueryDriven.lean` 即可，无需 `lake update`。
+`lake env lean Research/QueryDriven.lean` suffices; no `lake update` needed.
 
-**时间成本**：冷启动 `import Mathlib` 实测 **448 秒**。所以不要交互式逐条试错：一次写完、整文件编译、看报错再改。每次迭代按 8–10 分钟算。
+**Time cost**: cold start of `import Mathlib` measured at **448 seconds**. So do not iterate interactively line by line: write it once, compile the whole file, look at the errors, then change. Count each iteration as 8–10 minutes.
 
-### 4.2 骨架（草稿，已被实际文件取代）
+### 4.2 Skeleton (draft, superseded by the actual file)
 
-> 下面这段是最初草稿，**`sig` 的类型写错了**：签名是"每个谓词上取一个 Bool"，类型必须是
-> `(X → Bool) → Bool`；写成 `X → Bool` 会让所有谓词挤在同一个参数上，`sig V x v` 无法求值。
-> 以 `research/lean/QueryDriven.lean` 为准（已编译，0 sorry）。
+> The following is the initial draft; **the type of `sig` is wrong**: a signature is "one Bool per predicate," so the type must be
+> `(X → Bool) → Bool`; writing `X → Bool` squeezes all predicates onto the same argument, and `sig V x v` cannot be evaluated.
+> Take `research/lean/QueryDriven.lean` as authoritative (compiled, 0 sorry).
 
 ```lean
 import Mathlib.Data.Finset.Basic
@@ -165,17 +165,17 @@ namespace QueryDriven
 
 variable {X : Type*} [Fintype X] [DecidableEq X]
 
-/-- 词汇：有限个 Bool 值谓词。 -/
+/-- Vocabulary: finitely many Bool-valued predicates. -/
 def Vocab := Finset (X → Bool)
 
-/-- 签名：v ∉ V 时取 false，避免依赖类型。 -/
+/-- Signature: false when v ∉ V, avoiding dependent types. -/
 def sig (V : Vocab X) (x : X) : X → Bool :=
   fun v => if v ∈ V then v x else false
 
-/-- 在当前词汇下不可分辨。 -/
+/-- Indistinguishable under the current vocabulary. -/
 def Indist (V : Vocab X) (x y : X) : Prop := sig V x = sig V y
 
-/-- 在 V 下可定义：某个布尔函数作用于签名。 -/
+/-- Definable under V: some Boolean function applied to the signature. -/
 def Definable (V : Vocab X) (S : Set X) : Prop :=
   ∃ φ : (X → Bool) → Bool, ∀ x, (x ∈ S ↔ φ (sig V x) = true)
 
@@ -184,25 +184,25 @@ theorem definable_iff (V : Vocab X) (S : Set X) :
     Definable V S ↔ ∀ x y, Indist V x y → (x ∈ S ↔ y ∈ S) := by
   sorry
 
-/-- T2：主定理。 -/
+/-- T2: the main theorem. -/
 theorem no_consistent_concept
     (V : Vocab X) (Epos Eneg : Set X) (x y : X)
     (hx : x ∈ Epos) (hy : y ∈ Eneg) (h : Indist V x y) :
     ¬ ∃ S, Definable V S ∧ Epos ⊆ S ∧ Disjoint S Eneg := by
   sorry
 
-/-- T3：增长单调。 -/
+/-- T3: monotone growth. -/
 theorem indist_mono {V V' : Vocab X} (h : V ⊆ V') :
     ∀ x y, Indist V' x y → Indist V x y := by
   sorry
 
-/-- T4：容量上界。 -/
+/-- T4: capacity upper bound. -/
 theorem capacity_bound (V : Vocab X) (E : Finset X) :
     (Finset.univ.filter (fun T : Finset X => ∃ S, Definable V S ∧
         T = E.filter (· ∈ S))).card ≤ 2 ^ (E.image (sig V)).card := by
   sorry
 
-/-- T5：查询下界。 -/
+/-- T5: query lower bound. -/
 theorem query_lower_bound (F : Finset (Set X)) (k : ℕ)
     (answers : Set X → Fin k → Bool) (hinj : Function.Injective answers) :
     F.card ≤ 2 ^ k := by
@@ -211,50 +211,48 @@ theorem query_lower_bound (F : Finset (Set X)) (k : ℕ)
 end QueryDriven
 ```
 
-### 4.3 里程碑
+### 4.3 Milestones
 
-| 步 | 内容 | 预计 |
+| Step | Content | Estimate |
 |---|---|---|
-| L1 | T3 + T2（依赖 T1 的形式但可先跳过 `definable_iff` 的 ⇐ 方向） | 1 次编译 |
-| L2 | T1 完整双向 | 2–3 次编译 |
-| L3 | T4 基数计数 | 2–3 次编译 |
-| L4 | T5 单射计数 | 1–2 次编译 |
-| L5 | 算法状态机的可执行片段（`F` 的过滤与 `F = ∅` 判定），可选 | 2 次编译 |
+| L1 | T3 + T2 (depends on T1's form but can skip the ⇐ direction of `definable_iff`) | 1 compile |
+| L2 | T1, full both directions | 2–3 compiles |
+| L3 | T4 cardinality counting | 2–3 compiles |
+| L4 | T5 injective counting | 1–2 compiles |
+| L5 | Executable fragment of the algorithm state machine (`F` filtering and the `F = ∅` test), optional | 2 compiles |
 
-总计约 300–500 行，8–10 次编译，按每次 10 分钟算是**一到两个工作日**（不含冷启动）。
+About 300–500 lines in total and 8–10 compiles; at 10 minutes per compile that is **one to two working days** (excluding cold start).
 
-### 4.4 实际状态（2026-10-19 02:55 实测）
+### 4.4 Actual status (measured 2026-10-19 02:55)
 
-**T1、T2、T3、T4（弱形式）、T5 全部通过，0 个 `sorry`，0 条警告，编译 25.5 s。**
+**T1, T2, T3, T4 (weak form), and T5 all pass, 0 `sorry`, 0 warnings, compile time 25.5 s.**
 
 ```
 [check-lean] QueryDriven.lean  exit=0  25.5s
 ```
 
-编译方式（重要，别踩坑）：
+How to compile (important, avoid the pitfall):
 
-1. **不能**在 `research/lean` 里新建 Lake 工程跑。新建工程会让 Lake 重新 materialize
-   batteries / aesop / Qq / proofwidgets 等依赖，而这些包**没有预编译产物**；
-   mathlib 的 `cache get` 钩子在本机失效（见 `.local/machine-facts.md`），
-   于是 `lake env lean` 直接报 `unknown module prefix 'Batteries'`。实测就是这么挂的。
-2. 可用做法：源码留在 `research/lean/`（进论文仓库），编译借 `D:\GitHub\workspace\ReasearchLean`
-   的环境——那里依赖已编译好，且 mathlib 走 `path` 指向全局唯一副本。
-   `scripts/check-lean.ps1` 把这个复制+编译的过程封好了：
+1. **Do not** create a new Lake project under `research/lean` to run it. A new project makes Lake re-materialize dependencies such as batteries / aesop / Qq / proofwidgets, and these packages **have no precompiled artifacts**; mathlib's `cache get` hook is broken on this machine (see `.local/machine-facts.md`),
+   so `lake env lean` immediately reports `unknown module prefix 'Batteries'`. That is exactly how it failed in practice.
+2. The workable approach: keep the source in `research/lean/` (it goes into the paper repository), and compile against the environment of `D:\GitHub\workspace\ReasearchLean`
+   — dependencies there are already compiled, and mathlib goes through `path` to the single global copy.
+   `scripts/check-lean.ps1` wraps this copy + compile process:
 
 ```powershell
-pwsh -File scripts/check-lean.ps1              # 25 s 左右
-pwsh -File scripts/check-lean.ps1 -File X.lean # 换文件
+pwsh -File scripts/check-lean.ps1              # about 25 s
+pwsh -File scripts/check-lean.ps1 -File X.lean # switch file
 ```
 
-3. 冷启动只是"整包 `import Mathlib`"才 448 s；只导入 5 个子模块时首次约 57 s、之后 25 s。
+3. A cold start is 448 s only for a full-package `import Mathlib`; importing just 5 submodules takes about 57 s the first time and 25 s afterwards.
 
-**与计划的差异**：T4 只形式化了弱形式（"可定义集在样本上的限制由取到的签名集合决定"）。
-"至多 `2 ^ #(E.image (sig V))` 个"这个计数版需要把限制集编码成 `Finset` 的子类型再数基数，
-属于 Finset API 的苦力活，留到 L3 补，不影响 T2/T5 的结论。
+**Deviation from the plan**: T4 formalized only the weak form ("the restriction of a definable set to the sample is determined by the signature set it attains").
+The counting version "at most `2 ^ #(E.image (sig V))` of them" requires encoding the restriction set as a subtype of `Finset` and then counting cardinality,
+which is grunt work in the Finset API; it is left for L3 and does not affect the conclusions of T2/T5.
 
-## 5. 还没解决、也不假装解决
+## 5. Unresolved, and not pretended to be resolved
 
-1. **自然语言谓词的可判定性**：LLM 提议的谓词"是否优雅""是否是同一个概念"没有 oracle。论文里只处理**成员关系可判定**的域。
-2. **噪声 oracle**：真实用户会答错、会不一致。T 系列定理都假设 oracle 无噪。加噪版本（容错 > ε）是后续工作。
-3. **多谓词同时增长**：本文只做单步增长（每次一个谓词）。批量增长的准则（子模性？）未解决。
-4. **词汇的语义等价**：两个不同谓词可能外延相同（同一划分）。需要商掉外延等价，否则计数会虚高。
+1. **Decidability of natural-language predicates**: there is no oracle for whether an LLM-proposed predicate "is elegant" or "is the same concept." The paper deals only with domains where **membership is decidable**.
+2. **Noisy oracle**: real users answer wrongly and inconsistently. The T-series theorems all assume a noise-free oracle. Noisy versions (error tolerance > ε) are future work.
+3. **Simultaneous growth of multiple predicates**: this paper does only single-step growth (one predicate at a time). Criteria for batch growth (submodularity?) remain unresolved.
+4. **Semantic equivalence of vocabulary**: two different predicates may have the same extension (the same partition). Extension equivalence must be quotiented out, otherwise the counting is inflated.

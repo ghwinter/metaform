@@ -1,90 +1,89 @@
-# 05 四套系统里可直接借的东西
+# 05 What can be borrowed directly from four systems
 
-问题：SME、ILP、贝叶斯程序归纳、Copycat，有没有能直接用（公式 / 算法 / 数据结构 / 结论）的？
-答案：**有，而且各自能落到不同层**。下面每条都标了"借什么 → 插到哪 → 下一步怎么试"。
+Question: do SME, ILP, Bayesian program induction, and Copycat offer anything usable as-is (formula / algorithm / data structure / result)?
+Answer: **Yes, and each lands on a different layer.** Every item below is marked as "what to borrow → where to plug it in → what to try next."
 
-本地文本核验过的用 ✔ 标；Copycat 原文不在库里（只有 MIT Press 书目页），标 ✗，按通行描述写，
-引用前必须补原文。
+Items verified against local texts are marked ✔; the Copycat original is not in the library (only the MIT Press catalog page), so it is marked ✗ and written from the standard description — the original must be obtained before citing.
 
-## 1. SME（Falkenhainer, Forbus & Gentner 1989）✔
+## 1. SME (Falkenhainer, Forbus & Gentner 1989) ✔
 
-| 借什么 | 具体形式 | 插到哪 |
+| What to borrow | Concrete form | Where to plug it in |
 |---|---|---|
-| 结构性评价分数 | 映射的分数由**系统性**决定：优先保留由高阶关系连成的、互相连通的结构，而不是局部相似的数量 ✔"a structural evaluation score for each mapping according to the constraints of systematicity" | 提议排序：一个谓词若落在既有关系结构的高阶部分，优先级更高 |
-| 贪心合并（greedy merge） | 先算全部局部匹配假设，再按结构一致性合并、逐层过滤；不是全局最优但便宜 ✔ | 候选生成的骨架：先枚举局部可转移关系，再合并成候选谓词 |
-| "无重叠则无类比" | 若源域与目标域没有共同谓词，映射必然为空 ✔（"no analogy will be found"） | **关系版的 T2**：此时该引入新关系类型，而不是加预算 |
-| 复杂度结果 | SME4 的匹配代价约 O(n²)–O(n³) ✔ | 提议成本 r(p) 的量级估计：转移一个关系结构 ≫ 一次成员查询 |
+| Structural evaluation score | A mapping's score is determined by **systematicity**: prefer preserving structures connected by higher-order relations rather than counting local similarities ✔ "a structural evaluation score for each mapping according to the constraints of systematicity" | Proposal ranking: a predicate that falls in the higher-order part of an existing relational structure gets higher priority |
+| Greedy merge | Compute all local match hypotheses first, then merge by structural consistency and filter level by level; not globally optimal but cheap ✔ | Skeleton for candidate generation: first enumerate locally transferable relations, then merge them into candidate predicates |
+| "No overlap, no analogy" | If the source and target domains share no predicates, the mapping must be empty ✔ ("no analogy will be found") | **The relational version of T2**: at that point a new relation type should be introduced instead of more budget |
+| Complexity results | SME4's matching cost is about O(n²)–O(n³) ✔ | Order-of-magnitude estimate for proposal cost r(p): transferring a relational structure ≫ a single membership query |
 
-一句话：SME 给的是**"从哪弄来新谓词"**——从另一个域转移关系结构；这比让 LLM 凭空提议具体得多。
+In one sentence: SME gives **"where to get new predicates from"** — transfer a relational structure from another domain; this is far more concrete than having an LLM propose one from thin air.
 
-## 2. ILP（Cropper, Dumančić & Evans 2021）✔
+## 2. ILP (Cropper, Dumančić & Evans 2021) ✔
 
-| 借什么 | 具体形式 | 插到哪 |
+| What to borrow | Concrete form | Where to plug it in |
 |---|---|---|
-| metarule | 高阶子句模板，如 chain metarule `P(x,y) :- Q(x,z), R(z,y)`，用已有谓词填槽即得新谓词 ✔ | **受限增长机制**：T4 要的"词汇不能任意膨胀"，metarule 就是现成实现 |
-| mode declaration | 规定每个谓词的参数类型与可调用方式，直接限定假设空间 ✔ | 谓词的类型签名：提议时必须声明类型，非法谓词直接拒 |
-| θ-细化格 | 从最一般子句出发逐文字特化，构成一个格，是 bias 内的**完备**候选生成器 ✔（"theta-subsumption (Plotkin, 1971)"） | 候选生成：给定 bias 就有系统性枚举，不必靠抽样 |
-| OCCAM 式打分 | 覆盖正例 − 覆盖反例 − 文字数 | 廉价预筛：把明显不划算的候选先砍掉，再付 oracle 成本 |
+| metarule | Higher-order clause templates, e.g. the chain metarule `P(x,y) :- Q(x,z), R(z,y)`; filling the slots with existing predicates yields a new predicate ✔ | **Restricted growth mechanism**: T4 demands that "the vocabulary must not inflate arbitrarily," and metarules are a ready-made implementation |
+| mode declaration | Specifies each predicate's argument types and allowed calling patterns, directly bounding the hypothesis space ✔ | Type signature of predicates: types must be declared at proposal time; illegal predicates are rejected outright |
+| θ-refinement lattice | Start from the most general clause and specialize literal by literal to form a lattice — a **complete** candidate generator within the bias ✔ ("theta-subsumption (Plotkin, 1971)") | Candidate generation: given a bias there is a systematic enumeration, no sampling needed |
+| OCCAM-style scoring | Covers positives − covers negatives − number of literals | Cheap pre-filtering: cut clearly unprofitable candidates before paying the oracle cost |
 
-注意：domain A 里"≤k 个文字合取"的假设类，本质就是一条 ILP 的 bias——我已经在用它的一个特例，
-只是没把它写成细化算子。
+Note: in domain A, the hypothesis class "conjunction of ≤k literals" is essentially an ILP bias — I have already been using a special case of it,
+merely without writing it as a refinement operator.
 
-### 2.1 实测：metarule 给的是闭包，不是创造
+### 2.1 Measured: metarules give closure, not creation
 
-`qde gen` 用合取/析取/否定生成候选池，在只有一个谓词 `half`（{0,1,4,5}）的场景里：
+`qde gen` builds a candidate pool with conjunction / disjunction / negation; in a scenario with a single predicate `half` ({0,1,4,5}):
 
 | | |
 |---|---|
-| 撞车对 | (0,4) (0,5) (1,4) (1,5)，4 对 |
-| `gen` 生成的候选 | 只有 `not(half)` |
-| `cover` 结果 | `{"chosen":[],"covered":0,"total":4,"remaining":4}` |
+| Collision pairs | (0,4) (0,5) (1,4) (1,5), 4 pairs |
+| Candidates generated by `gen` | only `not(half)` |
+| `cover` result | `{"chosen":[],"covered":0,"total":4,"remaining":4}` |
 
-原因就是 T2：`not(half)` 在 0 与 4 上取值相同，任何由 `half` 布尔组合出来的谓词都落在 `Def(V)` 内，
-对同一签名的两个对象必然同值。**组合算子无法逃出当前词汇；只有新原子可以。**
+The reason is exactly T2: `not(half)` takes the same value on 0 and 4; any predicate built as a Boolean combination of `half` falls inside `Def(V)`,
+so two objects with the same signature necessarily receive the same value. **Combinatorial operators cannot escape the current vocabulary; only new atoms can.**
 
-这条改写了提议层的分工：metarule / θ-细化负责"在词汇内把候选拼出来"，LLM 或跨域转移负责
-"造出新原子"。两者不能互相替代。
+This rewrites the division of labor at the proposal layer: metarules / θ-refinement are responsible for "assembling candidates inside the vocabulary," while the LLM or cross-domain transfer is responsible for
+"creating new atoms." The two cannot substitute for each other.
 
-## 3. 贝叶斯程序归纳 / DreamCoder ✔
+## 3. Bayesian program induction / DreamCoder ✔
 
-| 借什么 | 具体形式 | 插到哪 |
+| What to borrow | Concrete form | Where to plug it in |
 |---|---|---|
-| 概念发明判据 | 新概念 c 值得加入，当且仅当它带来的总描述长度下降超过它自身的定义长度 | **"扩哪个"的量化阈值**——我论文里只有"F=∅ 就必须扩"，没有"扩哪个最划算" |
-| 语法化先验 | P(程序) 由产生式概率连乘给出；新概念的先验成本 = 定义长度 | 提议代价 r(p) = L(p)，不再是常数 |
-| 复用折扣 | 复用已有部件越多的程序先验越高 | 提议排序：优先提"由已有谓词拼出来的"新谓词 |
+| Concept invention criterion | A new concept c is worth adding if and only if the total description-length reduction it brings exceeds its own definition length | **Quantitative threshold for "which one to expand"** — my paper only has "if F=∅ we must expand," not "which expansion pays off most" |
+| Grammatical prior | P(program) is given by the product of production probabilities; a new concept's prior cost = its definition length | Proposal cost r(p) = L(p), no longer a constant |
+| Reuse discount | Programs that reuse more existing components get a higher prior | Proposal ranking: prefer new predicates "assembled from existing predicates" |
 
-这一条最值钱：它把 r 从"常数"变成"可计算的函数"，而成本实验（RESULTS §3.6）说明总成本就是 r/q。
+This is the most valuable item: it turns r from "a constant" into "a computable function," and the cost experiment (RESULTS §3.6) shows that total cost is exactly r/q.
 
-## 4. Copycat（Mitchell & Hofstadter）✗ 本地无原文
+## 4. Copycat (Mitchell & Hofstadter) ✗ no local original
 
-| 借什么 | 形式 | 插到哪 |
+| What to borrow | Form | Where to plug it in |
 |---|---|---|
-| parallel terraced scan + 温度 | 低温只走高激活路径，反复失败则升温、扩散搜索 | 提议调度：连续 k 次提议失败 → 放宽模板 / 换算子 |
-| slipnet 激活 | 概念由当前例子的显著特征激活，激活度决定优先级 | 提议的上下文敏感性：同一批例子换了，候选顺序就该变 |
+| parallel terraced scan + temperature | Low temperature follows only highly active paths; repeated failure raises the temperature and diffuses the search | Proposal scheduling: after k consecutive proposal failures → relax templates / swap operators |
+| slipnet activation | Concepts are activated by salient features of the current examples; activation determines priority | Context sensitivity of proposals: change the batch of examples, and the candidate order should change |
 
-风险：这两条目前只有二手描述。**引用前必须拿到原文**（`03b` 里没有，需要单独找）。
+Risk: these two currently rest only on secondhand descriptions. **The original text must be obtained before citing** (it is not in `03b`; it has to be found separately).
 
-## 5. 合成：一条可实现的提议路线
+## 5. Synthesis: one implementable proposal route
 
 ```
-候选生成：metarule 实例化 + θ-细化（ILP） ∪ 跨域关系转移（SME）
-成本估计：r(p) = 定义长度（DreamCoder），复用越多越便宜
-覆盖打分：对撞车对的集合覆盖（T7），贪心
-调度：系统性分数（SME）排序，失败升温（Copycat）
+Candidate generation: metarule instantiation + θ-refinement (ILP) ∪ cross-domain relation transfer (SME)
+Cost estimation: r(p) = definition length (DreamCoder); the more reuse, the cheaper
+Coverage scoring: set cover over collision pairs (T7), greedy
+Scheduling: rank by systematicity score (SME), raise temperature on failure (Copycat)
 ```
 
-这四步里，**只有"覆盖打分"是我们的**；其余三步全是借的，而且都是可运行的具体机制，不是"灵感"。
+Of these four steps, **only "coverage scoring" is ours**; the other three are all borrowed, and all are runnable concrete mechanisms, not "inspiration."
 
-## 6. 它们给不了的
+## 6. What they cannot give
 
-- 没有任何一套给出"当前词汇已被证明不够"的**判据**（T2）。ILP 只会说"换个 bias 试试"。
-- 没有任何一套给出"提问 vs 提议"的**成本权衡**（RESULTS §3.6）。
-- 没有任何一套要求 oracle 廉价，因此都没有"用最小提问数定位谓词"的问题（T5/T7）。
+- None of them gives a **criterion** (T2) for "the current vocabulary is proven insufficient." ILP only says "try a different bias."
+- None of them gives the **cost trade-off** between "asking vs proposing" (RESULTS §3.6).
+- None of them requires the oracle to be cheap, so none has the problem of "locating a predicate with the minimum number of questions" (T5/T7).
 
-## 7. 下一步（按性价比排序）
+## 7. Next steps (ordered by cost-effectiveness)
 
-1. **在 `qde` 里实现 `propose greedy`**：候选由 metarule 模板从已有谓词生成，按覆盖数/定义长度排序，
-   贪心覆盖。这一步把 ILP + DreamCoder 的两条借点落地。
-2. **给 r(p) 一个真实公式**：`r(p) = 定义长度 + 转移成本`，重跑成本实验，看停止规则是否还只差 ±6%。
-3. **SME 路线的可行性验证**：手动构造一个"源域—目标域"转移，看转移出的谓词能否劈开撞车对。
-4. Copycat 原文补齐（低优先，但引用要真）。
+1. **Implement `propose greedy` in `qde`**: candidates generated from existing predicates by metarule templates, ranked by coverage count / definition length,
+   with greedy coverage. This step lands the two borrowed points from ILP + DreamCoder.
+2. **Give r(p) a real formula**: `r(p) = definition length + transfer cost`, rerun the cost experiment, and see whether the stopping rules still differ by only ±6%.
+3. **Feasibility check for the SME route**: manually construct one "source domain–target domain" transfer and see whether the transferred predicate can split the collision pairs.
+4. Fill in the Copycat original (low priority, but citations must be real).

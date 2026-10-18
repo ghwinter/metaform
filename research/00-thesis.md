@@ -1,80 +1,81 @@
-# 00 命题：查询驱动的表征变更
+# 00 Thesis: Query-Driven Representation Change
 
-v0.1 · 2026-10-19 · 只写命题，不写方案
+v0.1 · 2026-10-19 · Only the thesis, no solution
 
-## 1. 研究问题
+## 1. Research question
 
-一句话：**当目标概念 S 不在当前表征语言的表达范围内时，任何在该语言内增加搜索预算的做法都必然失败；那么系统应当依据什么信号、用什么准则、以多少代价去改写自己的语言？**
+One sentence: **When the target concept S lies outside the expressive range of the current representation language, any attempt to increase the search budget within that language is bound to fail; so by what signal, by what criterion, and at what cost should a system rewrite its own language?**
 
-拆成三个能分别作答的子问题：
+Split into three sub-questions that can each be answered separately:
 
-| | 问题 | 类型 |
+| | Question | Type |
 |---|---|---|
-| Q1 | 什么条件下可以**断定**"语言不够"，而不只是"还没搜到"？ | 逻辑 |
-| Q2 | 语言有无穷多种扩展方式，用什么准则在它们之间选？ | 统计 |
-| Q3 | 扩展语言要外部信号（成员查询），如何用最少提问定位需要的谓词？ | 信息论 |
+| Q1 | Under what conditions can we **conclude** that "the language is insufficient," rather than merely that "it has not been found yet"? | Logic |
+| Q2 | There are infinitely many ways to extend a language; by what criterion do we choose among them? | Statistics |
+| Q3 | Extending the language requires external signals (membership queries); how do we locate the needed predicate with the fewest questions? | Information theory |
 
-## 2. 为什么现在值得做
+## 2. Why it is worth doing now
 
-1. LLM 已经能廉价**提出**谓词、属性、关系（自然语言级），但没有机制决定该不该采纳、采纳哪个。
-2. FCA 的属性探索早就解决了"提问驱动扩词表"，代价是属性由人给、每个问题由人答。
-3. 两者之间只差一个可计算的选择准则 + 一个非专家的噪声 oracle。缝很窄，但正好现在能补。
+1. LLMs can already **propose** predicates, properties, and relations cheaply (at the natural-language level), but there is no mechanism for deciding whether to adopt one, or which one to adopt.
+2. FCA's attribute exploration solved "question-driven vocabulary expansion" long ago, at the price that attributes are supplied by humans and every question is answered by a human.
+3. Between the two, only a computable selection criterion plus a noisy non-expert oracle are missing. The gap is narrow, but it is exactly fillable now.
 
-## 3. 三条主张（都可证伪）
+## 3. Three claims (all falsifiable)
 
-**C1 必要性。** 若正例与反例在当前词汇下不可分辨（同一签名），则不存在与样本一致的当前词汇内概念。增加搜索预算不改变结论。
-→ 定理 T2，**已在 Lean 4 + Mathlib 中验证**。
+**C1 Necessity.** If positive and negative examples are indistinguishable under the current vocabulary (same signature), then no concept in the current vocabulary is consistent with the samples. Increasing the search budget does not change the conclusion.
+→ Theorem T2, **verified in Lean 4 + Mathlib**.
 
-**C2 表达力在样本内免费，在样本外定价。** 词汇的表达容量等于 2^(样本上实现的签名数)；签名越多，样本一致的候选概念越多。所以"扩词表"必须与抗过拟合的偏置类绑定，否则一致性检验是空的。
-→ 定理 T4（计数，Lean 已验弱形式）。
+**C2 Expressive power is free inside the sample and priced outside it.** The expressive capacity of a vocabulary equals 2^(the number of signatures realized on the sample); the more signatures there are, the more sample-consistent candidate concepts exist. So "expanding the vocabulary" must be bound to a bias class that resists overfitting, otherwise the consistency test is vacuous.
+→ Theorem T4 (counting; the weak form has been checked in Lean).
 
-**C3（已降级为负结果）对象级选题不值钱。** 在均匀后验下，期望信息增益与"随机问一个还有信息的问题"**完全持平**（1.96 vs 1.86，300 例）；加 Occam 先验后也只领先 9–13%（1.63 vs 1.87）。
-→ 结论：优化的落点不在"问哪个对象"，而在**词汇层**——何时停止问对象、转为提议谓词，提议哪个，以及为此付多少。详见 `research/exp/RESULTS.md`。
+**C3 (downgraded to a negative result) Object-level question selection is not worth much.** Under a uniform posterior, expected information gain is **exactly on par** with "ask a random question that still carries information" (1.96 vs 1.86, 300 trials); adding an Occam prior, it leads by only 9–13% (1.63 vs 1.87).
+→ Conclusion: the payoff of optimization is not at "which object to ask about" but at the **vocabulary level** — when to stop asking about objects and switch to proposing predicates, which one to propose, and how much to pay for it. See `research/exp/RESULTS.md`.
 
-**C3' 词汇层的决策才有非平凡代价。** 一次对象查询几乎免费（一个词回答），一次谓词提议昂贵（要生成、要人判断是否切题、要验证是否可判定）。因此总成本由"何时/提议什么"决定，而不是由"问哪些对象"决定。
-→ 这是可测的主张：单位成本比 c_pred / c_obj 取 5、20、100，看最优策略是否切换。若在所有比值下"先问满再换"都最优，这条也不成立。
+**C3' Only vocabulary-level decisions carry nontrivial cost.** An object query is nearly free (one word answers it); a predicate proposal is expensive (it must be generated, a human must judge whether it is on point, and it must be verified to be decidable). Total cost is therefore determined by "when / what to propose," not by "which objects to ask about."
+→ This is a testable claim: set the unit-cost ratio c_pred / c_obj to 5, 20, 100 and see whether the optimal policy switches. If "ask exhaustively first, then switch" is optimal at every ratio, this claim fails as well.
 
-**措辞纪律**：本工作**不**提出新的选择准则。MDL 和信息增益都是现成的；新的是把它们接到一个**可判定的触发信号**上（候选内涵集为空），以及把"该问哪个谓词"变成一个计分问题。写作时不要暗示准则是新的。
+**Wording discipline**: this work does **not** propose a new selection criterion. Both MDL and information gain are off the shelf; what is new is wiring them to a **decidable trigger signal** (the candidate intension set is empty), and turning "which predicate to ask about" into a scoring problem. Do not imply in the writing that the criterion is new.
 
-## 4. 判据（只有一条）
+## 4. Criterion (only one)
 
-系统的输出不是答案，而是**一个可判定的断言**：
+The system's output is not an answer but **a decidable assertion**:
 
-> 在当前词汇 V 下，S 是否可定义；若不可，缺的是哪一对不可分辨的对象。
+> Under the current vocabulary V, is S definable; and if not, which pair of indistinguishable objects is missing.
 
-这条断言可以被程序检查、被反例推翻、被 Lean 证明。其余输出（解释、类比、"洞察"）不进论文的评价部分。
+This assertion can be checked by a program, refuted by a counterexample, and proved in Lean. The remaining outputs (explanations, analogies, "insights") do not enter the evaluation section of the paper.
 
-## 5. 什么会杀死这个命题
+## 5. What would kill this thesis
 
-1. 若"词汇"被定义到包含全部自然语言谓词，C1 变成空话。→ 必须固定一个受限语言（布尔组合、一阶子句、DSL），并在论文里明说。
-2. 若 LLM 直接提议谓词 + 直接判成员，在盲评上不劣于带 oracle 的探索，C3 的工程价值消失（理论仍成立）。
-3. 若在可判定域（数学 / 代码）上，表征层竞争不优于答案层采样，整条路线退化为提示词工程。
+1. If "vocabulary" is defined broadly enough to include all natural-language predicates, C1 becomes vacuous. → A restricted language (Boolean combinations, first-order clauses, a DSL) must be fixed and stated explicitly in the paper.
+2. If an LLM that directly proposes predicates + directly judges membership is no worse than oracle-backed exploration under blind evaluation, then C3's engineering value disappears (the theory still holds).
+3. If, on decidable domains (mathematics / code), representation-level competition is no better than answer-level sampling, the whole line degenerates into prompt engineering.
 
-## 6. 三条竞争路线与判别实验
+## 6. Three competing routes and the discriminating experiment
 
-| 路线 | 主张 | 互斥预测 |
+| Route | Claim | Mutually exclusive prediction |
 |---|---|---|
-| R1 表征变更（本路线） | S 可能不在语言内，必须借外部信号换语言 | **无 oracle 时必然失败，预算无限也一样** |
-| R2 因果模型 | S 是因果变量，干预能唯一确定它 | 干预足够时不需要 oracle |
-| R3 程序归纳 + 压缩 | S 是 DSL 内的程序，语料够大时压缩选出它 | 语料够大时无需提问 |
+| R1 Representation change (this route) | S may lie outside the language; an external signal is required to change the language | **Must fail without an oracle, even with unbounded budget** |
+| R2 Causal model | S is a causal variable; interventions can determine it uniquely | When interventions suffice, no oracle is needed |
+| R3 Program induction + compression | S is a program in the DSL; a large enough corpus compresses it out | When the corpus is large enough, no questions are needed |
 
-实验设计很直接：oracle 预算 ∈ {0, 5, 20}，三个域各跑一遍。三条预测互斥，能分开。
+The experiment design is direct: oracle budget ∈ {0, 5, 20}, run once in each of the three domains. The three predictions are mutually exclusive and can be separated.
 
-## 7. 与 1.md 的关系
+## 7. Relation to 1.md
 
-1.md 给的是能力清单：联想、归纳、类比、意图推断、元学习、决策……
-本文只切一片：**表征变更**。
+1.md gives a list of capabilities: association, induction, analogy, intent inference, meta-learning, decision-making…
 
-理由：其余切片目前没有可判定的成功标准，写出来只能是散文。切片小，但能证伪、能形式化、能跑、能发表。
+This paper cuts out a single slice: **representation change**.
 
-## 8. 诚实的定位
+Reason: the other slices currently have no decidable success criterion, so writing them out can only produce prose. The slice is small, but it can be falsified, formalized, run, and published.
 
-形式化 + 算法 + 小规模实证的组合。
+## 8. Honest positioning
 
-核心数学是 FCA / ILP 里的 folklore（"属性可定义 = 等价类之并"）。本工作的贡献不在新定理，而在：
+A combination of formalism + algorithms + small-scale empirical work.
 
-1. 把它用作**必要性判据**（T2），使"表征变更"从启发式升级为逻辑必然；
-2. 给出与 LLM 谓词生成器配套的**提问策略**与**容量约束**（T4 / T5）；
-3. 一个 oracle 可判定的基准，使"是否找到 S"第一次可查。
+The core mathematics is folklore in FCA / ILP ("attribute-definable = union of equivalence classes"). This work's contribution is not a new theorem but:
 
-venue：workshop / 短文优先。数学够 Lean 验证，实证够小，不假装是 ICML 主会。
+1. using it as a **necessity criterion** (T2), which upgrades "representation change" from a heuristic to a logical necessity;
+2. providing a **questioning strategy** and a **capacity constraint** (T4 / T5) that pair with an LLM predicate generator;
+3. an oracle-decidable benchmark that makes "was S found" checkable for the first time.
+
+venue: workshop / short paper preferred. The math is Lean-verifiable, the empirical work is small, and there is no pretending that this is an ICML main-conference paper.
