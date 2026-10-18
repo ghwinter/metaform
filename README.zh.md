@@ -164,6 +164,8 @@ pwsh -File scripts/bootstrap.ps1 -Write   # 用观测到的值写出 scripts/loc
     `ledger.tsv`（编号 `L1`…），`report` 新增 `## Recent evidence` 段落引用它；E2E 已改用这条路径，
     不再手写 `ledger add`。
 
+18. **廉价的提议去不掉证据地板**：提议成本趋近于零时，成本规律趋于 7.6 个提问轮，所以便宜的是词汇、不是问题；在不足的词汇下花掉的提问无法补回（T5）。候选词汇的组合，代价正好落在它想省下的那种货币上。
+
 ## 诚实边界
 
 - 核心数学是 FCA/ILP 的 folklore（"可定义 = 等价类之并"）。贡献是把它当**必要性判据**用，

@@ -169,6 +169,8 @@ anything that pins what the results are (Lean version, Mathlib revision, the Rus
     `ledger.tsv` (ids `L1`…), and `report` gains a `## Recent evidence` section that cites it; the E2E now uses this path
     instead of hand-writing `ledger add`.
 
+18. **Cheap proposals do not remove the evidence floor**: as the proposal cost falls toward zero the cost law tends to the 7.6 query rounds, so cheap thinking buys a better vocabulary, not fewer questions; queries spent under an insufficient vocabulary are unrecoverable (T5). A portfolio of candidate vocabularies is paid for in the very currency it is meant to save.
+
 ## Honest boundaries
 
 - The core mathematics is folklore from FCA/ILP ("definable = union of equivalence classes"). The contribution is to use it as a **necessity criterion**

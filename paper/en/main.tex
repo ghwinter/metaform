@@ -424,6 +424,16 @@ or by batched model calls and cost one round each; proposals cost tokens, valida
 a failed experiment. Moving from per-query to per-round accounting only strengthens the conclusion:
 rounds are cheaper than proposals, so $r/q$ dominates even more.
 
+\textbf{Cheap proposals.} Suppose the proposer becomes cheap, so that $r$ falls toward zero. The law
+$r/q + 7.6$ then tends to $7.6$, the number of query rounds, and stops there: cheap proposals cancel
+the proposal term and leave the evidence term untouched. What they can buy is a vocabulary in which
+those queries are not wasted, because by Theorem~\ref{thm:monodata} queries spent under an insufficient
+vocabulary cannot be recovered by later ones. The design consequence is not ``think more'' but ``spend
+the cheap steps on the language and the expensive ones on the decision''. A portfolio of candidate
+vocabularies is worth its proposal cost only when the evidence can eliminate the wrong members, and
+that elimination is itself paid in queries, so the portfolio has a price in the currency it was meant
+to save.
+
 \textbf{Domain C (code invariants).} Twelve test inputs for an interval-merging function; the hidden
 invariant is that the output is shorter than the input. Predicates are executable features of the
 input; the oracle runs the function. With six features in the vocabulary the two seed examples
