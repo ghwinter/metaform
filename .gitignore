@@ -11,8 +11,14 @@ engine/target/
 *.log
 *.out
 *.toc
+*.png
 engine/last-test.log
 research/lean/last-check.log
+research/lean/.lake/
+research/lean/lake-manifest.json
+research/lean/lakefile.toml
+research/lean/lean-toolchain
+research/exp/lean_oracle/
 .metaform/
 
 # Raw conversation logs and internal notes: inputs, not deliverables.
