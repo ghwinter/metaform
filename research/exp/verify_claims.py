@@ -113,13 +113,14 @@ def check_ops(engine: Path) -> int:
                 bad += 1
                 print(f"! 论文的实测点 q={q} 写成 {got}，期望 {want}")
 
-    # third source: the three numbers in the README; compared item by item with the ops output, so the paper and the constants cannot drift together.
+    # Third source: the three numbers in the README, compared item by item with the ops output,
+    # so the paper and the constants cannot drift together.
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     flat = re.sub(r"\s+", " ", readme)
-    m = re.search(r"逐步选择 ([\d.]+) 次、随机顺序 ([\d.]+) 次、固定顺序 ([\d.]+) 次", flat)
+    m = re.search(r"selection takes ([\d.]+) queries, random order ([\d.]+), and fixed order ([\d.]+)", flat)
     if not m:
         bad += 1
-        print("! README 的 selection 句子结构变了（三处数字必须同现）")
+        print("! the README selection sentence changed shape (all three numbers must appear)")
     else:
         for k, got in zip(
             ("selected_cost", "random_cost", "fixed_cost"),
@@ -127,11 +128,11 @@ def check_ops(engine: Path) -> int:
         ):
             if abs(got - sel[k]) > 0.011:
                 bad += 1
-                print(f"! README 的 {k}={got} 与 ops {sel[k]} 不一致")
-    mp = re.search(r"验证版 (\d+) 次查询、成本 (\d+)", flat)
+                print(f"! README {k}={got} disagrees with ops {sel[k]}")
+    mp = re.search(r"verified version takes (\d+) queries, costs (\d+)", flat)
     if not mp:
         bad += 1
-        print("! README 的 probe 句子结构变了")
+        print("! the README probe sentence changed shape")
     elif (int(mp.group(1)), int(mp.group(2))) != (
         probe.get("verified_queries"),
         probe.get("verified_cost"),

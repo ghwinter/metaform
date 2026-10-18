@@ -87,18 +87,18 @@ fn tools() -> Value {
     json!([
         {
             "name": "state_need",
-            "description": "读取项目的 .metaform/state.json，返回当前状态：INSUFFICIENT/UNDETERMINED/IDENTIFIED，撞车对，建议标注对象。",
+            "description": "Read the project's .metaform/state.json and return the current status: INSUFFICIENT/UNDETERMINED/IDENTIFIED, colliding pairs, and suggested objects to label.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "project": {"type": "string", "description": "项目根目录，默认 ."},
-                    "theta": {"type": "integer", "description": "票差阈值，默认自动"}
+                    "project": {"type": "string", "description": "Project root directory; defaults to ."},
+                    "theta": {"type": "integer", "description": "Vote-margin threshold; defaults to automatic"}
                 }
             }
         },
         {
             "name": "state_vote",
-            "description": "给某个对象记一票（yes/no），写入 .metaform/state.json。",
+            "description": "Record one vote (yes/no) for an object and write it to .metaform/state.json.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -112,24 +112,24 @@ fn tools() -> Value {
         },
         {
             "name": "ledger_cases",
-            "description": "返回已确认且无方向冲突的对象编号（来自 .metaform/ledger.tsv）。",
+            "description": "Return the ids of objects that are confirmed and have no direction conflict (from .metaform/ledger.tsv).",
             "inputSchema": {"type": "object", "properties": {"project": {"type": "string"}}}
         },
         {
             "name": "plan",
-            "description": "覆盖 + 纯度 + 重问预算：贪心选出补洞谓词，并按台账估计 p 与返工代价 R。",
+            "description": "Coverage + purity + re-ask budget: greedily select predicates that fill gaps, and estimate p and rework cost R from the ledger.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "project": {"type": "string"},
                     "theta": {"type": "integer"},
-                    "pool": {"type": "string", "description": "候选谓词池文件路径"}
+                    "pool": {"type": "string", "description": "Path to the candidate predicate pool file"}
                 }
             }
         },
         {
             "name": "ledger_conflicts",
-            "description": "返回方向冲突、真值未定的对象编号。",
+            "description": "Return the ids of objects with a direction conflict and undetermined truth.",
             "inputSchema": {"type": "object", "properties": {"project": {"type": "string"}}}
         }
     ])
@@ -219,7 +219,7 @@ mod tests {
     #[test]
     fn initialize_reports_protocol_and_tools_capability() {
         let req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}});
-        let resp = handle(&req).expect("initialize 应有回复");
+        let resp = handle(&req).expect("initialize must have a reply");
         assert_eq!(resp["result"]["protocolVersion"], PROTOCOL);
         assert!(resp["result"]["capabilities"]["tools"].is_object());
     }

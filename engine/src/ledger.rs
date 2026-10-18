@@ -152,7 +152,7 @@ pub fn append(path: &Path, e: &Entry) {
         .create(true)
         .append(true)
         .open(path)
-        .expect("打不开台账");
+        .expect("cannot open the ledger");
     if new_file {
         let _ = f.write_all(HEADER.as_bytes());
     }

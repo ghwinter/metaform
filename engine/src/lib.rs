@@ -90,7 +90,7 @@ pub struct Explorer {
 
 impl Explorer {
     pub fn new(n: usize, vocab: Vocabulary) -> Self {
-        assert!(n <= 64, "Mask 是 u64，最多 64 个对象");
+        assert!(n <= 64, "Mask is u64, so at most 64 objects");
         Self { n, vocab, pos: 0, neg: 0, votes: vec![(0, 0); n], asked: 0 }
     }
 

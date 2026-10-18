@@ -87,19 +87,19 @@ def project_mode(engine: Path) -> None:
         cli(engine, "report", "--project", str(d))
         before = (d / ".metaform" / "out" / "report.md").read_text(encoding="utf-8")
         assert "VERIFY" in before, before
-        assert "## 待验证" in before, before
+        assert "## To verify" in before, before
         assert "4, 5" in before, before
 
         cli(
             engine, "state", "vote", "--project", str(d),
             "--id", "4", "--yes", "0", "--no", "3",
-            "--record", "--by", "probe", "--reason", "探测 4：与 0 撞车",
+            "--record", "--by", "probe", "--reason", "probe 4: collides with 0",
         )
         cli(engine, "report", "--project", str(d))
         after = (d / ".metaform" / "out" / "report.md").read_text(encoding="utf-8")
         assert "INSUFFICIENT" in after, after
         assert "(0,4)" in after, after
-        assert "探测 4：与 0 撞车" in after, "台账证据要出现在报告里"
+        assert "probe 4: collides with 0" in after, "the ledger reason must show up in the report"
 
         print("project: report VERIFY -> INSUFFICIENT after probe")
     finally:
@@ -120,7 +120,7 @@ def main() -> None:
     steps = [(r["status"], r["action"]) for r in rows]
     print("steps:", " -> ".join(a for _, a in steps))
 
-    assert len(rows) == 4, f"期望 4 步，得到 {len(rows)}: {steps}"
+    assert len(rows) == 4, f"expected 4 steps, got {len(rows)}: {steps}"
     assert steps[0] == ("IDENTIFIED", "VERIFY"), steps[0]
     assert steps[1] == ("INSUFFICIENT", "PROPOSE"), steps[1]
     assert steps[2] == ("UNDETERMINED", "ASK"), steps[2]
@@ -128,8 +128,8 @@ def main() -> None:
 
     assert rows[0]["unverified"] == [4, 5], rows[0]
     assert rows[1]["colliding_pairs"] == [[0, 4]], rows[1]
-    assert rows[1]["unverified"] == [5], "探测 4 之后，5 仍未验证"
-    assert rows[3]["unverified"] == [], "最终停机时不应再有继承标签"
+    assert rows[1]["unverified"] == [5], "after probing 4, 5 is still unverified"
+    assert rows[3]["unverified"] == [], "no inherited label may remain at the final stop"
 
     project_mode(engine)
 

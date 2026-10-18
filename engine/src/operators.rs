@@ -88,7 +88,7 @@ pub struct State {
 
 impl State {
     pub fn new(n: usize) -> Self {
-        assert!(n <= 64, "Mask 是 u64，最多 64 个对象");
+        assert!(n <= 64, "Mask is u64, so at most 64 objects");
         Self {
             n,
             vocab: Vec::new(),
@@ -333,7 +333,7 @@ pub struct ComposeStats {
 
 /// When several atoms are needed: greedy cover vs random order vs fixed order (the fixed order puts whole-class atoms first; they provide no new split).
 pub fn compose_bench(trials: u64, k: usize, budget: usize) -> ComposeStats {
-    assert!(k >= 1 && k <= 4, "两比特编码类号，k ≤ 4");
+    assert!(k >= 1 && k <= 4, "two-bit class encoding requires k <= 4");
     let mut seed = 0x1234_5678u64;
     let mut rnd = move || {
         seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
@@ -916,8 +916,8 @@ fn run_pair(name: &'static str, s: &State, ops: &[Op]) -> Demo {
     let before = s.phi();
     let fixed = run(ops, &mut s.clone(), false).expect("fixed run");
     let sched = run(ops, &mut s.clone(), true).expect("scheduled run");
-    assert_eq!(fixed.phi, sched.phi, "两种调度必须到同一状态");
-    assert_eq!(fixed.cost - sched.cost, sched.skipped_cost, "差额必须等于被跳过步骤的代价");
+    assert_eq!(fixed.phi, sched.phi, "both schedules must reach the same state");
+    assert_eq!(fixed.cost - sched.cost, sched.skipped_cost, "the difference must equal the cost of the skipped steps");
     Demo {
         name,
         phi_before: before,
@@ -1200,7 +1200,7 @@ mod tests {
         // {2} splits the class {2,3} (not definable), but does not separate the colliding (0,1).
         let op = Op::Represent { pred: bit(2), cands: vec![], cost: 5 };
         assert_eq!(op.warrant(&s), Ok(()));
-        assert_eq!(op.coverage(&s), 0, "当前零覆盖，但它是合法的一步");
+        assert_eq!(op.coverage(&s), 0, "zero coverage now, but it is still a legal step");
     }
 
     /// Every candidate must be definable under the new vocabulary V ∪ {pred}; otherwise Φ=1 is a fake 'decided'.
@@ -1243,7 +1243,7 @@ mod tests {
         let mut seen: Vec<(u8, Dir)> = Vec::new();
         for op in &ops {
             let sig = (op.writes(), op.dir());
-            assert!(!seen.contains(&sig), "{:?} 与已有签名重复", op.class());
+            assert!(!seen.contains(&sig), "{:?} duplicates an existing signature", op.class());
             seen.push(sig);
         }
         assert_eq!(seen.len(), 4);
@@ -1331,7 +1331,7 @@ mod tests {
         ];
         let out = run_selected(&mut s, &ops).expect("selected run");
         assert_eq!(out.phi, 1);
-        assert_eq!(out.ran, 1, "第一个问题就能判定");
+        assert_eq!(out.ran, 1, "the first question is enough to decide");
         assert_eq!(out.cost, 1);
     }
 
@@ -1385,7 +1385,7 @@ mod tests {
         let op = Op::Probe { x: 1, member: false, cost: 1 };
         assert_eq!(op.warrant(&s), Ok(()));
         op.apply(&mut s).expect("probe");
-        assert_eq!(s.phi(), 0, "继承来的标签被证伪，状态退回不足");
+        assert_eq!(s.phi(), 0, "the inherited label was refuted; the state falls back to insufficient");
         assert_eq!(s.asked, bit(0) | bit(1));
     }
 
@@ -1432,13 +1432,13 @@ mod tests {
 
         let out = run_selected(&mut s, &[Op::Probe { x: 1, member: false, cost: 1 }]).unwrap();
         assert_eq!(out.ran, 1);
-        assert_eq!(out.phi, 0, "探测证伪了继承来的标签");
+        assert_eq!(out.phi, 0, "the probe refuted the inherited label");
 
         let mut t = make();
         let out = run_selected(&mut t, &[Op::Probe { x: 1, member: true, cost: 1 }]).unwrap();
         assert_eq!(out.ran, 1);
         assert_eq!(out.phi, 1);
-        assert!(t.unprobed().is_empty(), "探过之后没有继承标签了");
+        assert!(t.unprobed().is_empty(), "no inherited labels remain after probing");
 
         // no probe operator is available: stop at Φ=1, but unverified members remain (the caller must know).
         let mut u = make();
@@ -1452,8 +1452,8 @@ mod tests {
     fn probe_demo_shows_the_gap() {
         let p = probe_demo();
         assert_eq!(p.early_phi, 1);
-        assert!(!p.early_correct, "早停的外延应当错");
-        assert!(p.verified_correct, "探测之后应当对");
+        assert!(!p.early_correct, "the early-stopped extension should be wrong");
+        assert!(p.verified_correct, "it should be right after probing");
         assert!(p.verified_cost > 1);
     }
 
@@ -1475,11 +1475,11 @@ mod tests {
         let repr = Op::Represent { pred: bit(0), cands: vec![], cost: 5 };
         let ev = Op::Evidence { x: 1, member: true, cost: 1 };
         let gen = Op::Generate { cands: vec![bit(0)], cost: 2 };
-        assert!(informed_by(&close, &repr), "闭包写 H，表征读 H");
-        assert!(!redundant_after(&close, &repr), "表征写出新分量 V");
-        assert!(redundant_after(&close, &close), "闭包写不出闭包没写过的东西");
-        assert!(!redundant_after(&gen, &ev), "取证写 E，生成没写过 E");
-        assert!(informed_by(&ev, &gen), "取证写 E，生成读 E");
+        assert!(informed_by(&close, &repr), "closure writes H; representation reads H");
+        assert!(!redundant_after(&close, &repr), "representation writes the new component V");
+        assert!(redundant_after(&close, &close), "closure cannot write what closure never wrote");
+        assert!(!redundant_after(&gen, &ev), "evidence writes E; generation never wrote E");
+        assert!(informed_by(&ev, &gen), "evidence writes E; generation reads E");
         assert_eq!(repr.writes(), comp::V | comp::H);
         assert_eq!(ev.writes(), comp::E);
     }
@@ -1533,7 +1533,7 @@ mod tests {
         ];
         let fixed = run(&ops, &mut s.clone(), false).unwrap();
         let sched = run(&ops, &mut s.clone(), true).unwrap();
-        assert_eq!(fixed.phi, sched.phi, "两种顺序必须到同一状态");
+        assert_eq!(fixed.phi, sched.phi, "both orders must reach the same state");
         assert_eq!(fixed.cost - sched.cost, sched.skipped as u32);
     }
 

@@ -133,11 +133,11 @@ $env:METAFORM_PYTHON = 'C:\path\to\python.exe'
     `IDENTIFIED/VERIFY → INSUFFICIENT/PROPOSE → UNDETERMINED/ASK → IDENTIFIED/STOP`.
     `e2e_verify.py` freezes this sequence and `unverified=[4,5]` into `check-all`.
     While there, it also fixed the unstable order in `unprobed()` (`classes()` goes through a `HashMap`).
-16. **The report shows that probing changed the verdict**: before probing, `report` gives `VERIFY` + `## 待验证` (4, 5); after probing 4 it gives
+16. **The report shows that probing changed the verdict**: before probing, `report` gives `VERIFY` + `## To verify` (4, 5); after probing 4 it gives
     `INSUFFICIENT` + collision `(0,4)`. The project mode of `e2e_verify.py` also freezes this into
     `check-all` (build a project in a temp directory, write the ledger, read the report twice).
 17. **The tool records its own evidence**: `state vote --record --by probe --reason "..."` writes this vote into
-    `ledger.tsv` (ids `L1`…), and `report` gains a `## 最近证据` section that cites it; the E2E now uses this path
+    `ledger.tsv` (ids `L1`…), and `report` gains a `## Recent evidence` section that cites it; the E2E now uses this path
     instead of hand-writing `ledger add`.
 
 ## Honest boundaries
@@ -152,3 +152,4 @@ $env:METAFORM_PYTHON = 'C:\path\to\python.exe'
 - `1.md`: the original conversation that posed the problem.
 - `reasoning_engine_research_map.md`: an interdisciplinary source map (the repository's 36 papers were downloaded according to it).
 - `research/03-synthesis.md`: paper-by-paper comparison of the 36 works, confirming the gap of "query failure → rewrite the language".
+

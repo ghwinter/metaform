@@ -30,9 +30,9 @@ use metaform::{bit, Explorer, Predicate, Status, Vocabulary};
 fn ids_to_mask(ids: &[String], n: usize) -> Result<u64, String> {
     let mut m = 0u64;
     for s in ids {
-        let x: usize = s.parse().map_err(|_| format!("不是数字: {s}"))?;
+        let x: usize = s.parse().map_err(|_| format!("not a number: {s}"))?;
         if x >= n {
-            return Err(format!("对象 {x} 越界（对象数 {n}）"));
+            return Err(format!("object {x} out of range (object count {n})"));
         }
         m |= bit(x);
     }
@@ -78,7 +78,7 @@ fn free_reps(e: &Explorer) -> Vec<usize> {
 }
 
 fn explain(e: &Explorer) {
-    println!("--- 等价类（{} 个）---", e.classes().len());
+    println!("--- equivalence classes ({}) ---", e.classes().len());
     for (i, c) in e.classes().iter().enumerate() {
         let members: Vec<String> = (0..e.n)
             .filter(|&x| c & bit(x) != 0)
@@ -93,17 +93,17 @@ fn explain(e: &Explorer) {
                 format!("{tag}{x}")
             })
             .collect();
-        let mark = if (c & e.pos) != 0 && (c & e.neg) != 0 { "  <== 撞车" } else { "" };
+        let mark = if (c & e.pos) != 0 && (c & e.neg) != 0 { "  <== collision" } else { "" };
         println!("  [{i:2}] {}{}", members.join(" "), mark);
     }
     let pairs = colliding_pairs(e);
     if pairs.is_empty() {
-        println!("撞车对：无");
+        println!("colliding pairs: none");
     } else {
         let shown: Vec<String> = pairs.iter().take(8).map(|(a, b)| format!("({a},{b})")).collect();
-        println!("撞车对：{} 个  {}", pairs.len(), shown.join(" "));
+        println!("colliding pairs: {}  {}", pairs.len(), shown.join(" "));
         if pairs.len() > 8 {
-            println!("  （只显示前 8 对）");
+            println!("  (showing only the first 8 pairs)");
         }
     }
 }
@@ -139,13 +139,13 @@ fn gen_candidates(preds: &[(String, u64)], n: usize) -> Vec<(String, u64)> {
 
 fn status(e: &Explorer) {
     let st = match e.status() {
-        Status::Insufficient => "insufficient（词汇已被证明不够）",
-        Status::Undetermined => "undetermined（还有未决类）",
-        Status::Identified => "identified（外延完全确定）",
+        Status::Insufficient => "insufficient (vocabulary proven insufficient)",
+        Status::Undetermined => "undetermined (open classes remain)",
+        Status::Identified => "identified (extension fully determined)",
     };
     let free = e.classes().iter().filter(|c| (*c & (e.pos | e.neg)) == 0).count();
     println!("status: {st}");
-    println!("未决类: {free}   容量: 2^{} = {}", e.classes().len(), e.capacity());
+    println!("open classes: {free}   capacity: 2^{} = {}", e.classes().len(), e.capacity());
 }
 
 // ---------------- project directory and ledger subcommands ----------------
@@ -364,7 +364,7 @@ fn cmd_report(args: &[String]) -> i32 {
             0
         }
         Err(e) => {
-            eprintln!("写不了报告：{e}");
+            eprintln!("cannot write the report: {e}");
             1
         }
     }
@@ -380,7 +380,7 @@ fn cmd_score(args: &[String]) -> i32 {
     let pairs = plan::colliding(&e, theta);
 
     let Some(pool_path) = kv(args, "--pool") else {
-        eprintln!("score 需要 --pool（候选外延）");
+        eprintln!("score requires --pool (candidate extensions)");
         return 2;
     };
     let pool_text = std::fs::read_to_string(&pool_path).unwrap_or_default();
@@ -446,54 +446,54 @@ fn main() {
         let rest = &parts[1..];
         match cmd {
             "objects" => {
-                let n: usize = rest[0].parse().expect("objects 需要数字");
+                let n: usize = rest[0].parse().expect("objects needs a number");
                 *e = Some(Explorer::new(n, Vocabulary::default()));
-                println!("场景已建立：{n} 个对象");
+                println!("scenario created: {n} objects");
             }
             "add" | "score" => {
-                let ex = e.as_mut().expect("先 objects");
+                let ex = e.as_mut().expect("run objects first");
                 let name = rest[0].clone();
-                let mask = ids_to_mask(&rest[1..], ex.n).expect("对象编号有误");
+                let mask = ids_to_mask(&rest[1..], ex.n).expect("invalid object id");
                 if cmd == "score" {
                     let pairs = colliding_pairs(ex);
                     let split = pairs.iter().filter(|(a, b)| ((mask >> a) & 1) != ((mask >> b) & 1)).count();
-                    println!("score {name}: 劈开 {split}/{} 对撞车", pairs.len());
+                    println!("score {name}: splits {split}/{} colliding pairs", pairs.len());
                 } else {
                     ex.propose(Predicate::new(name, mask));
-                    println!("已添加谓词（词汇 {} 个）", ex.vocab.len());
+                    println!("predicate added (vocabulary has {} entries)", ex.vocab.len());
                 }
             }
             "pos" | "neg" => {
-                let ex = e.as_mut().expect("先 objects");
-                let mask = ids_to_mask(rest, ex.n).expect("对象编号有误");
+                let ex = e.as_mut().expect("run objects first");
+                let mask = ids_to_mask(rest, ex.n).expect("invalid object id");
                 let member = cmd == "pos";
                 for x in 0..ex.n {
                     if mask & bit(x) != 0 {
                         ex.answer(x, member);
                     }
                 }
-                println!("标注完成：pos {} / neg {}", ex.pos.count_ones(), ex.neg.count_ones());
+                println!("labeling done: pos {} / neg {}", ex.pos.count_ones(), ex.neg.count_ones());
             }
             "ask" => {
-                let ex = e.as_ref().expect("先 objects");
+                let ex = e.as_ref().expect("run objects first");
                 let theta: u8 = rest.first().and_then(|s| s.parse().ok()).unwrap_or(3);
                 match ex.next_question_with(theta) {
-                    Some(x) => println!("建议提问：对象 {x}（theta={theta}；回答后写 pos/vote）"),
-                    None => println!("没有可问的对象（状态：{:?}）", ex.status_with(theta)),
+                    Some(x) => println!("suggested question: object {x} (theta={theta}; after answering, write pos/vote)"),
+                    None => println!("no object left to ask (status: {:?})", ex.status_with(theta)),
                 }
             }
-            "status" => status(e.as_ref().expect("先 objects")),
+            "status" => status(e.as_ref().expect("run objects first")),
             "vote" => {
                 // answer with vote counts: vote <id> <yes> <no>
-                let ex = e.as_mut().expect("先 objects");
-                let x: usize = rest.first().and_then(|s| s.parse().ok()).expect("vote 需要对象编号");
+                let ex = e.as_mut().expect("run objects first");
+                let x: usize = rest.first().and_then(|s| s.parse().ok()).expect("vote needs an object id");
                 let yes: u8 = rest.get(1).and_then(|s| s.parse().ok()).unwrap_or(1);
                 let no: u8 = rest.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
                 ex.answer_votes(x, yes, no);
-                println!("记录票数：obj {x} = ({yes}, {no})");
+                println!("vote recorded: obj {x} = ({yes}, {no})");
             }
             "need" => {
-                let ex = e.as_ref().expect("先 objects");
+                let ex = e.as_ref().expect("run objects first");
                 let theta: u8 = rest
                     .first()
                     .and_then(|s| s.parse().ok())
@@ -523,7 +523,7 @@ fn main() {
             }
             "gen" => {
                 // generate a candidate predicate pool from the current vocabulary (metarule-style combinations). Can write a file for cover to use.
-                let ex = e.as_ref().expect("先 objects");
+                let ex = e.as_ref().expect("run objects first");
                 let preds: Vec<(String, u64)> = ex
                     .vocab
                     .preds
@@ -539,17 +539,17 @@ fn main() {
                 }
                 match rest.first() {
                     Some(path) => {
-                        std::fs::write(path, &text).expect("写不了池文件");
-                        println!("生成 {} 个候选 → {path}", cands.len());
+                        std::fs::write(path, &text).expect("cannot write the pool file");
+                        println!("generated {} candidates → {path}", cands.len());
                     }
                     None => print!("{text}"),
                 }
             }
             "cover" => {
                 // read a candidate predicate pool and greedily cover all colliding pairs (the hands-on version of T7).
-                let ex = e.as_ref().expect("先 objects");
-                let path = rest.first().expect("cover 需要池文件路径");
-                let text = std::fs::read_to_string(path).expect("读不到池文件");
+                let ex = e.as_ref().expect("run objects first");
+                let path = rest.first().expect("cover needs a pool file path");
+                let text = std::fs::read_to_string(path).expect("cannot read the pool file");
                 let mut pool: Vec<(String, u64)> = Vec::new();
                 for line in text.lines() {
                     let line = line.split('#').next().unwrap_or("").trim();
@@ -561,7 +561,7 @@ fn main() {
                     let mask = match ids_to_mask(&parts[1..], ex.n) {
                         Ok(m) => m,
                         Err(e) => {
-                            println!("池文件错误：{e}");
+                            println!("pool file error: {e}");
                             return true;
                         }
                     };
@@ -586,7 +586,7 @@ fn main() {
                         break;
                     }
                     let (name, mask) = pool.remove(idx);
-                    println!("cover: {name} 劈开 {covered}/{} 对", pairs.len());
+                    println!("cover: {name} splits {covered}/{} pairs", pairs.len());
                     pairs.retain(|(a, b)| ((mask >> a) & 1) == ((mask >> b) & 1));
                     chosen.push(name);
                 }
@@ -602,7 +602,7 @@ fn main() {
                 );
             }
             "batch" => {
-                let ex = e.as_ref().expect("先 objects");
+                let ex = e.as_ref().expect("run objects first");
                 let k: usize = rest.first().and_then(|s| s.parse().ok()).unwrap_or(4);
                 let mut reps = free_reps(ex);
                 reps.truncate(k);
@@ -612,20 +612,20 @@ fn main() {
                     free_reps(ex).len()
                 );
             }
-            "explain" => explain(e.as_ref().expect("先 objects")),
+            "explain" => explain(e.as_ref().expect("run objects first")),
             "capacity" => {
-                let ex = e.as_ref().expect("先 objects");
+                let ex = e.as_ref().expect("run objects first");
                 println!("2^{} = {}", ex.classes().len(), ex.capacity());
             }
             "quit" => return false,
-            other => println!("未知命令: {other}"),
+            other => println!("unknown command: {other}"),
         }
         true
     };
 
     match args.first().map(|s| s.as_str()) {
         Some(path) => {
-            let text = std::fs::read_to_string(path).expect("读不到脚本");
+            let text = std::fs::read_to_string(path).expect("cannot read the script");
             for line in text.lines() {
                 if !run(line, &mut e) {
                     break;
@@ -633,7 +633,7 @@ fn main() {
             }
         }
         None => {
-            println!("metaform：输入命令，回车执行（quit 退出）");
+            println!("metaform: type a command and press Enter (quit to exit)");
             let stdin = io::stdin();
             for line in stdin.lock().lines() {
                 let line = line.unwrap_or_default();

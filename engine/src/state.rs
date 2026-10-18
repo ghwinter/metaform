@@ -42,7 +42,7 @@ impl State {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let text = serde_json::to_string_pretty(self).expect("序列化失败");
+        let text = serde_json::to_string_pretty(self).expect("serialization failed");
         std::fs::write(path, text)
     }
 

@@ -133,11 +133,11 @@ $env:METAFORM_PYTHON = 'C:\path\to\python.exe'
     `IDENTIFIED/VERIFY → INSUFFICIENT/PROPOSE → UNDETERMINED/ASK → IDENTIFIED/STOP`。
     `e2e_verify.py` 把这条序列与 `unverified=[4,5]` 固化进 `check-all`。
     顺带修了 `unprobed()` 顺序不稳的问题（`classes()` 走 `HashMap`）。
-16. **报告里能看出探测改变了判定**：`report` 在探测前给 `VERIFY` + `## 待验证`（4, 5），
+16. **报告里能看出探测改变了判定**：`report` 在探测前给 `VERIFY` + `## To verify`（4, 5），
     探测 4 之后给 `INSUFFICIENT` + 撞车 `(0,4)`。`e2e_verify.py` 的项目模式把这条也固化进
     `check-all`（临时目录建项目、写台账、两读报告）。
 17. **工具自己记账**：`state vote --record --by probe --reason "..."` 会把这次投票写进
-    `ledger.tsv`（编号 `L1`…），`report` 新增 `## 最近证据` 段落引用它；E2E 已改用这条路径，
+    `ledger.tsv`（编号 `L1`…），`report` 新增 `## Recent evidence` 段落引用它；E2E 已改用这条路径，
     不再手写 `ledger add`。
 
 ## 诚实边界
@@ -152,6 +152,7 @@ $env:METAFORM_PYTHON = 'C:\path\to\python.exe'
 - `1.md`：原始对话，提出问题。
 - `reasoning_engine_research_map.md`：跨学科资料地图（本仓库 36 篇文献即按它下载）。
 - `research/03-synthesis.md`：36 篇逐篇对照，确认"查询失败 → 改写语言"的空位。
+
 
 
 
