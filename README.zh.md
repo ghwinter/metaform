@@ -94,6 +94,16 @@ $env:METAFORM_PYTHON = 'C:\path\to\python.exe'
 & $env:METAFORM_PYTHON research\exp\domain_a.py
 ```
 
+新克隆的仓库没有本机路径，所以 `check-all.ps1`、`check-lean.ps1`、`selftest-gates.ps1`
+都会在存在时点源 `scripts/local.ps1`。把受跟踪的模板复制一份填好即可：
+
+```powershell
+Copy-Item scripts\local.example.ps1 scripts\local.ps1
+# 然后填 METAFORM_PYTHON、METAFORM_LEAN_PROJECT（可选 MATHLIB_CACHE_DIR）
+```
+
+`local.ps1` 被 gitignore：它装的是本机事实，不是仓库内容。
+
 ## 结论（可核对）
 
 1. **T2（必要性）**：正反例在同一签名类里，则当前词汇内无一致概念。合成域 300/300 复现。

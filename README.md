@@ -95,6 +95,16 @@ $env:METAFORM_PYTHON = 'C:\path\to\python.exe'
 & $env:METAFORM_PYTHON research\exp\domain_a.py
 ```
 
+A fresh clone has no machine paths, so `check-all.ps1`, `check-lean.ps1` and `selftest-gates.ps1`
+all dot-source `scripts/local.ps1` when it exists. Copy the tracked template and fill it in once:
+
+```powershell
+Copy-Item scripts\local.example.ps1 scripts\local.ps1
+# then set METAFORM_PYTHON, METAFORM_LEAN_PROJECT (and optionally MATHLIB_CACHE_DIR)
+```
+
+`local.ps1` is gitignored; it carries machine facts, not repository content.
+
 ## Conclusions (checkable)
 
 1. **T2 (necessity)**: if a positive and a negative example share the same signature class, then no consistent concept exists in the current vocabulary. Reproduced 300/300 in the synthetic domain.
