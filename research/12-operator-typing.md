@@ -1,113 +1,136 @@
-# 12 算子不是清单：按"读写哪一块状态"定型
+# 12 Operators Are Not a Checklist: Typing Them by "Which Slice of State They Read and Write"
 
-读的是 2026-10-19 05:18 版 1.md（2135 行，9 轮问答）。v1（1301 行，5 轮）的重心是
-**表征**：样本 ≠ 对象，缺的原语是"重新表征"。v2 加了 4 轮，重心移到 **控制**：
+I was reading the 2026-10-19 05:18 version of 1.md (2135 lines, 9 rounds of Q&A). The center of gravity of
+v1 (1301 lines, 5 rounds) is **representation**: a sample ≠ an object, and the missing primitive is
+"re-representation". v2 adds 4 rounds and shifts the center of gravity to **control**:
 
-| | v1（§1–5） | v2（§6–9） |
+| | v1 (§1–5) | v2 (§6–9) |
 |---|---|---|
-| 缺什么 | 表征层（词表/谓词/DSL） | 控制层（算子集合 + 选择器 + 统一接口） |
-| 关键词 | 内涵 φ_S、属性探索、区分性提问 | 算子、元推理、typed state-transition、JEV |
-| 已给出的形式 | P(h\|E⁺,E⁻,K) | s=(X,R,H,E,C,B)，o:s→P(S)，argmax E[ΔQ]−λCost |
+| What is missing | the representation layer (vocabulary/predicates/DSL) | the control layer (operator set + selector + unified interface) |
+| Keywords | intension φ_S, attribute exploration, distinguishing questions | operators, meta-reasoning, typed state-transition, JEV |
+| Form already given | P(h\|E⁺,E⁻,K) | s=(X,R,H,E,C,B), o:s→P(S), argmax E[ΔQ]−λCost |
 
-所以 §8 那句"算子听起来像不同的商/元素"是对的：1.md 给了 15 种机制（§7）、5 个算子示例（§8）、
-一个状态元组（§9），但**没有给它们类型**。没有类型，它们只能是清单。
+So the sentence in §8, "operators sound like different quotients/elements", is right: 1.md gives 15
+mechanisms (§7), 5 operator examples (§8), and one state tuple (§9), but **does not give them types**.
+Without types, they can only be a checklist.
 
-## 1 分类轴错了
+## 1. The axis of classification was wrong
 
-15 种机制是按**认知名字**分的（演绎、归纳、溯因、类比、抽象、反统一、层级、对称、分解、
-因果、逆向规划、主动学习、策略选择、元推理、误差修正）。按名字分类必然看起来像元素并列，
-因为它们不在同一层、不吃同一种输入、不产出同一种东西。
+The 15 mechanisms are classified by **cognitive name** (deduction, induction, abduction, analogy,
+abstraction, anti-unification, hierarchy, symmetry, decomposition, causality, inverse planning, active
+learning, strategy selection, meta-reasoning, error correction). Classification by name inevitably looks
+like a list of coordinate elements, because they are not at the same layer, do not take the same input, and
+do not produce the same thing.
 
-正确的轴是：**它读状态的哪几块，写状态的哪几块。** 1.md §9 已经把状态切成六块：
+The right axis is: **which blocks of the state it reads, and which blocks of the state it writes.** §9 of
+1.md already cuts the state into six blocks:
 
 ```
 s = (X, R, H, E, C, B)
-    X 元素/属性   R 关系结构   H 候选假设/规则   E 证据/反例   C 目标/约束   B 预算
+    X elements/attributes   R relational structure   H candidate hypotheses/rules   E evidence/counterexamples   C goals/constraints   B budget
 ```
 
-一旦用这个轴，15 种机制塌成 **5 类**，且每类的 warrant 与 falsifier 形态固定：
+Once this axis is used, the 15 mechanisms collapse into **5 classes**, and the warrant and falsifier of each
+class have a fixed form:
 
-| 类 | 读 | 写 | 成员（1.md §7 编号） | warrant | falsifier |
+| Class | Reads | Writes | Members (1.md §7 numbering) | warrant | falsifier |
 |---|---|---|---|---|---|
-| ① 闭合 | H,C,X,R | 新判定 J（X 上的结论） | 演绎(1)、约束检查 | 推导链，可机器检查 | 前提假 / 规则假 |
-| ② 假设生成 | X,R,E | H | 归纳(2)、溯因(3)、类比(4)、抽象(5)、反统一(6)、层级(7)、因果(10)、意图推断(11) | 覆盖+简洁 / 能推出观察 / 结构对应 / 压缩 | 一个反例 / 未被排除的更优解释 / 映射破坏约束 |
-| ③ 表征改写 | X,R,H,E | X',R'（改词表或改结构） | 表征重构(§8-5)、对称/商(8)、分解(9) | 改写后旧证据仍成立（保真）+ 描述更短 | 改写后无法重建旧证据 |
-| ④ 取证 | H,C,B | E | 反例搜索(§8-4)、主动学习(12)、实验设计 | 该证据能区分至少两个 H（区分力） | 取证后 H 的后验不变（白花钱） |
-| ⑤ 控制 | s 全体 + 代价表 | 选中的 o 与 B' | 策略选择(13)、元推理(14)、误差修正(15) | 预期 ΔQ / Cost 的估计 | 实际收益低于随机基线 |
+| ① Closure | H,C,X,R | a new judgment J (a conclusion about X) | deduction (1), constraint checking | derivation chain, machine-checkable | a premise is false / a rule is false |
+| ② Hypothesis generation | X,R,E | H | induction (2), abduction (3), analogy (4), abstraction (5), anti-unification (6), hierarchy (7), causality (10), intent inference (11) | coverage + simplicity / can derive the observation / structural correspondence / compression | one counterexample / a better explanation not ruled out / the mapping breaks a constraint |
+| ③ Representation rewriting | X,R,H,E | X',R' (change the vocabulary or change the structure) | representation reconstruction (§8-5), symmetry/quotient (8), decomposition (9) | after rewriting, the old evidence still holds (fidelity) + the description is shorter | after rewriting, the old evidence cannot be reconstructed |
+| ④ Evidence gathering | H,C,B | E | counterexample search (§8-4), active learning (12), experiment design | the evidence distinguishes at least two H (discriminating power) | after gathering, the posterior over H is unchanged (money burned) |
+| ⑤ Control | all of s + the cost table | the chosen o and B' | strategy selection (13), meta-reasoning (14), error correction (15) | an estimate of the expected ΔQ / Cost | the realized gain is below the random baseline |
 
-三点立刻可见：
+Three points are immediately visible:
 
-1. **演绎不是其他三个的同类。** 它不改 H，只把 H 的后果算出来（①）。归纳/溯因/类比都是 ②，
-   区别只在 warrant 的形式，不在类型。§8 的直觉"它们不是同一种数学对象"——对，但可以精确说：
-   它们是同一类型的不同 warrant。
-2. **③ 是最缺的一类，也是最容易被漏掉的。** v1 的重心（重新表征）落在这一类；v2 的 15 条里
-   它只有 8、9 两条，且 1.md 自己承认"换表征不可判定"（§3 引 Kolmogorov 不可算）。
-3. **⑤ 不能和 ①②③④ 用同一个 warrant。** 它的 warrant 是**预测**（这一步值不值），
-   它的 falsifier 是**事后收益低于基线**。1.md §9 给的 argmax E[ΔQ]−λCost 就是这一类，
-   但全文没有说这个 E[·] 从哪来——这正是可以自己做实验的地方。
+1. **Deduction is not of the same kind as the other three.** It does not change H; it only computes the
+   consequences of H (①). Induction/abduction/analogy are all ②, differing only in the form of the warrant,
+   not in type. The intuition in §8, "they are not the same kind of mathematical object" — correct, but it
+   can be put precisely: they are the same type with different warrants.
+2. **③ is the most lacking class, and also the easiest to miss.** The center of gravity of v1
+   (re-representation) falls in this class; among the 15 items of v2 it has only 8 and 9, and 1.md itself
+   admits that "changing representation is undecidable" (§3 cites Kolmogorov's uncomputability).
+3. **⑤ cannot use the same warrant as ①②③④.** Its warrant is a **prediction** (whether this step is worth
+   it), and its falsifier is **realized gain below the baseline**. The argmax E[ΔQ]−λCost given in §9 of
+   1.md is precisely this class, but the whole text never says where this E[·] comes from — which is
+   exactly where one can run experiments oneself.
 
-## 2 类脑的四个可操作条件
+## 2. Four operational conditions for being brain-like
 
-"类脑"在工程上通常是修辞。剥掉修辞，人脑相对当前 LLM 的差别里，能被写成代码的只有四条，
-而且四条都能对上 1.md 的要求：
+"Brain-like" is usually rhetoric in engineering. Strip the rhetoric, and among the differences between the
+human brain and current LLMs, only four can be written as code, and all four line up with the requirements
+of 1.md:
 
-| 条件 | 人脑里的对应 | 工程构件 | 1.md 出处 |
+| Condition | Correspondent in the brain | Engineering construct | Where 1.md says it |
 |---|---|---|---|
-| 竞争 | 多个假设同时激活，互相抑制 | H 必须是集合，且成员**不可归约**（不是同一答案的改写） | 1021 行"生成一百种说法，却没有比较一百种解释" |
-| 预测误差为通用货币 | 预测加工 / 多巴胺误差 | 每个算子都要能吐出"我预测了什么"，供 ④ 取证 | 716 行 E_predict、1683 行误差驱动修正 |
-| 离线重组 | 海马 replay | 台账不是审计日志，是**调度器的训练数据**：重放历史 (s,o,收益) | 1094 行"保存什么规则曾经奏效" |
-| 代价下的选择 | 基底节选项选择 | ⑤ 的 argmax 必须用**可加的**代价（不同算子同一单位） | 2058 行、792 行 |
+| Competition | multiple hypotheses active at once, inhibiting each other | H must be a set, and its members **irreducible** (not restatements of the same answer) | line 1021, "generate a hundred phrasings but never compare a hundred explanations" |
+| Prediction error as a universal currency | predictive processing / dopamine error | every operator must be able to emit "what I predicted", for ④ to gather evidence on | line 716 E_predict, line 1683 error-driven correction |
+| Offline recombination | hippocampal replay | the ledger is not an audit log, it is the **scheduler's training data**: replay historical (s,o,gain) | line 1094, "keep what rules once worked" |
+| Choice under cost | basal-ganglia option selection | the argmax of ⑤ must use **additive** cost (the same unit across operators) | line 2058, line 792 |
 
-第三条是最有价值的：它把 1.md §4"持续验证与记忆模块"从一个存档功能，变成**唯一的自我改进路径**。
-没有 replay，⑤ 的 E[ΔQ] 只能手写；有 replay，它可以从自己的历史里估。
+The third is the most valuable: it turns §4 of 1.md, "continuous verification and memory module", from an
+archiving feature into **the only path to self-improvement**. Without replay, the E[ΔQ] of ⑤ can only be
+hand-written; with replay, it can be estimated from its own history.
 
-**但"类脑"本身不能当目标。** 人脑的工作记忆约 4 项，跨百轮维持十三项约束靠的是**书写外置**
-（Clark & Chalmers 1998），不是脑；而人脑最典型的失败恰好是"首个合理解释即停"（Simon 1956）
-与确认偏差（Wason 1960）——正是要修的东西。所以目标应写成"**可审计的脚手架**"：
-保留竞争、预测误差、replay 三条机制，丢掉"像脑"这个判据。
+**But "brain-like" itself cannot be the goal.** The human brain's working memory holds about 4 items; holding
+thirteen constraints across a hundred rounds relies on **writing things down externally** (Clark & Chalmers
+1998), not on the brain; and the brain's most typical failures happen to be "stop at the first plausible
+explanation" (Simon 1956) and confirmation bias (Wason 1960) — exactly what needs fixing. So the goal should
+be written as "**an auditable scaffold**": keep the three mechanisms of competition, prediction error, and
+replay, and drop "brain-like" as a criterion.
 
-## 3 一条新的统一判据
+## 3. A new criterion for unification
 
-1.md §8 末尾说"形式上允许函数组合，不代表任意组合都有意义。每个算子都需要明确其输入输出类型、
-前提条件、计算成本和失败模式"。这句话是全文最接近可执行规格的一句，但只停在"需要"。
+At the end of §8, 1.md says "allowing function composition formally does not mean any composition is
+meaningful. Every operator needs its input and output types, preconditions, computational cost, and failure
+modes made explicit". This sentence is the closest the whole text comes to an executable specification, but
+it stops at "needs".
 
-把它变成硬约束：**每个算子必须声明五元组**，否则不许进调度器：
+Turn it into a hard constraint: **every operator must declare a five-tuple**, otherwise it may not enter the
+scheduler:
 
 ```
 op = (read ⊆ {X,R,H,E,C,B}, write ⊆ {X,R,H,E,C,B}, warrant, cost, falsifier)
 ```
 
-- `read/write` 让 ⑤ 能算"这个算子会不会白跑"（write ∩ 已有 = ∅ 时不值得）；
-- `warrant` 让 ② 的产出可检查，而不是"模型说了算"；
-- `falsifier` 让失败能回滚到具体一步，而不是整段重来；
-- `cost` 用同一单位（查询数 / 实验数 / token），否则不可加，不可调度。
+- `read/write` lets ⑤ compute "will this operator run in vain" (when write ∩ existing = ∅ it is not worth it);
+- `warrant` makes the output of ② checkable, rather than "whatever the model says";
+- `falsifier` lets a failure roll back to a specific step instead of redoing the whole segment;
+- `cost` uses the same unit (query count / experiment count / tokens), otherwise it is neither addable nor
+  schedulable.
 
-这也顺带回答了 agent 提的那处含糊（1.md 1104 行"只需意识到结构存在" vs 625 行"要矩阵计算"）：
-**"意识到"= ③ 的触发条件被满足**（现有表征无法表达某个已确认证据），
-不是一种神秘的觉察。可观测信号就是 ④ 拿回来的证据在 X,R 里无处安放。
+This also answers, in passing, the ambiguity the agent raised (line 1104 of 1.md, "it suffices to be aware
+that the structure exists", vs line 625, "matrix computation is required"): **"be aware" = the trigger
+condition of ③ is met** (the current representation cannot express some already-confirmed evidence), not a
+mysterious act of noticing. The observable signal is that the evidence brought back by ④ has nowhere to sit
+in X,R.
 
-## 4 可证伪命题
+## 4. Falsifiable propositions
 
-1. **调度优于固定顺序**：同一任务上，"共享代价 + 显式 falsifier"的 ⑤ 比"①②③④ 固定顺序"
-   更少步数或更少实验。跑不翻才说明统一不是换皮。
-2. **表征改写必须保真**：③ 的每次改写，必须能用新表征重建全部旧证据；不满足就是丢信息，
-   而不是"更抽象"。这条可以被构造反例打掉。
-3. **只加算子不涨能力**：不显式加归纳偏置，只增加 ② 的算子数量，在开放域上不会单调提升
-   （No Free Lunch + Gold 的封顶，1.md 2086–2088 行自己引了）。若观察到单调提升，说明
-   提升来自偏置而非算子数，框架的"统一"主张要退让。
+1. **Scheduling beats fixed order**: on the same task, ⑤ with "shared cost + explicit falsifier" uses fewer
+   steps or fewer experiments than "①②③④ in a fixed order". Only if it cannot be refuted is the unification
+   more than reskinning.
+2. **Representation rewriting must be faithful**: every rewrite in ③ must be able to reconstruct all the old
+   evidence in the new representation; failing that means information is lost, not that it is "more
+   abstract". This one can be knocked down by constructing a counterexample.
+3. **Adding operators alone does not add capability**: without explicitly adding inductive bias, merely
+   increasing the number of ② operators will not improve monotonically on an open domain (No Free Lunch +
+   Gold's ceiling, which 1.md cites itself at lines 2086–2088). If monotone improvement is observed, the
+   improvement comes from bias rather than operator count, and the framework's "unification" claim must give
+   ground.
 
-## 5 下一步（最小）
+## 5. Next step (minimal)
 
-不做全框架。只做 ②+①+④ 三类共享一个内核，用 ⑤ 调度：
+Do not build the whole framework. Build only the three classes ②+①+④ sharing one kernel, scheduled by ⑤:
 
-- ② 溯因：观察 → 3 个不可归约的候选原因（warrant：每个都能推出观察）；
-- ① 演绎：每个原因 → 可检验后果（warrant：推导链）；
-- ④ 取证：选一个能区分最多候选的检验（warrant：区分力）；
-- ⑤ 调度：按 cost 排序，而不是固定顺序。
+- ② Abduction: observation → 3 irreducible candidate causes (warrant: each can derive the observation);
+- ① Deduction: each cause → testable consequence (warrant: derivation chain);
+- ④ Evidence gathering: pick the test that discriminates the most candidates (warrant: discriminating power);
+- ⑤ Scheduling: order by cost, not by a fixed order.
 
-度量：达到同一判定所需的检验次数。固定顺序 vs 代价调度，差多少。
-产物：`operators.rs` + 一个 demo + 一条能跑翻的曲线。
+Metric: the number of tests needed to reach the same judgment. Fixed order vs cost scheduling, by how much.
+Deliverable: `operators.rs` + a demo + a curve that can be refuted.
 
 ---
 
-（六种读法的对照见 §6，待补。）
+(The side-by-side of the six readings is in §6, to be filled in.)

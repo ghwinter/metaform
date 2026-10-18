@@ -1,65 +1,79 @@
-# 09 Cammarata《Neural Networks Are Already Clean》：能用的三点
+# 09 Cammarata's "Neural Networks Are Already Clean": The three points we can use
 
-来源：`.library/to_be_achived/essay.md`（943 行，2026）。读的是论证骨架，不是全部实验。
-行号对应该文件。
+Source: `.library/to_be_achived/essay.md` (943 lines, 2026). What I read was the argument skeleton, not
+all of the experiments. Line numbers refer to that file.
 
-## 1 它主张什么
+## 1. What it argues
 
-**一句话**：多义性（polysemanticity）主要不是"叠加（superposition）"造成的任意打包，而是
-**递归泛化**（recursive generalization）——神经元沿若干轴逐步外扩（L127–147）。
+**In one sentence**: polysemanticity is mainly not the arbitrary packing caused by "superposition", but
+**recursive generalization** — neurons extend outward step by step along a few axes (L127–147).
 
-两条预测相反（L153–155）：
+The two predictions are opposite (L153–155):
 
-| | 分组依据 | 预测 |
+| | Basis for grouping | Prediction |
 |---|---|---|
-| 泛化 | 共享模式，便于下游读取 | 局部、可追踪 |
-| 叠加 | 互不干扰，为了省维度 | 非局部、任意 |
+| Generalization | shared patterns, easy for downstream to read | local, traceable |
+| Superposition | mutually non-interfering, to save dimensions | non-local, arbitrary |
 
-作者赌泛化：一个 "iy" 神经元长出 "diy"，再长出 "do it yourself"（L135）。
+The author bets on generalization: an "iy" neuron grows "diy", then grows "do it yourself" (L135).
 
-配套的是一套**可证伪的检验家族**（L387–397）：盲极大（blind maximum）、按上游聚类做消融、
-近失例（near misses）、"能输的解释"（explanations that can lose）。
+Alongside this comes a **falsifiable family of tests** (L387–397): blind maximum, ablation by upstream
+clustering, near misses, and "explanations that can lose".
 
-## 2 对我们有用的三点
+## 2. Three points that are useful to us
 
-### 2.1 盲极大 = 重建测试
+### 2.1 Blind maximum = reconstruction test
 
-第二个 agent 只看解释，写出一个"应当最大化激活"的例子；若它比语料里最好的例子还强，解释算过关
-（L389）。这是**要求解释具备生成能力**，而不是只拟合已见数据。
+A second agent sees only the explanation and writes an example that "should maximize activation"; if it
+is stronger than the best example in the corpus, the explanation passes (L389). This is **requiring the
+explanation to have generative capacity**, not merely to fit the data already seen.
 
-映射到我们这里：提议的谓词不应只"劈开已见的撞车对"，还应能**预测没见过的对象**。
-我们现在的 `proposer.py` 只算覆盖率（见 `RESULTS.md` §3.15），缺的正是这一条。
-→ 可落地：让提议附带 3–5 个"我认为属于 S 但未被给出"的对象，按命中率打分。
+Mapped onto our setting: a proposed predicate should not only "split the collision pairs already seen",
+it should also be able to **predict objects it has not seen**. Our current `proposer.py` computes coverage
+only (see `RESULTS.md` §3.15), and this is exactly the piece that is missing.
+→ Actionable: have each proposal carry 3–5 objects "I think belong to S but were not given", scored by
+hit rate.
 
-### 2.2 能输的解释 = 反自评
+### 2.2 Explanations that can lose = anti-self-assessment
 
-L397 的原话：最好的批评是针对具体猜想的，而不是一个总结性指标。这与我们"禁止同源自评、
-裁决者必须在提议者之外"是同一条纪律的两种说法。
+The original sentence at L397: the best criticism targets a specific conjecture, not a summary metric.
+This is two phrasings of the same discipline as our "no same-source self-assessment; the adjudicator must
+be outside the proposer".
 
-### 2.3 递归泛化 = 词汇在闭包内的生长
+### 2.3 Recursive generalization = the vocabulary growing inside its closure
 
-神经元的 "iy → diy → do it yourself" 本质是**沿已有轴的复合与延伸**。这正是我们 T7 说的
-"组合不能逃出 `Def(V)`"在神经元层面的样子：延伸可以走很远，但走不出当前语言的表达范围。
-区别在于：它讨论的是权重的生长，我们讨论的是显式词汇的扩张。
+The neuron's "iy → diy → do it yourself" is in essence **composition and extension along existing axes**.
+This is exactly what our T7 calls "composition cannot escape `Def(V)`", seen at the level of neurons: the
+extension can go a long way, but it cannot leave the expressive range of the current language. The
+difference is that it discusses the growth of weights, while we discuss the expansion of an explicit
+vocabulary.
 
-两者的交集是一句可检验的话：**凡是"看起来像新概念"的东西，先问它是不是沿已有轴的延伸。**
-若是，则不需要新原子；若不是，才需要。我们的 `qde gen`（metarule 闭包）正是在做这个判定。
+What the two share is one testable sentence: **for anything that "looks like a new concept", first ask
+whether it is an extension along existing axes.** If it is, no new atom is needed; if it is not, then one
+is. Our `qde gen` (metarule closure) is precisely making this judgment.
 
-## 3 用不上的部分（占 90%）
+## 3. The parts we cannot use (90%)
 
-- 神经元、残差流、注意力、特征可视化：研究对象是权重内部结构，不是"从例子推断概念"。
-- "枚举 vs 探索"两种可解释性风格（L473–479）：是方法论立场，不构成可执行算法。
-- 大量具体实验（InceptionV1、ConvNeXt、GPT-2）：与我们的域无交集。
+- Neurons, residual streams, attention, feature visualization: the object of study is the internal
+  structure of weights, not "inferring a concept from examples".
+- The two interpretability styles, "enumeration vs exploration" (L473–479): a methodological stance, not
+  an executable algorithm.
+- The many concrete experiments (InceptionV1, ConvNeXt, GPT-2): no overlap with our domains.
 
-**结论**：这篇不提供公式，也不提供算法；提供的是一个**检验协议**（盲极大）和一个**经验事实**
-（多义性多来自局部延伸而非任意打包）。前者可借，后者可作为我们"组合 vs 原子"区分的旁证。
+**Conclusion**: this piece offers neither a formula nor an algorithm; what it offers is a **test
+protocol** (blind maximum) and one **empirical fact** (polysemanticity comes mostly from local extension
+rather than arbitrary packing). The former can be borrowed; the latter can serve as circumstantial
+evidence for our "composition vs atom" distinction.
 
-## 4 下一步（可执行）
+## 4. Next step (actionable)
 
-给 `proposer.py` 加"盲极大"式的评分：
+Add blind-maximum-style scoring to `proposer.py`:
 
-1. 响应里除谓词外，附带 3–5 个"我预测为正、但不在样本里"的对象；
-2. 用真值打分（命中率 / 与覆盖率分开报告）；
-3. 若某候选覆盖率高但预测命中率低 → 判为"只是拟合了撞车对"，不进词汇。
+1. In the response, besides the predicate, attach 3–5 objects that "I predict positive but that are not in
+   the sample";
+2. Score them against ground truth (hit rate / reported separately from coverage);
+3. If a candidate has high coverage but a low prediction hit rate → judge it as "merely fitting the
+   collision pairs" and do not admit it to the vocabulary.
 
-这条能让提议质量从"劈开几对"升级成"能不能预测"，也更接近论文里"提议是一阶项"的说法。
+This would raise proposal quality from "how many pairs it splits" to "can it predict", and it is also
+closer to what the paper says, that "a proposal is a first-order term".

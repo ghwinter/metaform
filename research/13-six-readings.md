@@ -1,109 +1,137 @@
-# 13 六种读法：同一份 1.md，六个不同结论
+# 13 Six Readings: One 1.md, Six Different Conclusions
 
-6 个独立智能体读同一份 1.md（2135 行，2026-10-19 05:18 版），每个只给一种透镜，互不可见，
-也都没读本仓库其他文档。目的不是投票，是看同一文本能长出多少**互不兼容**的读法。
+6 independent agents read the same 1.md (2135 lines, 2026-10-19 05:18 version), each given only one lens,
+none able to see the others, and none of them having read the other documents in this repository. The
+purpose is not to vote, but to see how many **mutually incompatible** readings the same text can grow.
 
-结果：**六种读法里只有两处是真的不兼容**，其余差异是分工。另有一条结论直接否定了"类脑"这个提法本身。
+Result: **only two of the six readings are genuinely incompatible**; the rest of the differences are a
+division of labor. One more conclusion directly rejects the very phrase "brain-like".
 
-## 1 六行
+## 1. Six lines
 
-| 透镜 | 一句话结论 | 它给的最小实验 | 它认为最可疑处 |
+| Lens | One-sentence conclusion | The minimal experiment it proposes | What it finds most suspect |
 |---|---|---|---|
-| 逻辑/类型论 | 统一框架 = 多判定自然演绎（Γ⊢ₘJ）+ 反射；算子=规则模式，组合=cut | 同一算子集换表征，候选集应**同构** | S 是"发现"还是"验证"，1104 与 625 行自相矛盾 |
-| 工程/系统 | 内核只认 `Hyp{lang,body}` 与 `score(h,s)`；四算子只是 `lang` 的四种取值 | `core.py` <200 行：6 元素 4 属性 → ≥2 条不同 S，注入反例后排名下降 | 反模式 `current_best.json`：覆盖写会让反例被吸收后消失 |
-| ML/归纳偏置 | 瓶颈是可识别性，不是算力；1.md 写了 E⁻ 却**没有一条真反例** | A 裸 LLM / B 引擎 / C 去打分 / D 打分器换 LLM，四条件分离"引擎"与"多花预算" | 元学习与意图推断都要可重复 likelihood，这里 n=1 |
-| 认知科学/类脑 | **"类脑"是错误目标**：脑也停在首个合理解释，你要的是超人的可审计性 | 四例共享 S，测近邻 N / 远迁移 F / 诱饵 L；判据是 ΔF>0 且 ΔL≤0 的**交互** | 照抄人脑会复现你抱怨的失败（确认偏差、首个解释即停） |
-| 怀疑论 | 三条主张是换皮；统一只到 API 层 | 预登记 50 例，每例藏一个未提及的正确成员，top-1 命中须显著高于裸 LLM（p<0.05） | 评估不可判定（45%）> 只是重排器（30%）> 无界扩张（25%） |
-| 跨学科 | 六学科的范式塌成同样 5 类（见 §8）；原始例子其实是**心理测量学**的单因子问题 | 13 条偏好做因子分析：单因子能否解释大部分方差 | 该路智能体超时，此行为我补位 |
+| Logic / type theory | the unified framework = multi-judgment natural deduction (Γ⊢ₘJ) + reflection; operators = rule schemas, composition = cut | swap the representation under the same operator set; the candidate set should be **isomorphic** | whether S is "discovery" or "verification"; lines 1104 and 625 contradict each other |
+| Engineering / systems | the kernel recognizes only `Hyp{lang,body}` and `score(h,s)`; the four operators are just four values of `lang` | `core.py` < 200 lines: 6 elements, 4 attributes → ≥2 distinct S, and injecting a counterexample lowers the ranking | the anti-pattern `current_best.json`: an overwriting write lets a counterexample vanish once absorbed |
+| ML / inductive bias | the bottleneck is identifiability, not compute; 1.md writes E⁻ but has **not a single real counterexample** | A bare LLM / B engine / C with scoring removed / D with the scorer replaced by an LLM; the four conditions separate "the engine" from "spending more budget" | meta-learning and intent inference both need a repeatable likelihood, and here n=1 |
+| Cognitive science / brain-like | **"brain-like" is the wrong goal**: the brain too stops at the first plausible explanation; what you want is superhuman auditability | four examples sharing S, measuring near neighbors N / far transfer F / decoys L; the criterion is the **interaction** ΔF>0 and ΔL≤0 | copying the brain will reproduce the very failures you complain about (confirmation bias, stopping at the first explanation) |
+| Skepticism | the three claims are reskinning; unification reaches only the API layer | pre-register 50 cases, each hiding one correct member that was not mentioned; the top-1 hit must be significantly above a bare LLM (p<0.05) | evaluation undecidable (45%) > merely a reranker (30%) > unbounded expansion (25%) |
+| Cross-disciplinary | the paradigms of six disciplines collapse into the same 5 classes (see §8); the original example is actually the **psychometrics** single-factor problem | factor analysis on the 13 preferences: can a single factor explain most of the variance | that agent timed out; I filled in this row |
 
-## 2 分歧一：类脑到底是不是目标（这一条最重要）
+## 2. Disagreement one: is brain-like actually the goal (this one matters most)
 
-认知科学那派的结论与你的提法相反：
+The cognitive-science camp's conclusion is the opposite of your framing:
 
-- 人脑本身做不到你要的"十三项约束跨百轮一致"——工作记忆约 4 项（Cowan 2001），
-  人靠**书写外置**才做到（Clark & Chalmers 1998）。所以你要的东西从来不是"脑"，是"脑 + 脚手架"。
-- 人脑的失败模式恰好是你抱怨 AI 的那个：**首个合理解释即停**（Simon 1956）、确认偏差（Wason 1960）。
-  照抄人脑会把 bug 一起抄进来。
+- The human brain by itself cannot do the "thirteen constraints consistent across a hundred rounds" you
+  want — working memory holds about 4 items (Cowan 2001); people manage it only through **writing things
+  down externally** (Clark & Chalmers 1998). So what you want was never "the brain"; it is "brain + scaffold".
+- The brain's failure modes happen to be exactly the ones you complain about in AI: **stopping at the first
+  plausible explanation** (Simon 1956) and confirmation bias (Wason 1960). Copying the brain copies the bugs
+  along with it.
 
-但它同时给了"类脑"里唯一值得保留的三条，且这三条正好落在工程上：
+But it also gives the only three things in "brain-like" worth keeping, and these three land squarely in
+engineering:
 
-| 机制 | 生物学锚点 | 工程含义 |
+| Mechanism | Biological anchor | Engineering meaning |
 |---|---|---|
-| 稀疏竞争（k-WTA） | CA3 模式补全、基底节闸门 | H 必须是**互相抑制的集合**，不是一串同义改写 |
-| 预测误差只更新失败处 | 预测加工（Rao & Ballard 1999） | 每个算子必须吐出"我预测了什么"，否则无法被证伪 |
-| 离线重放 + 单一闸门 | 海马 replay（Wilson & McNaughton 1994） | 台账不是日志，是调度器的训练集 |
+| Sparse competition (k-WTA) | CA3 pattern completion, basal-ganglia gating | H must be a **mutually inhibiting set**, not a string of synonymous restatements |
+| Prediction error updates only where it fails | predictive processing (Rao & Ballard 1999) | every operator must emit "what I predicted", otherwise it cannot be falsified |
+| Offline replay + a single gate | hippocampal replay (Wilson & McNaughton 1994) | the ledger is not a log, it is the scheduler's training set |
 
-**我的裁决**：把目标从"类脑"改写成"**可审计的脚手架**"——保留上面三条，丢掉"像脑"这个判据。
-这不仅不削弱你的想法，反而把它从修辞里救出来了：你真正要的从来不是"和人一样"，是"不会把我的样本当对象"。
+**My verdict**: rewrite the goal from "brain-like" to "**an auditable scaffold**" — keep the three above,
+drop "brain-like" as a criterion. This does not weaken your idea; it rescues it from rhetoric: what you
+actually want was never "the same as a human", it is "not treating my samples as objects".
 
-## 3 分歧二：先做哪个算子，负例从哪来
+## 3. Disagreement two: which operator first, and where negative examples come from
 
-工程派：先做**归纳**（只有它产出其余三者消费的 h），两个就"归纳+演绎"，共用 `verify(h,x)`。
-ML 派：别急着选算子，先解决 **E⁻ 从哪来**——1.md 1178 行写了反例，全文没有一个真反例。
-怀疑派：两边都还不够，先预登记 50 例，否则评估不可判定。
+Engineering camp: do **induction** first (it alone produces the h that the other three consume); with just
+two, do "induction + deduction", sharing `verify(h,x)`.
+ML camp: don't rush to choose an operator; first settle **where E⁻ comes from** — line 1178 of 1.md writes
+about counterexamples, and the whole text contains not one real counterexample.
+Skeptic camp: neither is enough yet; pre-register 50 cases first, otherwise the evaluation is undecidable.
 
-三者不矛盾，是**顺序**问题。我的判断：ML 派优先。理由是可判定的：
-只有正例时概念不可辨识（1.md 自己引了 Gold 1967 与 1207 行"无数种定义"），
-所以先做归纳会做出一个**永远无法被判错**的模块——正好是怀疑派预测的第一号失败模式。
+The three do not contradict each other; it is a question of **order**. My judgment: the ML camp takes
+priority. The reason is decidable: with only positive examples the concept is not identifiable (1.md itself
+cites Gold 1967 and line 1207, "infinitely many definitions"), so doing induction first would produce a
+module that **can never be judged wrong** — exactly the number-one failure mode the skeptic camp predicts.
 
-推论：1.md 的 15 种机制里，缺的不是更多 ②（假设生成），而是 ④（**取证**）——
-反例搜索、主动学习、实验设计。这一类在 §7 里只占 3 条，且都写成"可以借鉴"，
-但它才是把不可辨识变成可辨识的唯一入口。详见 [12](12-operator-typing.md) §1。
+Corollary: among the 15 mechanisms of 1.md, what is missing is not more ② (hypothesis generation) but ④
+(**evidence gathering**) — counterexample search, active learning, experiment design. This class occupies
+only 3 items in §7, and all are written as "worth borrowing", but it is the only entrance that turns
+non-identifiability into identifiability. See [12](12-operator-typing.md) §1.
 
-## 4 分歧三：统一在哪一层
+## 4. Disagreement three: at which layer the unification sits
 
-- 逻辑派：深统一（一个形式系统 + 反射）。能做类型化 I/O、证据项、失败=无推导；做不了规则集自发现。
-- 工程派：浅统一（一个数据结构 + 一个打分函数 + 一个循环）。
-- ML 派：数学上不能统一，只有接口能。
-- 怀疑派：1.md 2005 行只统一了签名，2034 行自承语义不统一——那是 API，不是理论。
+- Logic camp: deep unification (one formal system + reflection). It can do typed I/O, evidence terms,
+  failure = no derivation; it cannot do self-discovery of rule sets.
+- Engineering camp: shallow unification (one data structure + one scoring function + one loop).
+- ML camp: it cannot be unified mathematically; only the interface can.
+- Skeptic camp: line 2005 of 1.md unifies only the signature, and line 2034 itself admits the semantics are
+  not unified — that is an API, not a theory.
 
-四票里三票说"只能浅统一"，且都指了同一个天花板：**换表征不可判定**（1.md 714 行自认 Kolmogorov 不可算）。
-我的判断：先用浅统一，但**必须**保留 `warrant` 与 `falsifier` 两栏。没有这两栏，
-浅统一会退化成"一个 JSON schema + 一堆 prompt"，也就是怀疑派说的换皮。
+Three of the four votes say "only shallow unification is possible", and all point to the same ceiling:
+**changing representation is undecidable** (line 714 of 1.md itself admits Kolmogorov uncomputability). My
+judgment: use shallow unification first, but **must** keep the two columns `warrant` and `falsifier`. Without
+these two columns, shallow unification degenerates into "a JSON schema + a pile of prompts", which is the
+reskinning the skeptic camp names.
 
-## 5 五份报告意外收敛的三条
+## 5. Three points on which the five reports unexpectedly converge
 
-1. **算子要按"读写哪块状态"分类，不是按名字分类。** 逻辑派给了签名，工程派给了 `read/write` 落点，
-   认知派给了"生成与选择必须分离"。三条独立路径指向同一件事：见 [12](12-operator-typing.md)。
-2. **生成与选择必须分离。** 1.md 1019 行说过；工程派把它变成两个函数；认知派把它落到基底节闸门。
-3. **记账只能追加。** 工程派给出反模式 `current_best.json`；认知派给出理由（重放需要完整轨迹）；
-   怀疑派给出判据（两周后复评一致率 <70% 即此块错）。
+1. **Operators must be classified by "which slice of state they read and write", not by name.** The logic
+   camp gave the signature, the engineering camp gave the `read/write` landing points, the cognitive camp
+   gave "generation and selection must be separated". Three independent paths point to the same thing: see
+   [12](12-operator-typing.md).
+2. **Generation and selection must be separated.** Line 1019 of 1.md says so; the engineering camp turns it
+   into two functions; the cognitive camp lands it on the basal-ganglia gate.
+3. **Bookkeeping can only be append-only.** The engineering camp gives the anti-pattern `current_best.json`;
+   the cognitive camp gives the reason (replay needs the full trajectory); the skeptic camp gives the
+   criterion (if the agreement rate on re-review two weeks later is <70%, this block is wrong).
 
-## 6 我会改的三处
+## 6. Three things I would change
 
-1. **补 ④ 取证类算子，并把"负例"当第一性问题。** 不是加更多生成器，是先能造出 ¬h 的证据。
-2. **删掉"类脑"作为目标，改成"可审计的脚手架"。** 保留竞争/预测误差/replay 三条机制。
-3. **加一个冻结基准。** 怀疑派要的 50 例预登记，与 ML 派的 A/B/C/D 四条件可以合成同一个实验：
-   合成规则集（20 条规则各 4 正 4 负）→ 四条件 → 看 B−A 的增益在 D 条件下是否消失。
-   纯 CPU、可跑、可跑翻。
+1. **Add ④ evidence-gathering operators, and treat "negative examples" as a first-order problem.** It is not
+   about adding more generators; it is about being able, first, to produce evidence for ¬h.
+2. **Drop "brain-like" as the goal; change it to "an auditable scaffold".** Keep the three mechanisms:
+   competition / prediction error / replay.
+3. **Add a frozen benchmark.** The 50-case pre-registration the skeptic camp wants and the A/B/C/D four
+   conditions of the ML camp can be combined into one experiment: a synthetic rule set (20 rules, each with
+   4 positives and 4 negatives) → four conditions → see whether the B−A gain disappears under condition D.
+   Pure CPU, runnable, refutable.
 
-## 7 一条可核的发现：1.md 带着检索残留
+## 7. A checkable finding: 1.md carries retrieval residue
 
-`1.md` 里有 11 处 `【turn…searchN】`、9 行孤立的 `+1`、14 个 `purpose=inline` 的图片代理链接，
-L1307 还把型号名拼成 "Jev"（原文推测）。这些是抓取时的标记，不是正文。
-如果这份文档要给别人看，先清一遍；如果只是自己读，忽略即可。
+`1.md` contains 11 instances of `【turn…searchN】`, 9 isolated lines of `+1`, 14 image-proxy links with
+`purpose=inline`, and L1307 even spells the model name as "Jev" (as the source speculates). These are
+scraping markers, not body text. If this document is to be shown to others, clean them out first; if it is
+only for your own reading, ignore them.
 
-## 8 跨学科补位（该路智能体超时中断，我自己补）
+## 8. Cross-disciplinary fill-in (that agent timed out mid-way; I filled it in myself)
 
-把六个学科的标准范式摊开，它们并没有给出第六种算子类型，而是**各自演示了同一类算子的一个实例**：
+Spread out the standard paradigms of six disciplines, and they do not give a sixth type of operator; rather,
+**each demonstrates one instance of the same class of operator**:
 
-| 学科 | 范式 | 落到 12.md 的哪一类 | 失败判据 |
+| Discipline | Paradigm | Which class of 12.md it lands in | Failure criterion |
 |---|---|---|---|
-| 物理 | 量纲分析、极限情形、对称性 | ③ 表征改写（用不变量收缩假设空间） | 量纲不齐 / 极端情形发散 |
-| 数学 | 对偶、不变量、反例构造 | ③ + ④ | 对偶后问题没变简单 / 反例不可达 |
-| 控制 | 可观测性、反馈稳定性 | ⑤ 控制（能否从输出反推状态） | 不可观测 / 增益过大振荡 |
-| 生物 | 比较法、反事实 | ② 类比 + ④ 取证 | 共同祖先未控制（混杂） |
-| 经济 | 比较静态、识别策略 | ④ 取证（什么变异能识别因果） | 识别不足 / 工具变量无效 |
-| 语言 | 结构映射、最小对立对 | ② 类比 + ④ | 映射破坏约束 / 无法只差一个特征 |
+| Physics | dimensional analysis, limiting cases, symmetry | ③ representation rewriting (shrink the hypothesis space with invariants) | dimensions do not match / the extreme case diverges |
+| Mathematics | duality, invariants, counterexample construction | ③ + ④ | the dual problem does not get simpler / the counterexample is unreachable |
+| Control | observability, feedback stability | ⑤ control (can the state be inferred back from the output) | unobservable / gain too high, oscillates |
+| Biology | comparative method, counterfactuals | ② analogy + ④ evidence gathering | common ancestry not controlled (confounding) |
+| Economics | comparative statics, identification strategies | ④ evidence gathering (what variation identifies causality) | underidentified / the instrument is invalid |
+| Language | structural mapping, minimal pairs | ② analogy + ④ | the mapping breaks a constraint / cannot differ in exactly one feature |
 
-**合并时丢掉的**：每个学科真正值钱的不是范式名，是它那套**廉价的检验程序**——
-物理的量纲检查、语言的最小对立对、经济的识别策略，都是"几分钟内就能造出一个反例"的机器。
-合并成 5 类会把这些程序压成一句"④ 取证"，于是丢掉"怎么便宜地造反例"。
-这恰好是 1.md 最缺的那一环（见 §3）。所以补位结论：**不要合并检验程序，只合并算子的类型。**
+**What is lost in the merge**: what is really valuable in each discipline is not the name of the paradigm,
+but its **cheap test procedure** — the physicist's dimensional check, the linguist's minimal pair, the
+economist's identification strategy: all machines that "produce a counterexample within a few minutes".
+Merging into 5 classes squeezes these procedures into the single phrase "④ evidence gathering", and thereby
+loses "how to cheaply produce a counterexample".
+This is exactly the link that 1.md lacks most (see §3). So the fill-in conclusion: **do not merge test
+procedures; merge only the types of operators.**
 
-**原始例子落在哪**：a–m 十三条偏好 → 想找它们共同的 S，这在跨学科里有个标准名字：
-**心理测量学的构念效度**（construct validity）——十三条指标是不是同一个潜在因子？
-于是它变成可判定问题：让用户对若干系统/方案在 13 个维度上打分，做因子分析或单因子模型比较；
-单因子若解释大部分方差，"S" 就存在且可写成因子载荷；从载荷高的维度反推未列出的 e、f、g、h，
-就是"从因子猜未测指标"。这条路比"元推理引擎"小得多，但**它今天就能跑**。
-
+**Where the original example lands**: the thirteen preferences a–m → wanting to find their common S. In
+cross-disciplinary terms this has a standard name: the **construct validity** of psychometrics — are the
+thirteen indicators one latent factor?
+Hence it becomes a decidable problem: have users rate several systems/designs on 13 dimensions, and run a
+factor analysis or a single-factor model comparison; if one factor explains most of the variance, "S" exists
+and can be written as factor loadings; reverse-inferring the unlisted e, f, g, h from the high-loading
+dimensions is "guessing unmeasured indicators from the factor". This road is far smaller than "a
+meta-reasoning engine", but **it can run today**.

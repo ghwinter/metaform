@@ -1,66 +1,70 @@
-# 08 断言对证据审计
+# 08 Claim-to-Evidence Audit
 
-2026-10-19 · 对象：`paper/en/main.tex`（中文版同步）· 方法：逐句核对数字与强断言
+2026-10-19 · Target: `paper/en/main.tex` (Chinese version kept in sync) · Method: check every number and
+strong claim sentence by sentence
 
-## 1 有数字的断言
+## 1. Claims that carry numbers
 
-| # | 论文里的说法 | 位置 | 证据 | 结论 |
+| # | Claim in the paper | Location | Evidence | Verdict |
 |---|---|---|---|---|
-| 1 | 初始词汇内一致概念为空，300/300 | §5 Domain A | `RESULTS.md` §2 E4（`domain_a.py --n 300`） | ✓ |
-| 2 | 1.96（信息增益）/ 1.86（去冗余随机）/ 6.09（朴素随机） | §5 | §2 E1 | ✓ |
-| 3 | Occam 先验下 1.63 vs 1.87 | §5 | §3 E5（k=2） | ✓ |
-| 4 | P(不足) 2.5% → 29.5% → 98.7%（k=1,4,10） | §5 | §3.5 | ✓ |
-| 5 | 成本跨度“约 45 倍”、停止规则差 ±6% 且变号 | §5 | §3.6（19.56 → 883.73 = 45.2×） | ✓ **本轮从 44 改 45** |
-| 6 | 实测成本 27.6 / 49.4 / 88.9 / 162.7 = r/q + 7.6 | §5 | §3.17 | ✓ |
-| 7 | 贪心 2.10 / 最优 1.87 / 随机 4.30（3×3 对，10 候选） | §4 | §3.9 | ✓ |
-| 8 | 域 C：88 vs 28（提议成本 20） | §5 | `domain_c.py` 输出 | ✓ |
-| 9 | 提议覆盖 4/4、2/4、0/4、2/4 | §5 | §3.15 | ✓ |
-| 10 | 域 B：21 个整数、一次 Lean 2.5 s、五次查询 12.6 s | §5 | `domain_b.py`（2.52 s） | ✓ |
-| 11 | 噪声：r=5 时 ε≤0.2 假触发 ≤0.5%、漏检归零；ε=0.3 两者约 8% | §7 | §3.10 | ✓ |
-| 12 | θ=3 对 ε≤0.1 够用 | §4 | §3.11（0.98） | ✓ |
-| 13 | Lean：0 sorry、无警告、约 25 s | 附录 A | `check-lean.ps1` 无输出、exit 0、25.9 s | ✓ |
-| 14 | Rust：10 个测试 | 附录 B | `cargo test` 10 passed | ✓ |
-| 15 | 参考内核最多 64 对象 | §7 | `Mask = u64` | ✓ |
+| 1 | No concept consistent within the initial vocabulary, 300/300 | §5 Domain A | `RESULTS.md` §2 E4 (`domain_a.py --n 300`) | ✓ |
+| 2 | 1.96 (information gain) / 1.86 (non-redundant random) / 6.09 (naive random) | §5 | §2 E1 | ✓ |
+| 3 | 1.63 vs 1.87 under an Occam prior | §5 | §3 E5 (k=2) | ✓ |
+| 4 | P(insufficient) 2.5% → 29.5% → 98.7% (k=1,4,10) | §5 | §3.5 | ✓ |
+| 5 | Cost span "about 45×"; stopping rule differs by ±6% and changes sign | §5 | §3.6 (19.56 → 883.73 = 45.2×) | ✓ **changed from 44 to 45 this round** |
+| 6 | Measured cost 27.6 / 49.4 / 88.9 / 162.7 = r/q + 7.6 | §5 | §3.17 | ✓ |
+| 7 | Greedy 2.10 / optimal 1.87 / random 4.30 (3×3 pairs, 10 candidates) | §4 | §3.9 | ✓ |
+| 8 | Domain C: 88 vs 28 (proposal cost 20) | §5 | `domain_c.py` output | ✓ |
+| 9 | Proposal coverage 4/4, 2/4, 0/4, 2/4 | §5 | §3.15 | ✓ |
+| 10 | Domain B: 21 integers, one Lean run 2.5 s, five queries 12.6 s | §5 | `domain_b.py` (2.52 s) | ✓ |
+| 11 | Noise: at r=5, ε≤0.2 gives false triggers ≤0.5% and missed detections go to zero; at ε=0.3 both are about 8% | §7 | §3.10 | ✓ |
+| 12 | θ=3 is enough for ε≤0.1 | §4 | §3.11 (0.98) | ✓ |
+| 13 | Lean: 0 sorry, no warnings, about 25 s | Appendix A | `check-lean.ps1` no output, exit 0, 25.9 s | ✓ |
+| 14 | Rust: 10 tests | Appendix B | `cargo test` 10 passed | ✓ |
+| 15 | Reference kernel: at most 64 objects | §7 | `Mask = u64` | ✓ |
 
-## 2 强断言（无数字，但需要范围）
+## 2. Strong claims (no numbers, but they need scope)
 
-| 断言 | 问题 | 处理 |
+| Claim | Problem | Handling |
 |---|---|---|
-| “没有任何系统把‘这些例子我们表达不了’当作可判定触发” | 负断言，只能覆盖查过的文献 | **本轮改成** “In the systems we surveyed, none treats …”；中文版同步 |
-| “现有系统……都只在给定表征语言内搜索” | 同上 | 主语是 FCA/ILP/程序归纳三类，已在句内点明，可接受 |
-| “摘要：核心结论已在 Lean 4 + Mathlib 中形式化” | 准确（9 条定理） | 保留 |
+| "No system treats 'these examples we cannot express' as a decidable trigger" | negative claim, can only cover the literature surveyed | **changed this round** to "In the systems we surveyed, none treats …"; Chinese version synced |
+| "Existing systems … all search only within a given representation language" | same as above | the subject is the three families FCA/ILP/program induction, named inside the sentence, acceptable |
+| "Abstract: the core results are already formalized in Lean 4 + Mathlib" | accurate (9 theorems) | keep |
 
-## 3 主动收回的说法
+## 3. Claims withdrawn on our own initiative
 
-| 原说法 | 何时收回 | 现在 |
+| Original claim | When it was withdrawn | Now |
 |---|---|---|
-| “信息增益选题省一个量级” | 域 A 消融后（§2） | 负结果：与去冗余随机持平 |
-| “θ 自适应会更好” | §3.12 后 | 被固定值夹住，删 |
-| “逐对象后验能修 ε=0.3” | §3.14 后 | 更慢更差，删 |
-| 自适应/后验的措辞 | 同上 | 论文里只保留 θ∈{3,5} 的规则 |
+| "Picking the question by information gain saves an order of magnitude" | after the Domain A ablation (§2) | negative result: on par with non-redundant random |
+| "Adaptive θ would be better" | after §3.12 | bounded by the fixed values, deleted |
+| "Per-object posteriors can fix ε=0.3" | after §3.14 | slower and worse, deleted |
+| The adaptive/posterior wording | same as above | only the θ∈{3,5} rule stays in the paper |
 
-## 4 本轮改的三处
+## 4. The three changes made this round
 
-1. 成本跨度 44 → **about 45**（依据 19.56 与 883.73）；
-2. 复现块 `domain_more_data.py # Theorem 6` → **Theorem 5**（monodata 是第 5 条）；
-3. “No system treats …” → **“In the systems we surveyed, none treats …”**（中英同步）。
+1. Cost span 44 → **about 45** (based on 19.56 and 883.73);
+2. Reproduction block `domain_more_data.py # Theorem 6` → **Theorem 5** (monodata is the 5th);
+3. "No system treats …" → **"In the systems we surveyed, none treats …"** (Chinese and English in sync).
 
-## 5 还没核的
+## 5. Not yet verified
 
-- ~~附录 A 的 “no warnings”~~ → **已封闭**：`check-lean.ps1` 现在统计 warning/sorry 行数，有 warning 就
-  退出码 2，并把完整输出写进 `research/lean/last-check.log`。实测：正式文件 `warnings=0`，
-  故意放一个未使用变量的测试文件 `warnings=2, exit=2`——门是活的，不是装饰。
-- ~~Rust “10 个测试”~~ → **已封闭**：`check-rust.ps1` 断言 `passed == 10 且 ignored == 0`，
-  预期值写错时实测退出码 1。
-- ~~论文数字无人回归~~ → **已封闭**：`verify_claims.py` 把 §3.18 的六个数（2.01/1.91/6.14/2.10/1.85/4.28）
-  与实测比对，容差 0.06；`check-all.ps1` 串起 Lean、Rust、数字三套门（约 30 s，全绿）。
-- **门本身也验过**：`selftest-gates.ps1` 故意制造三种失败（带 warning 的文件、错的期望值、
-  篡改的论文数字），三套门分别以 2 / 1 / 1 退出——它们不是装饰。
-- 断言 5 的 “changes sign” 依赖成本实验的具体网格；换 seed 可能翻转。已在 §3.6 写明是同一批数据。
-- **方差**：提问策略（2.01±0.06 / 1.91±0.07 / 6.14±0.23）与覆盖策略（2.10±0.06 / 1.85±0.06 /
-  4.28±0.09）已补 5 seed（`RESULTS.md` §3.18）；其余（成本 r/q、θ 曲线、域 B/C）仍是单次运行，
-  但它们要么是结构性的（r/q），要么是确定性轨迹（域 B/C），风险较低。
-- 新的发现：**gain 比 rand_inf 略差**（差 0.10 ≈ 1.5 sd）。论文措辞应为“没有优势”，不能说“更好”。
-
-
-
+- ~~Appendix A's "no warnings"~~ → **closed**: `check-lean.ps1` now counts warning/sorry lines, exits with
+  code 2 if there is a warning, and writes the full output to `research/lean/last-check.log`. Measured: the
+  real files give `warnings=0`; a test file with one deliberately unused variable gives
+  `warnings=2, exit=2` — the gate is alive, not decoration.
+- ~~Rust's "10 tests"~~ → **closed**: `check-rust.ps1` asserts `passed == 10 and ignored == 0`; measured
+  exit code 1 when the expected value is written wrong.
+- ~~Paper numbers have no regression~~ → **closed**: `verify_claims.py` compares the six numbers of §3.18
+  (2.01/1.91/6.14/2.10/1.85/4.28) against the measured ones, tolerance 0.06; `check-all.ps1` chains the
+  three gates — Lean, Rust, numbers (about 30 s, all green).
+- **The gates themselves were tested too**: `selftest-gates.ps1` deliberately produces three kinds of
+  failure (a file with a warning, a wrong expected value, tampered paper numbers), and the three gates exit
+  with 2 / 1 / 1 respectively — they are not decoration.
+- Claim 5's "changes sign" depends on the specific grid of the cost experiment; a different seed may flip
+  it. §3.6 already states that it is the same batch of data.
+- **Variance**: the question policies (2.01±0.06 / 1.91±0.07 / 6.14±0.23) and the coverage policies
+  (2.10±0.06 / 1.85±0.06 / 4.28±0.09) now have 5 seeds (`RESULTS.md` §3.18); the rest (cost r/q, the θ
+  curve, domains B/C) are still single runs, but they are either structural (r/q) or deterministic
+  trajectories (domains B/C), so the risk is low.
+- New finding: **gain is slightly worse than rand_inf** (by 0.10 ≈ 1.5 sd). The paper's wording should be
+  "no advantage", not "better".

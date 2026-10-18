@@ -1,85 +1,84 @@
-# 10 工具架构：从 `qde` 到 `metaform`
+# 10 Tool Architecture: From `qde` to `metaform`
 
-目标不是"把脚本包一层"，而是：**一个可被任意项目调用的二进制，把归纳过程的结构留在项目里。**
+The goal is not "wrapping a layer around the scripts", but: **a single binary that any project can call,
+leaving the structure of the induction process in the project.**
 
-## 1 四个同类仓库，各学什么、各不学什么
+## 1. Four repositories of the same kind: what to learn from each, what not to
 
-读了 [.repo/](../.repo/README.md) 里的四个仓库。
+Read the four repositories in [.repo/](../.repo/README.md).
 
-| 仓库 | 做对了什么 | 不学什么 |
+| Repository | What it got right | What not to learn from it |
 |---|---|---|
-| `concepts` | 数据模型干净：`Context` / `Concept` / `Lattice` 可 `fromdict/fromjson/tostring`，序列化是一等公民 | 它假定属性集给定，没有"不够用"的判定 |
-| `conexp-clj` | **交互协议**：`explore-attributes` + 反例 handler（完整/不完整两类），把"问什么"与"怎么答"分开 | Clojure 生态、GUI 导向，不适合当 Agent 的内核 |
-| `metagol` | 极简：一个 11 KB 的 `metagol.pl` 说清元规则 ILP | Prolog 运行时；它的组合闭包正好证明"组合不产生新原子" |
-| `popper` | **输入契约**：examples / background knowledge / bias 三份文件，失败即反馈（learning from failures） | SWI-Prolog 依赖，重；它的语言偏置仍是给定的 |
+| `concepts` | clean data model: `Context` / `Concept` / `Lattice` support `fromdict/fromjson/tostring`, serialization is a first-class citizen | it assumes the attribute set is given; there is no "insufficient" decision |
+| `conexp-clj` | **interaction protocol**: `explore-attributes` + counterexample handlers (complete / incomplete), separating "what to ask" from "how to answer" | the Clojure ecosystem, GUI-oriented; not suitable as an agent's kernel |
+| `metagol` | minimal: a single 11 KB `metagol.pl` says clearly what metarule ILP is | the Prolog runtime; its compositional closure happens to prove that "composition produces no new atoms" |
+| `popper` | **input contract**: three files — examples / background knowledge / bias; failure is feedback (learning from failures) | SWI-Prolog dependency, heavy; its language bias is still given |
 
-**可吸收的三条**：
+**Three things worth absorbing**:
 
-1. 像 `concepts` 一样，**状态可序列化**（JSON/TSV 进 `.metaform/`，人可读、diff 可看）。
-2. 像 `conexp-clj` 一样，**把"问什么"和"答什么"拆开**——我们的 `need` 已经是这个形状，继续强化。
-3. 像 `popper` 一样，**输入是文件、输出是文件**，二进制不假设调用者是人还是 Agent。
+1. Like `concepts`, **state is serializable** (JSON/TSV into `.metaform/`, human-readable, diffable).
+2. Like `conexp-clj`, **separate "what to ask" from "what to answer"** — our `need` already has this shape;
+   keep strengthening it.
+3. Like `popper`, **input is files and output is files**; the binary does not assume whether the caller is
+   a human or an agent.
 
-**不吸收的**：它们的搜索算法。我们的判据不是"搜得更好"，恰好是"搜不动了该补词"。
+**What we do not absorb**: their search algorithms. Our criterion is not "search better"; it is exactly
+"when search stalls, the vocabulary must be extended".
 
-## 2 架构
+## 2. Architecture
 
 ```
-metaform（Rust，单个二进制，无运行时依赖）
-├── lib:  Explorer / Status / Ledger（纯逻辑，可测）
-└── bin:  CLI —— 读脚本、读写项目目录、输出 JSON
+metaform (Rust, single binary, no runtime dependencies)
+├── lib:  Explorer / Status / Ledger (pure logic, testable)
+└── bin:  CLI — reads scripts, reads/writes the project directory, outputs JSON
 ```
 
-- **Rust 是唯一内核**。Python 只保留两类：实验（论文数字）与一次性迁移脚本。
-- **CLI 不是本体**。本体是库；CLI 只是第一个前端。后续可加 MCP server / skill，
-  它们调用同一个库。
-- **无外部依赖**（当前零 crate 依赖）。需要结构化存储时再加 `serde`/`rusqlite`，不提前背。
+- **Rust is the only kernel.** Python keeps only two kinds: experiments (the paper's numbers) and one-off
+  migration scripts.
+- **The CLI is not the substance.** The substance is the library; the CLI is only the first front end. An
+  MCP server / skill can be added later; they call the same library.
+- **No external dependencies** (currently zero crate dependencies). Add `serde`/`rusqlite` when structured
+  storage is needed; do not carry them in advance.
 
-## 3 产物目录 `.metaform/`
+## 3. The artifact directory `.metaform/`
 
-任何项目里，`metaform` 只写一个子目录：
+In any project, `metaform` writes to a single subdirectory:
 
 ```
 <project>/.metaform/
-├── config.toml       # 项目级设置（θ、oracle 类型、版本）
-├── ledger.tsv        # 证据台账：仅追加，按 id 折叠最新状态
-├── state.json        # 当前场景（对象/谓词/票数），可重放
-├── logs/             # 每次调用的输入输出，便于复盘
-└── out/              # 生成的 md / json 报告
+├── config.toml       # project-level settings (θ, oracle type, version)
+├── ledger.tsv        # evidence ledger: append-only, folds the latest state by id
+├── state.json        # current scenario (objects/predicates/votes), replayable
+├── logs/             # input and output of each call, for review
+└── out/              # generated md / json reports
 ```
 
-约定：
+Conventions:
 
-1. **只写 `.metaform/`**，不污染项目其他位置。
-2. `ledger.tsv` **只追加**：撤销 = 追加一行同 id 的 `retracted`；折叠时后者胜。
-   这样既满足"可改"，又不怕并发写坏。
-3. 所有输出同时落 `out/` 与 stdout（Agent 读 stdout，人读文件）。
+1. **Write only `.metaform/`**; do not pollute other places in the project.
+2. `ledger.tsv` is **append-only**: retraction = append a `retracted` row with the same id; when folding,
+   the later one wins. This satisfies "changeable" while not fearing corrupted concurrent writes.
+3. All output goes to both `out/` and stdout (the agent reads stdout, humans read files).
 
-## 4 迁移顺序
+## 4. Migration order
 
-| 步 | 内容 | 状态 |
+| Step | Content | Status |
 |---|---|---|
-| 0 | `qde` 脚本解释器 | 已有 |
-| 1 | 包名 `querydriven` → `metaform`；二进制 `metaform` | 本轮 |
-| 2 | `init` 建目录；`ledger` 子命令（add/list/retract/cases/conflicts）写 TSV | 完成 |
-| 3 | 方向/冲突/已确认语义进入 Rust | 完成 |
-| 4 | `state.json` 快照（`metaform state init/add/vote/need/show`） | 完成 |
-| 5 | `metaform mcp`（stdio JSON-RPC）+ `skills/metaform/SKILL.md` | 完成 |
-| 6 | `plan`（覆盖/纯度/预算）与 `report` 进入 Rust | 完成 |
-| 7 | v0.2.0 发布包（exe + SKILL + VERSION） | 完成 |
-| 8 | `score` 进入 Rust；v0.3.0 发布包 | 完成 |
+| 0 | `qde` script interpreter | already there |
+| 1 | package name `querydriven` → `metaform`; binary `metaform` | this round |
+| 2 | `init` creates the directory; the `ledger` subcommand (add/list/retract/cases/conflicts) writes TSV | done |
+| 3 | direction/conflicts/confirmed semantics move into Rust | done |
+| 4 | `state.json` snapshots (`metaform state init/add/vote/need/show`) | done |
+| 5 | `metaform mcp` (stdio JSON-RPC) + `skills/metaform/SKILL.md` | done |
+| 6 | `plan` (coverage/purity/budget) and `report` move into Rust | done |
+| 7 | v0.2.0 release bundle (exe + SKILL + VERSION) | done |
+| 8 | `score` moves into Rust; v0.3.0 release bundle | done |
 
+## 5. Bootstrapping
 
+This repository is also just an ordinary project: `metaform init` generates `.metaform/` here, and after
+that every judgment (what is missing, whom to ask, whether the evidence suffices) is read from that
+directory. Changing versions = replacing the binary; the data does not move.
 
-## 5 自举
-
-本仓库也是一个普通项目：`metaform init` 在这里生成 `.metaform/`，
-之后所有判断（缺什么、该问谁、证据是否够）都从该目录读。
-换版本 = 替换二进制；数据不动。
-
-判断"它是否真的好用"的标准只有一条：**我下次思考时会不会主动打开它**。
-若不会，说明它还只是论文的附属品，需要继续迭代。
-
-
-
-
-
+There is only one criterion for judging whether it is really useful: **will I open it on my own the next
+time I think**. If not, it is still merely an appendage of the paper and needs more iteration.

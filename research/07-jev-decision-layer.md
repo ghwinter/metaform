@@ -1,53 +1,60 @@
-# 07 JEV / System One：它在我们系统里的位置
+# 07 JEV / System One: Where It Sits in Our System
 
-来源：1.md 第 6 节新增。材料已归档到 `.library/11_decision_models/`（8 项，2026-10-19 下载）。
+Source: added in §6 of 1.md. Materials archived in `.library/11_decision_models/` (8 items, downloaded
+2026-10-19).
 
-## 1 它是什么
+## 1. What it is
 
-TypeSafe AI 的 System One 模型，三类原语：**Noul**（二元判断，返回为真的概率）、**Choice**
-（从给定选项里选，返回选项分布）、**Score**（按等级打分）。同一次调用可以对同一上下文并行问多个
-独立问题；权重与架构未公开，只能通过 API 使用。
+TypeSafe AI's System One model, with three kinds of primitives: **Noul** (a binary judgment that returns
+the probability of being true), **Choice** (pick from a given set of options, returning a distribution
+over options), **Score** (rate on a graded scale). A single call can ask multiple independent questions
+about the same context in parallel; the weights and architecture are undisclosed, and it is usable only
+through the API.
 
-关键限制：**选项集是给定的**。它能选，不能发明。
+Key limitation: **the option set is given**. It can choose; it cannot invent.
 
-## 2 五条实证结论（都有原文）
+## 2. Five empirical findings (each with the source quote)
 
-| 结论 | 出处 |
+| Finding | Source |
 |---|---|
-| 阈值冻结后，"置信就采纳、其余升级"比 GPT-6 准 0.9 分，代价 41% | `jev_as_a_judge_2026.txt`："accepting confident verdicts and escalating the rest is 0.9 points more accurate than GPT-6 on 1,610 held-out pairs at 41% of its fee" |
-| 决策模型单独准确率 ≠ Agent 成功率：**不拟合阈值就把工具选择交给它，成功率掉 19.0 分** | `jev_agent_harness_2026.txt`："without a fitted confidence threshold, delegating tool choices lowered success by 19.0 points" |
-| Choice 对等价表述敏感（0.771–0.978），校准要按任务验证 | `sys1cal_v1_calibration_2026.txt` |
-| 与 LLM 相比没有一致优势（对 Qwen 无优势） | `jev_vs_llms_political_science_2026.txt` |
-| 优势依赖任务、选项数、阈值、校准方式 | `system_one_decision_gates_2026.txt` |
+| Once the threshold is frozen, "accept the confident verdicts and escalate the rest" is 0.9 points more accurate than GPT-6, at 41% of the cost | `jev_as_a_judge_2026.txt`: "accepting confident verdicts and escalating the rest is 0.9 points more accurate than GPT-6 on 1,610 held-out pairs at 41% of its fee" |
+| A decision model's standalone accuracy ≠ agent success rate: **handing tool choice to it without fitting the threshold drops the success rate by 19.0 points** | `jev_agent_harness_2026.txt`: "without a fitted confidence threshold, delegating tool choices lowered success by 19.0 points" |
+| Choice is sensitive to equivalent phrasings (0.771–0.978); calibration must be validated per task | `sys1cal_v1_calibration_2026.txt` |
+| No consistent advantage over LLMs (no advantage over Qwen) | `jev_vs_llms_political_science_2026.txt` |
+| The advantage depends on task, option count, threshold, and calibration method | `system_one_decision_gates_2026.txt` |
 
-## 3 对我们系统的位置
+## 3. Where it sits in our system
 
-三层分工正好对上：
+The three-layer division lines up exactly:
 
-| 层 | 谁做 | JEV 的位置 |
+| Layer | Who does it | JEV's place |
 |---|---|---|
-| 候选生成 | LLM / 结构映射 / metarule | **不能**用它——选项集固定 |
-| 元推理决策 | 选下一步算子、判是否值得验证 | **可以**用它，且它可以给置信度 |
-| 验证反馈 | 测试 / Lean / 执行 | 不能用它（同源自评） |
+| Candidate generation | LLM / structural mapping / metarule | **Cannot** use it — the option set is fixed |
+| Meta-reasoning decisions | Choose the next operator, judge whether verification is worth it | **Can** use it, and it can supply a confidence |
+| Verification feedback | Tests / Lean / execution | Cannot use it (same-source self-assessment) |
 
-这与我论文里的三分离（提议 / 选择 / 裁决）不是一回事：JEV 能替的是**选择**，
-不能替**提议**，更不能替**裁决**。
+This is not the same thing as the three-way separation in my paper (proposal / selection / adjudication):
+what JEV can replace is **selection**; it cannot replace **proposal**, and still less **adjudication**.
 
-## 4 直接能改的两处
+## 4. Two things that can be changed directly
 
-1. **oracle 的返回类型**。我的 Rust 内核里 `Oracle::ask` 目前是 `Option<bool>`，
-   只区分"知道/不知道"。JEV 的用法要求三态：**真 / 假 / 置信不足 → 升级**。
-   这正好对应 T2 里"无法判定"的位置：不是猜，而是标记为待验证。
-2. **`need` 的 JSON 加一个 `escalate` 字段**：当某些撞车对的判定置信度低于阈值时，
-   引擎应当输出"这些对需要外部裁决"，而不是继续问对象。
+1. **The oracle's return type.** In my Rust kernel, `Oracle::ask` is currently `Option<bool>`, which
+   distinguishes only "knows / does not know". JEV's usage calls for three states: **true / false /
+   insufficient confidence → escalate**. That maps exactly onto the "cannot decide" slot in T2: not a
+   guess, but a mark of "pending verification".
+2. **Add an `escalate` field to `need`'s JSON**: when the verdict confidence for certain collision pairs
+   falls below the threshold, the engine should output "these pairs need external adjudication" rather
+   than keep asking the object.
 
-## 5 一条警告（来自 harness 论文）
+## 5. One warning (from the harness paper)
 
-"每步决策更准" 不等于 "整体更好"。这与我域 A 的负结果同构：
-**局部指标的提升会被错误的全局假设吃掉**。所以任何 JEV 集成都必须端到端测，
-且测的是"恢复目标概念所需的提议次数 / 轮数"，不是"每步选择准确率"。
+"More accurate at every step" does not equal "better overall". This is isomorphic to the negative result
+in my Domain A: **improvements in a local metric get eaten by a wrong global assumption**. So any JEV
+integration must be tested end to end, and what it measures is "the number of proposals / rounds needed
+to recover the target concept", not "per-step selection accuracy".
 
-## 6 结论
+## 6. Conclusion
 
-JEV 是可替换的**决策后端**，不是这套系统的核心。核心仍是：结构表示、候选规则搜索、
-模型选择、反例驱动的自校正。集成方式是一条可替换的 `Decide` 接口，不写进理论层。
+JEV is a replaceable **decision backend**, not the core of this system. The core is still: structural
+representation, candidate-rule search, model selection, and counterexample-driven self-correction. The
+integration is one replaceable `Decide` interface, not something written into the theory layer.

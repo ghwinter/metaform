@@ -1,109 +1,125 @@
-# 11 统一算子框架：我此前误解了什么
+# 11 The Unified Operator Framework: What I Misunderstood Before
 
-## 1 误解
+## 1. The misunderstanding
 
-我把 1.md 读成了："从 A/B/C 里找缺失的谓词，再用集合覆盖补上"。
-于是做出了 `metaform`：一个**词汇不足判定 + 覆盖补词**的引擎。
+I read 1.md as: "find the missing predicate from A/B/C, then patch it in with set cover". So I built
+`metaform`: an engine for **deciding vocabulary insufficiency + adding words by coverage**.
 
-那是**一个算子**（在给定语言内的归纳，且语言不够时扩语言），不是"通用思维结构"。
+That is **one operator** (induction within a given language, plus expanding the language when it is
+insufficient), not "a general structure of thought".
 
-你要的是：**多种思维算子的统一载体**——演绎、归纳、溯因、类比，以及元学习、归纳偏置、
-组合泛化、逆向设计、可演化架构。它们不是同一种推理的不同参数，而是**不同的判定形式**。
+What you want is: **a unified carrier for several thinking operators** — deduction, induction, abduction,
+analogy, plus meta-learning, inductive bias, compositional generalization, inverse design, and evolvable
+architectures. These are not different parameters of one kind of reasoning, but **different forms of
+judgment**.
 
-## 2 统一的最小结构
+## 2. The minimal unified structure
 
-不必先造类型论。可以先固定一个四元组，让每个算子都填：
+There is no need to build a type theory first. You can fix a four-tuple first and have every operator fill
+it in:
 
 ```
-judgment  Γ ⊢ J          Γ 是上下文（对象、规则、假设、映射）
-                         J 是判定形式（有几种，不是一种）
+judgment  Γ ⊢ J          Γ is the context (objects, rules, hypotheses, mappings)
+                         J is the form of judgment (there are several, not one)
 
-step      (Γ, J) ⟶ (Γ', J')   附带三样东西：
-          warrant    凭什么（证明/覆盖/解释力/结构对应）
-          cost       花了多少（查询、token、实验、时间）
-          falsifier  什么情况下这一步作废（反例/更优解释/不相似）
+step      (Γ, J) ⟶ (Γ', J')   carrying three things:
+          warrant    on what grounds (proof / coverage / explanatory power / structural correspondence)
+          cost       how much was spent (queries, tokens, experiments, time)
+          falsifier  under what conditions this step is void (counterexample / better explanation / dissimilarity)
 ```
 
-**关键**：`warrant` 是显式的、可检查的；`falsifier` 是显式的、可触发的。
-没有这两样，算子就退化成"模型说了算"。
+**The key point**: `warrant` is explicit and checkable; `falsifier` is explicit and triggerable. Without
+these two, an operator degenerates into "whatever the model says".
 
-这其实就是把类型论的 `Γ ⊢ t : A` 放宽成"多判定形式"：
-- 类型 = 判定形式；
-- 项 = warrant（证明、覆盖证书、解释、映射）；
-- 检查 = 验证 warrant 是否成立；
-- 失败 = 构造不出 warrant，或被 falsifier 击中。
+This is in fact relaxing the type-theoretic `Γ ⊢ t : A` into "multiple forms of judgment":
 
-## 3 四种算子填进这张表
+- type = form of judgment;
+- term = warrant (proof, coverage certificate, explanation, mapping);
+- checking = verifying that the warrant holds;
+- failure = no warrant can be constructed, or a falsifier hits.
 
-| 算子 | 输入判定 | 输出判定 | warrant | falsifier |
+## 3. Four operators filled into this table
+
+| Operator | Input judgment | Output judgment | warrant | falsifier |
 |---|---|---|---|---|
-| 演绎 | 规则 + 事实 | 必然结论 | 推导链（可机器检查） | 规则或事实有误 |
-| 归纳 | 实例集 | 一般规则 | 覆盖 + 简洁性（MDL） | 一个反例 |
-| 溯因 | 观察 | 假设集合 | 解释力（能推出观察） | 更好的解释未被排除 |
-| 类比 | 源域结构 + 目标域约束 | 结构映射 | 关系对应（SME 式） | 映射破坏约束 |
+| Deduction | rules + facts | necessary conclusion | derivation chain (machine-checkable) | a rule or a fact is wrong |
+| Induction | set of instances | general rule | coverage + simplicity (MDL) | one counterexample |
+| Abduction | observation | set of hypotheses | explanatory power (can derive the observation) | a better explanation was not ruled out |
+| Analogy | source-domain structure + target-domain constraints | structural mapping | relational correspondence (SME-style) | the mapping breaks a constraint |
 
-四种算子的**成本结构不同**：演绎几乎零成本、归纳要样本、溯因要实验、类比要检索。
-但**控制的形状相同**：每一步都要付 warrant、标 falsifier、记成本。
+The four operators have **different cost structures**: deduction is nearly free, induction needs samples,
+abduction needs experiments, analogy needs retrieval. But **the shape of control is the same**: every step
+must pay a warrant, mark a falsifier, and record a cost.
 
-## 4 其余几种"思维模式"改的是哪一层
+## 4. Which layer the other "modes of thought" change
 
-| 名称 | 它动的是 |
+| Name | What it moves |
 |---|---|
-| 元学习 | **规则本身**：从"用规则"变成"学规则" |
-| 归纳偏置 | **规则空间**：限制哪些规则可被提出（假设类） |
-| 组合泛化 | **规则组合**：已有规则能否被代入、嵌套、复用 |
-| 逆向设计 | **规则反演**：给定目标输出，反求输入/参数 |
-| 可演化架构 | **规则集重写**：规则可以增删改，并选择保留哪些 |
+| Meta-learning | **the rules themselves**: from "using rules" to "learning rules" |
+| Inductive bias | **the rule space**: restricting which rules may be proposed (the hypothesis class) |
+| Compositional generalization | **rule composition**: whether existing rules can be substituted, nested, reused |
+| Inverse design | **rule inversion**: given a target output, back out the inputs/parameters |
+| Evolvable architecture | **rule-set rewriting**: rules can be added, deleted, changed, and which ones to keep can be selected |
 
-这五条不是新算子，而是**对算子层的操作**（二阶）。所以统一框架必须允许：
-规则是数据，能被算子当作输入；也就是 `Γ` 里必须能放"规则"本身。
+These five are not new operators but **operations on the operator layer** (second order). So a unified
+framework must allow: rules are data that operators can take as input; that is, `Γ` must be able to hold
+"rules" themselves.
 
-## 5 "统一"必须满足的四条（可操作标准）
+## 5. Four conditions "unification" must meet (operational criteria)
 
-1. **共享上下文**：一个 Γ 同时装着对象、规则、假设、映射，算子读写同一份。
-2. **共享代价**：不同算子的 cost 可加、可比（否则无法调度）。
-3. **共享失败语义**：falsifier 触发后回滚到哪一步，规则一致。
-4. **可组合**：A 的输出判定能当 B 的输入判定（溯因产假设 → 演绎推后果 → 实验裁决）。
+1. **Shared context**: one Γ holds objects, rules, hypotheses, and mappings at once, and operators read and
+   write the same copy.
+2. **Shared cost**: the costs of different operators are addable and comparable (otherwise they cannot be
+   scheduled).
+3. **Shared failure semantics**: after a falsifier fires, the rule for which step to roll back to is the
+   same across operators.
+4. **Composable**: A's output judgment can serve as B's input judgment (abduction produces hypotheses →
+   deduction derives consequences → experiment adjudicates).
 
-不满足这四条，"统一"就只是把词收进一个目录。
+Without these four, "unification" is just collecting the words into one directory.
 
-## 6 现在的 metaform 在哪
+## 6. Where the current metaform stands
 
-它是这张表里的**一格**：
+It is **one cell** in this table:
 
-- 判定形式：`可定义 / 不可定义`（一种）；
-- 算子：给定语言内的归纳 + 语言扩张；
-- warrant：覆盖证书（每个正反例对都被某个谓词分开）；
-- falsifier：撞车对（新谓词排除了已确认正例）；
-- cost：`r/q + 轮数`。
+- form of judgment: `definable / undefinable` (one kind);
+- operator: induction within a given language + language expansion;
+- warrant: a coverage certificate (every positive–negative pair is separated by some predicate);
+- falsifier: a collision pair (a new predicate excludes an already-confirmed positive example);
+- cost: `r/q + rounds`.
 
-它做对了三件可复用的事：**显式 warrant**（台账）、**显式 falsifier**（冲突/撤销）、
-**代价可比**（查询与提议同一单位）。这三件正是统一框架的地基，缺的是另外几种判定形式。
+It got three reusable things right: **explicit warrant** (the ledger), **explicit falsifier**
+(conflicts/retractions), and **comparable cost** (queries and proposals in the same unit). These three are
+exactly the foundation of the unified framework; what is missing is the other forms of judgment.
 
-## 7 诚实边界：什么算研究，什么算换皮
+## 7. Honest boundary: what counts as research, what counts as reskinning
 
-**换皮**：把四个算子写成四个 prompt，让模型自己选。没有 warrant、没有 falsifier、没有代价，
-"统一"只体现在 README。
+**Reskinning**: write the four operators as four prompts and let the model choose. No warrant, no
+falsifier, no cost — "unified" shows up only in the README.
 
-**真研究**（可证伪）：给定同一份 Γ，两个不同算子产出可检查的 warrant，且调度器能用代价选出更优路径；
-若调度器选错，能被实验证伪。最小可证伪命题：
+**Real research** (falsifiable): given the same Γ, two different operators produce checkable warrants, and
+the scheduler can use cost to pick the better path; if the scheduler picks wrong, that can be falsified by
+experiment. The minimal falsifiable proposition:
 
-> 在一个同时需要演绎与溯因的任务上，"共享代价 + 显式 falsifier"的调度，
-> 比"固定顺序调用两个算子"更少步数或更少实验。
+> On a task that needs both deduction and abduction, scheduling with "shared cost + explicit falsifier"
+> takes fewer steps or fewer experiments than "calling the two operators in a fixed order".
 
-这条能被跑出来，也能被跑翻。
+This can be run and confirmed, and it can also be run and refuted.
 
-## 8 下一个最小实验
+## 8. The next minimal experiment
 
-不做全框架。只做**两个算子共享一个内核**：
+Do not build the whole framework. Build only **two operators sharing one kernel**:
 
-1. 演绎：规则库 + 事实 → 结论（warrant：推导链）；
-2. 溯因：观察 + 规则库 → 候选假设（warrant：每条假设能推出观察）；
-3. 调度：假设的验证成本不同，用 cost 选先验哪个；
-4. 失败：验证失败 ⇒ falsifier 触发 ⇒ 回滚并记录（复用现有台账结构）。
+1. Deduction: rule base + facts → conclusion (warrant: derivation chain);
+2. Abduction: observation + rule base → candidate hypotheses (warrant: each hypothesis can derive the
+   observation);
+3. Scheduling: hypotheses have different verification costs; use cost to choose which to test first;
+4. Failure: verification fails ⇒ falsifier fires ⇒ roll back and record (reusing the existing ledger
+   structure).
 
-域可以就用代码：给定"函数在某输入上输出错误"，溯因出三个可能原因（边界、类型、副作用），
-演绎出每个原因的可检验后果，再按代价排序验证。
+The domain can simply be code: given "the function outputs a wrong value on some input", abduce three
+possible causes (boundary, type, side effect), deduce the testable consequence of each cause, then verify
+in order of cost.
 
-产物：一个 `operators.rs` 原型 + 一个 demo，能量出"调度 vs 固定顺序"的步数差。
-这才是把"通用"从口号变成可测东西的第一步。
+Deliverable: an `operators.rs` prototype + a demo, able to measure the step difference between "scheduled"
+and "fixed order". This is the first step in turning "general" from a slogan into something measurable.

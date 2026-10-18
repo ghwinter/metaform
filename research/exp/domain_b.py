@@ -15,6 +15,7 @@ Run: python domain_b.py
 from __future__ import annotations
 
 import itertools
+import os
 import shutil
 import subprocess
 import time
@@ -27,13 +28,12 @@ LEAN_DIR = HERE / "lean_oracle"
 
 
 def find_lean() -> str:
-    exe = shutil.which("lean")
+    exe = os.environ.get("LEAN_BIN") or shutil.which("lean")
     if exe:
         return exe
-    fallback = Path(r"C:\Users\xzxxn\.elan\bin\lean.exe")
-    if fallback.exists():
-        return str(fallback)
-    raise RuntimeError("找不到 lean.exe")
+    raise RuntimeError(
+        "lean executable not found: put it on PATH or set LEAN_BIN"
+    )
 
 
 def lean_truth_table() -> tuple[dict[int, tuple[bool, bool]], float]:
