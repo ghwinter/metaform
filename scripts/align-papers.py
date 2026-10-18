@@ -71,7 +71,7 @@ def main() -> None:
     print(f"sections: en={len(se)} zh={len(sz)}")
     if len(se) != len(sz):
         problems += 1
-        print("  ! 章节数不一致")
+        print("  ! section count differs")
     for i, (a, b) in enumerate(zip(se, sz)):
         print(f"  {i}: {a[:36]:38s} | {b[:26]}")
 
@@ -87,30 +87,30 @@ def main() -> None:
     print(f"citations: en={len(ce)} zh={len(cz)}")
     if ce != cz:
         problems += 1
-        print(f"  ! 差异: {sorted(ce ^ cz)}")
+        print(f"  ! citation set differs: {sorted(ce ^ cz)}")
 
     missing = [k for k in KEYS if (k in en) != (k in zh)]
-    print(f"key numbers: {len(KEYS) - len(missing)}/{len(KEYS)} 两边一致")
+    print(f"key numbers: {len(KEYS) - len(missing)}/{len(KEYS)} agree on both sides")
     if missing:
         problems += 1
-        print(f"  ! 只在一侧出现: {missing}")
+        print(f"  ! present on one side only: {missing}")
 
     names = lean_table_names(en)
     if not names:
         problems += 1
-        print("  ! 附录表里没解析到 Lean 名称")
+        print("  ! no Lean names parsed out of the appendix table")
     else:
         lean = LEAN.read_text(encoding="utf-8")
         absent = [n for n in names if f"theorem {n}" not in lean and f"def {n}" not in lean]
-        print(f"lean table: {len(names)} 个名称，缺失 {len(absent)}")
+        print(f"lean table: {len(names)} names, {len(absent)} missing")
         if absent:
             problems += 1
-            print(f"  ! 附录表列了但 Lean 文件里没有: {absent}")
+            print(f"  ! listed in the appendix table but absent from the Lean file: {absent}")
 
     if problems:
-        print(f"\n{problems} 处结构漂移")
+        print(f"\n{problems} structural drift(s)")
         sys.exit(1)
-    print("\n结构与数字对齐")
+    print("\nstructure and numbers aligned")
 
 
 if __name__ == "__main__":
