@@ -1,0 +1,33 @@
+{
+  "$comment": "What the gates need from a machine. The repository declares capabilities and versions here; the paths themselves are supplied per machine and never tracked. Run scripts/bootstrap.ps1 to check this machine, or to write the local file the gates dot-source.",
+  "generated": "scripts/local.ps1",
+  "requirements": {
+    "python": {
+      "env": "METAFORM_PYTHON",
+      "required": true,
+      "minVersion": "3.11",
+      "use": "runs scripts/*.py and research/exp/*.py; standard library only",
+      "versionArgs": ["-c", "import sys; print('.'.join(map(str, sys.version_info[:3])))"],
+      "hint": "set METAFORM_PYTHON to the full path of a python.exe, or put python on PATH"
+    },
+    "leanProject": {
+      "env": "METAFORM_LEAN_PROJECT",
+      "required": true,
+      "kind": "directory",
+      "use": "a Lake project whose environment can import Mathlib; research/lean/QueryDriven.lean is compiled inside it",
+      "hint": "set METAFORM_LEAN_PROJECT to the full path of an existing Lake project with Mathlib built"
+    },
+    "mathlibCache": {
+      "env": "MATHLIB_CACHE_DIR",
+      "required": false,
+      "kind": "directory",
+      "use": "where the Mathlib build cache lives, when it is not the default location",
+      "hint": "optional; set MATHLIB_CACHE_DIR only if the cache is not in its default place"
+    }
+  },
+  "notes": [
+    "A version is a fact about the results, so it is declared here. A path is a fact about one machine, so it is not.",
+    "Anything that pins what the results are (Lean version, Mathlib revision, Rust toolchain, Cargo.lock) is tracked; anything that only says where it lives on this disk is generated.",
+    "scripts/bootstrap.ps1 starts from this file; it never invents a value it did not observe."
+  ]
+}

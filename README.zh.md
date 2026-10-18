@@ -101,15 +101,18 @@ $env:METAFORM_PYTHON = '<python.exe 的完整路径>'
 & $env:METAFORM_PYTHON research\exp\domain_a.py
 ```
 
-新克隆的仓库没有本机路径，所以 `check-all.ps1`、`check-lean.ps1`、`selftest-gates.ps1`
-都会在存在时点源 `scripts/local.ps1`。把受跟踪的模板复制一份填好即可：
+新克隆的仓库没有本机路径，所以仓库声明它需要什么，而不是带上某一台机器的答案：`environment.json`
+写明每项必需能力、提供它的环境变量、最低版本。先检查机器，再让仓库写出它要 source 的文件：
 
 ```powershell
-Copy-Item scripts\local.example.ps1 scripts\local.ps1
-# 然后填 METAFORM_PYTHON、METAFORM_LEAN_PROJECT（可选 MATHLIB_CACHE_DIR）
+pwsh -File scripts/bootstrap.ps1          # 有什么、缺什么、怎么补
+pwsh -File scripts/bootstrap.ps1 -Print   # 同样的信息，写给 agent 执行的说明
+pwsh -File scripts/bootstrap.ps1 -Write   # 用观测到的值写出 scripts/local.ps1
 ```
 
-`local.ps1` 被 gitignore：它装的是本机事实，不是仓库内容。
+`local.ps1` 是生成物、被 gitignore：它装的是本机事实。版本是另一回事：凡决定结果的东西
+（Lean 版本、Mathlib 修订、Rust 工具链、`Cargo.lock`）保持受跟踪，因为两个在这些上不一致的
+克隆无法互相校验。
 
 ## 结论（可核对）
 

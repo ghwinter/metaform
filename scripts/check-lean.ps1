@@ -36,7 +36,7 @@ $local = Join-Path $PSScriptRoot 'local.ps1'
 if (Test-Path $local) { . $local }
 if (-not $Project) { $Project = $env:METAFORM_LEAN_PROJECT }
 if (-not $Project -or -not (Test-Path $Project)) {
-    Write-Host '[check-lean] no Lake project: set METAFORM_LEAN_PROJECT (see scripts/local.example.ps1)'
+    Write-Host '[check-lean] no Lake project: set METAFORM_LEAN_PROJECT (declared in environment.json; run scripts/bootstrap.ps1)'
     exit 1
 }
 $env:MATHLIB_NO_CACHE_ON_UPDATE = '1'

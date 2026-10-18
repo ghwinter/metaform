@@ -38,7 +38,7 @@ if ($Python) {
     try { & $Python -c "import sys" *> $null; $ok = ($LASTEXITCODE -eq 0) } catch { $ok = $false }
 }
 if (-not $ok) {
-    Write-Host '[selftest-gates] no usable Python: set METAFORM_PYTHON (see scripts/local.example.ps1)'
+    Write-Host '[selftest-gates] no usable Python: set METAFORM_PYTHON (declared in environment.json; run scripts/bootstrap.ps1)'
     exit 2
 }
 $results = @()

@@ -104,15 +104,20 @@ $env:METAFORM_PYTHON = '<full path to python.exe>'
 & $env:METAFORM_PYTHON research\exp\domain_a.py
 ```
 
-A fresh clone has no machine paths, so `check-all.ps1`, `check-lean.ps1` and `selftest-gates.ps1`
-all dot-source `scripts/local.ps1` when it exists. Copy the tracked template and fill it in once:
+A fresh clone has no machine paths, so the repository declares what it needs instead of shipping one
+machine's answer: `environment.json` names each required capability, the environment variable that
+supplies it, and a minimum version. Check the machine, then let the repository write the file it
+sources:
 
 ```powershell
-Copy-Item scripts\local.example.ps1 scripts\local.ps1
-# then set METAFORM_PYTHON, METAFORM_LEAN_PROJECT (and optionally MATHLIB_CACHE_DIR)
+pwsh -File scripts/bootstrap.ps1          # what is present, what is missing, how to supply it
+pwsh -File scripts/bootstrap.ps1 -Print   # the same, as instructions for an agent
+pwsh -File scripts/bootstrap.ps1 -Write   # write scripts/local.ps1 from the values it observed
 ```
 
-`local.ps1` is gitignored; it carries machine facts, not repository content.
+`local.ps1` is generated and gitignored; it carries machine facts. Versions are a different matter:
+anything that pins what the results are (Lean version, Mathlib revision, the Rust toolchain,
+`Cargo.lock`) stays tracked, because two clones that disagree there can no longer check each other.
 
 ## Conclusions (checkable)
 
