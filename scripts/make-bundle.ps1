@@ -131,7 +131,7 @@ $zipSize = [math]::Round((Get-Item $zip).Length / 1KB, 1)
 
 Write-Host ("[make-bundle] {0}  files={1}  missing={2}  size={3} KB" -f $zip, $copied.Count, $missing.Count, $zipSize)
 if ($missing.Count -gt 0) {
-    Write-Host "[make-bundle] 缺失："
+    Write-Host "[make-bundle] missing:"
     $missing | ForEach-Object { Write-Host ("  - {0}" -f $_) }
     exit 1
 }
@@ -168,7 +168,7 @@ try {
     if (-not $entries.ContainsKey('MANIFEST.txt')) { $bad += 'missing in zip: MANIFEST.txt' }
 
     if ($bad.Count -gt 0) {
-        Write-Host "[make-bundle] 包不完整："
+        Write-Host "[make-bundle] bundle incomplete:"
         $bad | ForEach-Object { Write-Host ("  - {0}" -f $_) }
         exit 1
     }

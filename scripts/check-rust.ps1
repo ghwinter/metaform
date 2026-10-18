@@ -51,12 +51,12 @@ Write-Host ("[check-rust] log: {0}" -f $logPath)
 
 if ($code -ne 0) { exit 1 }
 if ($suites -eq 0) {
-    Write-Host "[check-rust] 没有解析到任何 test result 行"
+    Write-Host "[check-rust] no test result lines parsed"
     exit 1
 }
 if ($failed -gt 0 -or $ignored -gt 0) { exit 1 }
 if ($passed -ne $Expected) {
-    Write-Host ("[check-rust] 通过数 {0} != 期望 {1}" -f $passed, $Expected)
+    Write-Host ("[check-rust] passed {0} != expected {1}" -f $passed, $Expected)
     exit 1
 }
 exit 0

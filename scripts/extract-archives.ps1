@@ -115,9 +115,9 @@ Add-Content -LiteralPath $logPath -Value $lines -Encoding utf8
 $sb = New-Object System.Text.StringBuilder
 [void]$sb.AppendLine('# Extracted archives')
 [void]$sb.AppendLine('')
-[void]$sb.AppendLine("生成时间：$(Get-Date -Format 'yyyy-MM-dd HH:mm')　|　来源：``scripts/library-manifest.json`` 中 type=zip 的条目")
+[void]$sb.AppendLine("Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm')  |  Source: type=zip items in ``scripts/library-manifest.json``")
 [void]$sb.AppendLine('')
-[void]$sb.AppendLine('| id | 压缩包 | 解压目录 | 文件数 | 状态 |')
+[void]$sb.AppendLine('| id | Archive | Extracted to | Files | Status |')
 [void]$sb.AppendLine('|---|---|---|---|---|')
 foreach ($r in $rows) {
     $dir = if ($r.Folder) { "``$($r.Folder)/``" } else { '-' }

@@ -111,9 +111,9 @@ foreach ($r in $results) {
     Write-Host ("  {0,-24} got={1} want={2}  {3}" -f $r.Gate, $r.Got, $r.Want, $(if ($ok) { 'PASS' } else { 'FAIL' }))
 }
 if ($bad -gt 0) {
-    Write-Host ("[selftest-gates] {0} 套门没有按预期失败" -f $bad)
+    Write-Host ("[selftest-gates] {0} gate(s) did not fail as expected" -f $bad)
     exit 1
 }
-Write-Host ("[selftest-gates] {0} 套门都能拦住错误" -f $results.Count)
+Write-Host ("[selftest-gates] {0} gate(s) blocked the injected errors" -f $results.Count)
 exit 0
 

@@ -18,13 +18,13 @@ $ErrorActionPreference = 'Stop'
 
 $cargo = Get-Content (Join-Path $Root 'engine\Cargo.toml') -Raw
 $version = ([regex]::Match($cargo, 'version\s*=\s*"([^"]+)"')).Groups[1].Value
-if (-not $version) { throw '读不到版本号' }
+if (-not $version) { throw 'cannot read version' }
 
 Push-Location (Join-Path $Root 'engine')
 & cargo build --release --quiet
 $code = $LASTEXITCODE
 Pop-Location
-if ($code -ne 0) { throw 'cargo build --release 失败' }
+if ($code -ne 0) { throw 'cargo build --release failed' }
 
 $stage = Join-Path $OutDir 'release-stage'
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
@@ -37,7 +37,7 @@ $files = @{
 }
 foreach ($dst in $files.Keys) {
     $src = Join-Path $Root $files[$dst]
-    if (-not (Test-Path $src)) { throw "缺文件: $($files[$dst])" }
+    if (-not (Test-Path $src)) { throw "missing file: $($files[$dst])" }
     Copy-Item $src (Join-Path $stage $dst) -Force
 }
 
@@ -67,7 +67,7 @@ try {
             $bad += $name
         }
     }
-    if ($bad.Count -gt 0) { throw "包内容与源不一致: $($bad -join ', ')" }
+    if ($bad.Count -gt 0) { throw "bundle contents do not match source: $($bad -join ', ')" }
     Write-Host ("[release] {0}  entries={1}  size={2} KB" -f $zip, $archive.Entries.Count, [math]::Round((Get-Item $zip).Length / 1KB, 1))
 }
 finally {

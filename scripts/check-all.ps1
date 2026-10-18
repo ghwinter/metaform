@@ -105,7 +105,7 @@ $results | ForEach-Object { Write-Host ("  {0,-12} exit={1}" -f $_.Check, $_.Exi
 
 $bad = $results | Where-Object { $_.Exit -ne 0 }
 if ($bad) {
-    Write-Host ("[check-all] {0} 项未通过" -f $bad.Count)
+    Write-Host ("[check-all] {0} check(s) failed" -f $bad.Count)
     exit 1
 }
 Write-Host '[check-all] all green'

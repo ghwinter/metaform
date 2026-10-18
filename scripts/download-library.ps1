@@ -242,27 +242,27 @@ $sb = New-Object System.Text.StringBuilder
 $now = Get-Date -Format 'yyyy-MM-dd HH:mm'
 [void]$sb.AppendLine('# Library Index')
 [void]$sb.AppendLine('')
-[void]$sb.AppendLine("生成时间：$now　|　来源清单：``reasoning_engine_research_map.md``　|　机器事实：``.local/machine-facts.md``")
+[void]$sb.AppendLine("Generated: $now  |  Source manifest: ``reasoning_engine_research_map.md``  |  Machine facts: ``.local/machine-facts.md``")
 [void]$sb.AppendLine('')
-[void]$sb.AppendLine('清单源：`scripts/library-manifest.json`；下载日志：`_index/download-log.tsv`。')
-[void]$sb.AppendLine('重下：`pwsh -File scripts/download-library.ps1 -Force`；校验：`pwsh -File scripts/verify-library.ps1`。')
+[void]$sb.AppendLine('Manifest: `scripts/library-manifest.json`; download log: `_index/download-log.tsv`.')
+[void]$sb.AppendLine('Re-download: `pwsh -File scripts/download-library.ps1 -Force`; verify: `pwsh -File scripts/verify-library.ps1`.')
 if (Test-Path -LiteralPath (Join-Path $Root '10_code_tools\extracted')) {
-    [void]$sb.AppendLine('已解压源码：`10_code_tools/extracted/`（清单见 `10_code_tools/EXTRACTED.md`）。')
+    [void]$sb.AppendLine('Extracted sources: `10_code_tools/extracted/` (manifest: `10_code_tools/EXTRACTED.md`).')
 }
 [void]$sb.AppendLine('')
 
 $sectionTitles = [ordered]@{
-    '02_problem_finding'           = '02 问题发现与认知建模'
-    '03a_fca'                      = '03a 形式概念分析（FCA）'
-    '03b_structure_mapping'        = '03b 结构映射（SME）'
+    '02_problem_finding'           = '02 Problem finding and cognitive modeling'
+    '03a_fca'                      = '03a Formal concept analysis (FCA)'
+    '03b_structure_mapping'        = '03b Structure mapping (SME)'
     '03c_vsa_hdc'                  = '03c VSA / HDC'
-    '04_rule_program_induction'    = '04 规则、程序与可复用抽象'
-    '05_probability_model_selection' = '05 概率、信息论与模型选择'
-    '06_intent_pragmatics'         = '06 意图推断与语用'
-    '07_causal_neuroscience'       = '07 因果表示学习'
-    '08_counterexample_llm'        = '08 反例驱动、验证与 LLM 自校正'
-    '09_scientific_discovery'      = '09 科学发现与理论修正'
-    '10_code_tools'                = '10 代码与工具'
+    '04_rule_program_induction'    = '04 Rules, programs, and reusable abstractions'
+    '05_probability_model_selection' = '05 Probability, information theory, and model selection'
+    '06_intent_pragmatics'         = '06 Intent inference and pragmatics'
+    '07_causal_neuroscience'       = '07 Causal representation learning'
+    '08_counterexample_llm'        = '08 Counterexample-driven validation and LLM self-correction'
+    '09_scientific_discovery'      = '09 Scientific discovery and theory revision'
+    '10_code_tools'                = '10 Code and tools'
 }
 
 $orderedSections = @($items | ForEach-Object { $_.section } | Select-Object -Unique)
@@ -275,7 +275,7 @@ foreach ($section in $orderedSections) {
     if ($sectionTitles.Contains($section)) { $heading = $sectionTitles[$section] }
     [void]$sb.AppendLine("## $heading")
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('| id | 标题 | 文件 | 大小 | 状态 |')
+    [void]$sb.AppendLine('| id | Title | File | Size | Status |')
     [void]$sb.AppendLine('|---|---|---|---|---|')
     foreach ($item in @($items | Where-Object { $_.section -eq $section })) {
         $rel = $item.target
@@ -303,18 +303,18 @@ foreach ($section in $orderedSections) {
     [void]$sb.AppendLine('')
 }
 
-[void]$sb.AppendLine('## 未获取（付费墙 / 反爬 / 原链接失效）')
+[void]$sb.AppendLine('## Unavailable (paywall / anti-bot / dead link)')
 [void]$sb.AppendLine('')
-[void]$sb.AppendLine('| id | 标题 | 原始链接 | 原因 |')
+[void]$sb.AppendLine('| id | Title | Source URL | Reason |')
 [void]$sb.AppendLine('|---|---|---|---|')
 foreach ($u in $unavailable) {
     [void]$sb.AppendLine("| $($u.id) | $($u.title) | $($u.source) | $($u.reason) |")
 }
 [void]$sb.AppendLine('')
-[void]$sb.AppendLine('## 统计')
+[void]$sb.AppendLine('## Summary')
 [void]$sb.AppendLine('')
-[void]$sb.AppendLine("- 清单条目：$($items.Count)（可获取） + $($unavailable.Count)（未获取）")
-[void]$sb.AppendLine("- 已落盘：$downloaded　失败：$failed　总体积：$(Format-HumanSize $totalBytes)")
+[void]$sb.AppendLine("- Manifest items: $($items.Count) (available) + $($unavailable.Count) (unavailable)")
+[void]$sb.AppendLine("- On disk: $downloaded  failed: $failed  total size: $(Format-HumanSize $totalBytes)")
 
 $indexPath = Join-Path $indexDir 'INDEX.md'
 Set-Content -LiteralPath $indexPath -Value $sb.ToString() -Encoding utf8
