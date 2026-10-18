@@ -1,20 +1,20 @@
 """
-反例台账：**可增、可删、可改**的知识库，不是只增不减的集合。
+Counterexample ledger: a knowledge base that can **grow, shrink, and change**, not a monotone set.
 
-为什么需要改：一条反例可能来自噪声 oracle、可能记错了对象、也可能后来发现它只对某一类候选成立。
-只增不减的集合会把一次错误永久固化，之后每个候选都被它误杀。
+Why changes are needed: a counterexample may come from a noisy oracle, may name the wrong object, or may later turn out to hold only for one kind of candidate.
+A monotone set would permanently freeze one mistake, and every later candidate would be killed by it.
 
-设计：
-  - 每条记录有 id、case、by（谁击破的）、round、kind、status、reason、history。
-  - status = active | retracted；只有 active 参与判定。
-  - 删除 = retract（保留在历史里，注明理由）；修改 = amend（写进 history）。
-  - 每次变更都留时间戳，任何一次判定都能回溯到当时台账的状态。
+Design:
+  - every record has id, case, by (who broke it), round, kind, status, reason, history.
+  - status = active | retracted; only active records take part in decisions.
+  - delete = retract (kept in history with a reason); modify = amend (written into history).
+  - every change carries a timestamp, so any decision can be traced back to the ledger state at that time.
 
-命令行：
+Command line:
   python ledger.py list [--all]
   python ledger.py add --case 4 --by has_repeated_endpoint --round 1
-  python ledger.py retract L2 --reason "oracle 当时答错"
-  python ledger.py amend L3 --case 5 --reason "记错了对象"
+  python ledger.py retract L2 --reason "the oracle answered wrong at the time"
+  python ledger.py amend L3 --case 5 --reason "named the wrong object"
   python ledger.py history
 """
 from __future__ import annotations
@@ -37,7 +37,7 @@ def load(path: pathlib.Path) -> dict:
         return {"version": 2, "entries": []}
     raw = json.loads(path.read_text(encoding="utf-8"))
     if "entries" in raw:
-        # 旧条目没有 evidence：按已有信息补一个，不撒谎（source 写 by）
+        # old entries carry no evidence: fill one in from the information available, without lying (source is set to by)
         for e in raw["entries"]:
             e.setdefault("evidence", {
                 "source": e.get("by", "migrated"),
@@ -47,7 +47,7 @@ def load(path: pathlib.Path) -> dict:
                 "recorded": e.get("created", now()),
             })
         return raw
-    # 迁移：v1 的 {"cases": [3,4,6]} 或 [{"id":...}]
+    # migration: v1's {"cases": [3,4,6]} or [{"id":...}]
     entries = []
     for i, x in enumerate(raw.get("cases", []), 1):
         if isinstance(x, int):
@@ -72,12 +72,12 @@ def active_cases(data: dict) -> set[int]:
 
 
 def stale_cases(data: dict) -> set[int]:
-    """被挂起、等待在新目标下重新确认的条目。"""
+    """Entries suspended, waiting to be re-confirmed under the new target."""
     return {e["case"] for e in data["entries"] if e.get("status") == "stale"}
 
 
 def retarget(data: dict, to: str, reason: str) -> int:
-    """换目标概念：旧条目全部挂起（stale），不删除、不参与判定，等待逐条重新确认。"""
+    """Switch the target concept: suspend all old entries (stale), neither deleting them nor using them in decisions, and wait to re-confirm them one by one."""
     n = 0
     for e in data["entries"]:
         if e.get("status", "active") == "active":
@@ -165,7 +165,7 @@ def cmd_amend(args) -> None:
 
 
 def combined(entries: list[dict]) -> float:
-    """独立证据的 noisy-OR：1 - Π(1 - r_i)。"""
+    """Noisy-OR of independent evidence: 1 - Π(1 - r_i)."""
     prod = 1.0
     for e in entries:
         prod *= (1.0 - float(e.get("evidence", {}).get("reliability", 1.0)))
@@ -173,7 +173,7 @@ def combined(entries: list[dict]) -> float:
 
 
 def directions(data: dict) -> dict[int, dict[str, float]]:
-    """按方向合并可信度：{case: {"pos": r, "neg": r}}。"""
+    """Merge reliability by direction: {case: {"pos": r, "neg": r}}."""
     out: dict[int, dict[str, float]] = {}
     for e in data["entries"]:
         if e.get("status", "active") != "active":
@@ -186,10 +186,10 @@ def directions(data: dict) -> dict[int, dict[str, float]]:
 
 
 def conflicts(data: dict, threshold: float = 0.5, ratio: float = 0.7) -> dict[int, dict[str, float]]:
-    """同一对象同时有正、负证据，且两边分量接近 → 冲突：真值未定。
+    """The same object has positive and negative evidence at once, and the two sides are close → conflict: the truth is undetermined.
 
-    若一边压倒另一边（min/max < ratio），不判冲突，让强的一边说话——
-    压倒性的证据不该被弱反对票取消。
+    If one side overwhelms the other (min/max < ratio), it is not a conflict and the stronger side speaks —
+    overwhelming evidence should not be cancelled by a weak opposing vote.
     """
     out = {}
     for c, d in directions(data).items():
@@ -202,7 +202,7 @@ def conflicts(data: dict, threshold: float = 0.5, ratio: float = 0.7) -> dict[in
 
 
 def votes_needed(r_query: float, target: float = 0.95) -> int:
-    """还要几次独立确认，才能让某一侧达到 target（假设每次可信度 r_query）。"""
+    """How many more independent confirmations are needed for one side to reach target (assuming reliability r_query each)."""
     if r_query <= 0 or r_query >= 1:
         return 0
     n, acc = 0, 0.0
@@ -219,7 +219,7 @@ def cmd_conflicts(args) -> None:
         print("no conflicts")
         return
 
-    # 工作队列：差距越小越优先；给出"再做几次独立确认"
+    # work queue: the smaller the gap, the higher the priority; also report "how many more independent confirmations"
     queue = []
     for case, d in conf.items():
         gap = abs(d["pos"] - d["neg"])

@@ -1,14 +1,14 @@
 """
-逐对象后验：用 Beta-Binomial 代替固定票差阈值。
+Per-object posterior: use Beta-Binomial instead of a fixed vote-difference threshold.
 
-每个对象 x 有 (yes, no) 票，先验 Beta(1,1)，后验 Beta(yes+1, no+1)。
-整数参数下有闭式：n = yes+no+1，
+Each object x has (yes, no) votes, prior Beta(1,1), posterior Beta(yes+1, no+1).
+For integer parameters there is a closed form: n = yes+no+1,
     P(p > 0.5) = Σ_{k=0}^{yes} C(n,k) / 2^n
-强正例：P ≥ 1-δ；强反例：P ≤ δ。
+Strong positive: P ≥ 1-δ; strong negative: P ≤ δ.
 
-对比固定的 θ=3 / θ=5，看它能否修复 ε=0.3 时的失真，以及代价多少轮。
+Compare against fixed θ=3 / θ=5 to see whether it can repair the distortion at ε=0.3, and at what cost in rounds.
 
-运行：python posterior_gate.py
+Run: python posterior_gate.py
 """
 from __future__ import annotations
 

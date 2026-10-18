@@ -1,12 +1,12 @@
 """
-T7 的算法面：提议 = 对撞车对做集合覆盖。
+Algorithmic side of T7: proposals = set cover over colliding pairs.
 
-问题：给定一批候选谓词（每个覆盖若干撞车对），需要几个才能覆盖全部？
-  greedy  每步选覆盖最多的（本文流程）
-  random  随机顺序取，直到覆盖完
-  optimal 暴力枚举最小子集（k 很小，可行），用来量贪心的近似比
+Question: given a batch of candidate predicates (each covering some colliding pairs), how many are needed to cover all of them?
+  greedy  each step picks the one covering the most (the pipeline in this paper)
+  random  take them in random order until everything is covered
+  optimal brute-force the smallest subset (k is tiny, so feasible), used to measure the greedy approximation ratio
 
-运行：python greedy_cover.py --n 300 --pool 12
+Run: python greedy_cover.py --n 300 --pool 12
 """
 from __future__ import annotations
 
@@ -66,11 +66,11 @@ def main() -> None:
     unsolved = 0
 
     for _ in range(args.n):
-        # 撞车对：pos × neg（同一等价类里）
+        # colliding pairs: pos × neg (within the same equivalence class)
         n_pos, n_neg = 3, 3
         pairs = list(itertools.product(range(n_pos), range(n_pos, n_pos + n_neg)))
         universe = set(pairs)
-        # 候选谓词：随机在对象上取值，覆盖它能分开的对
+        # candidate predicates: random values on objects, covering the pairs they can separate
         cover_sets = []
         for _ in range(args.pool):
             mask = [rng.random() < 0.5 for _ in range(args.objects)]

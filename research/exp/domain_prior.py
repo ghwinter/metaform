@@ -1,15 +1,15 @@
 """
-E5：带先验（Occam 权重）时的提问策略。
+E5: question policies under a prior (Occam weights).
 
-E1/E2 的结论是"信息增益 ≈ 随机问一个还有信息的问题"——在均匀后验下，这几乎是必然的：
-候选集里每个未定类各占一半质量，任何能切开的问题都值 1 bit。
-E5 改变一个条件：给候选加先验 p(S) ∝ 2^{-|S|}（越短的合取越可能）。
-此时后验不均匀，不同问题的期望信息增益才可能真正不同。
+The conclusion of E1/E2 is "information gain ≈ asking a random question that still carries information" — under a uniform posterior this is almost inevitable:
+each undetermined class in the candidate set holds half the mass, so any question that splits them is worth 1 bit.
+E5 changes one condition: add a prior p(S) ∝ 2^{-|S|} to the candidates (shorter conjunctions are more likely).
+The posterior is then non-uniform, and only then can the expected information gain of different questions really differ.
 
-对照：
-  gain_w    按后验熵的期望下降选（真正的贝叶斯主动学习）
-  balance  只按"切得平均"选，无视权重
-  rand_inf 在"有信息"的对象里随机
+Baselines:
+  gain_w    pick by the expected drop in posterior entropy (true Bayesian active learning)
+  balance   pick only by "splits evenly", ignoring the weights
+  rand_inf  random among objects that carry information
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from domain_a import Instance, conj_class, make_instance
 
 
 def weighted_conj(objects: list[int], attrs: list[int], k: int) -> list[tuple[frozenset[int], float]]:
-    """返回 (外延, 权重)，权重 = 2^{-文字数}，同一外延的权重相加。"""
+    """Return (extension, weight) with weight = 2^{-literal count}; weights of identical extensions add up."""
     lits = [(a, True) for a in attrs] + [(a, False) for a in attrs]
     acc: dict[frozenset[int], float] = {frozenset(objects): 1.0}
     for r in range(1, k + 1):
@@ -86,7 +86,7 @@ def run(inst: Instance, k: int, policy: str, rng: random.Random) -> int | None:
         f = [(c, w) for c, w in f if (x in c) == (x in inst.target)]
         if not f:
             return None
-    # 命中：剩下的候选（可能多个外延相同）是否都等于 target
+    # hit: are all remaining candidates (possibly several with the same extension) equal to target
     return q if all(c == inst.target for c, _ in f) else None
 
 

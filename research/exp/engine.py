@@ -1,8 +1,8 @@
 """
-`engine/src/lib.rs` 的 Python 对照实现：只保留论文需要的那部分语义。
+Python counterpart of `engine/src/lib.rs`: only the semantics the paper needs.
 
-对象用 0..n-1 的整数，集合用整数位掩码。谓词是一对 (名字, 掩码)。
-与 Rust 版一一对应：status / next_question / answer / propose / capacity。
+Objects are integers 0..n-1, sets are integer bitmasks. A predicate is a pair (name, mask).
+One-to-one with the Rust version: status / next_question / answer / propose / capacity.
 """
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from enum import Enum
 
 
 class Status(Enum):
-    INSUFFICIENT = "insufficient"   # 正反例同类：当前词汇已被证明不够（T2）
-    IDENTIFIED = "identified"       # 每个等价类都被覆盖
-    UNDETERMINED = "undetermined"   # 还有未覆盖的类
+    INSUFFICIENT = "insufficient"   # positive and negative examples in one class: current vocabulary proven insufficient (T2)
+    IDENTIFIED = "identified"       # every equivalence class is covered
+    UNDETERMINED = "undetermined"   # some classes are still uncovered
 
 
 @dataclass
@@ -23,7 +23,7 @@ class Explorer:
     pos: int = 0
     neg: int = 0
 
-    # --- 基本操作 ---
+    # --- basic operations ---
 
     def signature(self, x: int) -> tuple[bool, ...]:
         bit = 1 << x

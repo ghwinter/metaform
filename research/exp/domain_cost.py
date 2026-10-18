@@ -1,16 +1,16 @@
 """
-成本实验：对象查询 vs 谓词提议，谁决定总成本？
+Cost experiment: object queries vs predicate proposals — which one determines total cost?
 
-模型（单缺失谓词）：
-  - 目标 S = 某属性 a* 的外延，a* 不在初始词汇 V0。
-  - 对象查询成本 1，谓词提议成本 r，提议命中 a* 的概率 q（未命中就白花 r）。
-  - "识别"= 知道每个对象是否属于 S。
+Model (single missing predicate):
+  - Target S = the extension of some attribute a*, and a* is not in the initial vocabulary V0.
+  - An object query costs 1, a predicate proposal costs r, and a proposal hits a* with probability q (a miss wastes r).
+  - "Identify" = know whether each object belongs to S.
 
-两条策略：
-  ask_first    先把 V0 下的每个未定签名类问一个代表，再提议，直到命中，再补齐剩余的类
-  propose_first 直接提议直到命中，再问所有未定类
+Two policies:
+  ask_first     first ask one representative for each undetermined signature class under V0, then propose until a hit, then fill in the remaining classes
+  propose_first propose until a hit first, then ask all undetermined classes
 
-要验证的断言（C3'）：**总成本的量级由提议质量 (r/q) 决定，停止规则只是二阶项。**
+Claim to verify (C3'): **the order of magnitude of total cost is set by proposal quality (r/q); the stopping rule is only a second-order term.**
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def classes(objects: list[int], attrs: list[int]) -> dict[tuple[bool, ...], list
 
 
 def free_reps(objects: list[int], attrs: list[int], known: set[int]) -> list[int]:
-    """每个还没被覆盖的签名类，取一个代表。"""
+    """Pick one representative for each signature class not yet covered."""
     reps = []
     for _key, members in classes(objects, attrs).items():
         if any(m in known for m in members):

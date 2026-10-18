@@ -1,10 +1,10 @@
 """
-回归检查：论文里的关键数字，跑一遍是否还成立。
+Regression check: do the key numbers in the paper still hold when rerun?
 
-数字与容差都在 EXPECTED 里；任何一项超出容差就非零退出。
-目的是避免"论文写着 2.01，代码改完变成 3.4，但没人发现"。
+The numbers and tolerances all live in EXPECTED; any item outside its tolerance exits non-zero.
+The point is to avoid "the paper says 2.01, the code now gives 3.4, and nobody noticed".
 
-运行：python verify_claims.py [--tolerance 0.06]
+Run: python verify_claims.py [--tolerance 0.06]
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from multi_seed import run_cover, run_policy
 SEEDS = [1, 2, 3, 4, 5]
 N = 150
 
-# 成本律自洽检查：论文声称 total ≈ r/q + 7.6（r=20），下面是四个实测点。
+# cost-law consistency check: the paper claims total ≈ r/q + 7.6 (r=20); below are four measured points.
 COST_R = 20.0
 COST_ROUNDS = 7.6
 COST_POINTS = [(1.0, 27.6), (0.5, 49.4), (0.25, 88.9), (0.125, 162.7)]
@@ -29,11 +29,11 @@ PAPER_EN = Path(__file__).resolve().parents[2] / "paper" / "en" / "main.tex"
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ENGINE = ROOT / "engine" / "target" / "debug" / "metaform.exe"
 
-# `metaform ops` 的三组数（论文与 README 引用过）
+# the three groups of numbers from `metaform ops` (cited by the paper and the README)
 OPS_SELECTION = {"selected_cost": 3.11, "random_cost": 3.50, "fixed_cost": 3.60}
 OPS_PROBE = {"early_queries": 1, "verified_queries": 5, "verified_cost": 14}
 
-# 论文里的值（RESULTS.md §3.18 / §3.5）
+# values in the paper (RESULTS.md §3.18 / §3.5)
 EXPECTED = {
     "gain": 2.01,
     "rand_inf": 1.91,
@@ -62,7 +62,7 @@ def ensure_engine(path: Path) -> Path:
 
 
 def check_ops(engine: Path) -> int:
-    """跑 `metaform ops`，核对论文引用的 selection 与 probe 数字。"""
+    """Run `metaform ops` and check the selection and probe numbers cited by the paper."""
     out = subprocess.run([str(engine), "ops"], capture_output=True, text=True, encoding="utf-8")
     try:
         doc = json.loads(out.stdout.strip().splitlines()[-1])
@@ -113,7 +113,7 @@ def check_ops(engine: Path) -> int:
                 bad += 1
                 print(f"! 论文的实测点 q={q} 写成 {got}，期望 {want}")
 
-    # 第三来源：README 的三处数字；与 ops 输出逐项比，避免"论文+常量一起漂"。
+    # third source: the three numbers in the README; compared item by item with the ops output, so the paper and the constants cannot drift together.
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     flat = re.sub(r"\s+", " ", readme)
     m = re.search(r"逐步选择 ([\d.]+) 次、随机顺序 ([\d.]+) 次、固定顺序 ([\d.]+) 次", flat)
@@ -193,7 +193,7 @@ def main() -> None:
         print(f"\n{bad} 项超出容差 {args.tolerance}")
         sys.exit(1)
 
-    # --- 成本律自洽：公式与四个实测点必须同时成立 ---
+    # --- cost-law consistency: the formula and the four measured points must hold at the same time ---
     print(f"\n{'q':>6s} {'measured':>9s} {'20/q+7.6':>9s} {'rel.err':>8s}")
     law_bad = 0
     for q, measured in COST_POINTS:

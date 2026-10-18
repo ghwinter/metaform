@@ -1,12 +1,12 @@
 """
-自适应 θ：冲突反复出现就加 1，长期无冲突就减 1。
+Adaptive θ: add 1 when conflicts keep recurring, subtract 1 after a long conflict-free stretch.
 
-要回答的问题：在 ε=0.2 下，自适应能否用少于固定 θ=5 的轮数达到同样的成功率？
-  fixed3   固定 θ=3
-  fixed5   固定 θ=5
-  adapt    从 3 开始，确认冲突后 +1（上限 6），连续 5 轮无冲突 -1（下限 3）
+Question: at ε=0.2, can adaptation reach the same success rate in fewer rounds than a fixed θ=5?
+  fixed3   fixed θ=3
+  fixed5   fixed θ=5
+  adapt    start at 3, +1 after a confirmed conflict (cap 6), -1 after 5 consecutive conflict-free rounds (floor 3)
 
-运行：python adaptive_theta.py
+Run: python adaptive_theta.py
 """
 from __future__ import annotations
 
@@ -27,14 +27,14 @@ def run_once(inst, eps: float, policy: str, rng: random.Random, max_rounds: int 
     theta = theta0
     cap, floor = 6, theta0
     rounds = 0
-    calm = 0  # 连续无冲突轮数
+    calm = 0  # consecutive conflict-free rounds
 
     def strong(t):
         sp = {o for o in objs if votes[o][0] - votes[o][1] >= t}
         sn = {o for o in objs if votes[o][1] - votes[o][0] >= t}
         return sp, sn
 
-    # 种子确认到当前 θ
+    # confirm the seed up to the current θ
     for _ in range(theta):
         rounds += 1
         for o in inst.pos | inst.neg:
@@ -66,7 +66,7 @@ def run_once(inst, eps: float, policy: str, rng: random.Random, max_rounds: int 
                 confirm_left -= 1
                 ask([o for c in conflict_classes for o in c])
                 continue
-            # 复核完仍冲突 → 换词表，并把 θ 抬高一点（更保守）
+            # still conflicting after re-checking → swap the vocabulary, and nudge θ up (more conservative)
             if policy == "adapt" and theta < cap:
                 theta += 1
             if not pool:

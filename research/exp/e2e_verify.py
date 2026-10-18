@@ -1,16 +1,16 @@
 """
-端到端检查，两段：
+End-to-end check, in two parts:
 
-1. 脚本模式：`scenarios/verify.demo` 走
-   VERIFY → PROPOSE → ASK → STOP，并核对每一步的 JSON。
-2. 项目模式：用 `init / state / ledger / report` 在临时目录里建一个真实项目，
-   检查报告在探测前后确实换了判定（VERIFY → INSUFFICIENT + 撞车 (0,4)）。
+1. Script mode: `scenarios/verify.demo` walks
+   VERIFY → PROPOSE → ASK → STOP, and the JSON of each step is checked.
+2. Project mode: use `init / state / ledger / report` to build a real project in a temp directory,
+   and check that the report really changes its verdict before and after the probe (VERIFY → INSUFFICIENT + collision (0,4)).
 
-这个域不是论文里的 A/B/C：6 个测试文件，判“是不是集成测试”。
-它要证明的是：**先有 VERIFY，才谈 PROPOSE**——初始词汇下所有等价类都有标签，
-但 4 与 5 的标签是从同类继承的。
+This domain is not A/B/C from the paper: 6 test files, deciding "is this an integration test".
+What it must show is: **VERIFY comes first, only then PROPOSE** — under the initial vocabulary every equivalence class has a label,
+but the labels of 4 and 5 are inherited from their class.
 
-运行：python e2e_verify.py [--engine ...] [--no-build]
+Run: python e2e_verify.py [--engine ...] [--no-build]
 """
 from __future__ import annotations
 

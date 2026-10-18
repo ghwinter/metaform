@@ -1,13 +1,13 @@
 """
-用「估出来的 ε」选 θ，比「用真实 ε」差多少？
+How much worse is choosing θ from an "estimated ε" than from the "true ε"?
 
-  true_theta  直接拿实验设定的 ε 去映射（上界，作弊）
-  hat_theta   只用票数估计 ε̂ = mean(min(yes,no)/(yes+no))，再映射
+  true_theta  map the ε set by the experiment directly (upper bound, cheating)
+  hat_theta   estimate ε̂ = mean(min(yes,no)/(yes+no)) from the vote counts only, then map
 
-两者用同一张映射表（≤0.1→3，≥0.2→5，否则 4）。
-若 hat 与 true 的差距 <3%，说明不必知道真实错误率。
+Both use the same mapping table (≤0.1→3, ≥0.2→5, otherwise 4).
+If hat and true differ by <3%, the true error rate does not need to be known.
 
-运行：python selfcalibrated_theta.py
+Run: python selfcalibrated_theta.py
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def eps_hat(votes: dict[int, list[int]]) -> float:
 
 
 def eps_hat_q(votes: dict[int, list[int]], q: float = 0.75) -> float:
-    """少数票占比的 75 分位：少数票比例会低估 ε，取高分位更保守。"""
+    """75th percentile of the minority-vote fraction: the minority fraction underestimates ε, so a high quantile is more conservative."""
     vals = sorted(_minority_rates(votes))
     if not vals:
         return 0.0
@@ -83,7 +83,7 @@ def run_once(inst, eps: float, policy: str, rng: random.Random, max_rounds: int 
             votes[o][0 if ans else 1] += 1
 
     while rounds < max_rounds:
-        # 每轮开始时按策略更新 θ
+        # update θ by policy at the start of each round
         if policy == "true":
             theta = theta_from_eps(eps)
         elif policy == "hat_q":

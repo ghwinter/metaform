@@ -1,19 +1,19 @@
 """
-域 C 上的选择对照：真实特征、真实 oracle。
+Selection comparison on domain C: real features, real oracle.
 
-两个场景：
-  one_atom   池子里只有一个充分谓词（overlap），三个诱饵覆盖为 0。
-  two_atoms  需要两个谓词：strict_overlap（真重叠）与 touch（端点相接）。
-             任一单独都不足以让目标可表达。
+Two scenarios:
+  one_atom   the pool holds exactly one sufficient predicate (overlap); the three decoys have coverage 0.
+  two_atoms  two predicates are needed: strict_overlap (proper overlap) and touch (endpoints touching).
+             neither one alone makes the target expressible.
 
-两种停止规则：
-  inherit  只要所有等价类都有标签就停（标签会在类内"继承"）。
-  probe    停之前，对"多成员且没被直接问过"的类各探一个成员；若答案与类标签冲突，
-           状态会重新变成不足，继续提议。
+Two stopping rules:
+  inherit  stop as soon as every equivalence class has a label (labels "inherit" within a class).
+  probe    before stopping, probe one member of every class that has several members and was never asked directly; if the answer conflicts with the class label,
+           the status falls back to insufficient and proposals continue.
 
-固定 = 池子顺序；随机 = 200 个 seed 取均值；贪心 = 每步按覆盖重选。
+Fixed = pool order; random = mean over 200 seeds; greedy = re-pick by coverage at each step.
 
-运行：python selection_domain_c.py
+Run: python selection_domain_c.py
 """
 from __future__ import annotations
 
@@ -113,7 +113,7 @@ def play(e: Explorer, masks: dict[str, int], strategy: str, probe: bool, seed: i
             asked.add(x)
             queries += 1
             continue
-        # IDENTIFIED：可选的探测，防止类标签被"继承"掩盖错配
+        # IDENTIFIED: optional probe, so an inherited class label cannot hide a mismatch
         if probe:
             pick = None
             for c in e.classes():

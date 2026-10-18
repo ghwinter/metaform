@@ -1,15 +1,15 @@
 """
-提议质量 q 的实证版：在真实循环里，总成本是否 ≈ r/q？
+Empirical version of proposal quality q: in the real loop, is total cost ≈ r/q?
 
-模型：
-  - 每个实例初始词汇缺 a*，目标 S = ext(a*)，因此状态一开始是 insufficient。
-  - 每次提议花 r=20：以概率 q 提出"正确谓词"（a* 的外延），否则提出一个诱饵
-    （由现有谓词随机组合而成——按 T2，它分不开同签名的正反例，必然无效）。
-  - 正确谓词到位后，逐轮问未决类的代表（每轮成本 1），直到 identified。
+Model:
+  - each instance starts with a vocabulary missing a*, and the target S = ext(a*), so the status starts as insufficient.
+  - each proposal costs r=20: with probability q it proposes the "correct predicate" (the extension of a*), otherwise a decoy
+    (built from a random combination of existing predicates — by T2 it cannot separate same-signature positives and negatives, so it is necessarily useless).
+  - once the correct predicate is in place, ask one representative of each undecided class per round (cost 1 per round) until identified.
 
-要验的：总成本 ≈ r/q + 轮数，且"浪费的提议数" ≈ 1/q - 1。
+To verify: total cost ≈ r/q + rounds, and the "number of wasted proposals" ≈ 1/q - 1.
 
-运行：python proposer_quality.py
+Run: python proposer_quality.py
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from statistics import mean
 from domain_a import make_instance
 from engine import Explorer, Status
 
-R = 20  # 一次提议的单价
+R = 20  # unit price of one proposal
 
 
 def run_once(inst, q: float, rng: random.Random, max_proposals: int = 40):
@@ -47,7 +47,7 @@ def run_once(inst, q: float, rng: random.Random, max_proposals: int = 40):
             if rng.random() < q:
                 e.propose("target", target_mask)
             else:
-                # 诱饵：现有谓词的随机组合，按 T2 一定分不开同签名对
+                # decoy: a random combination of existing predicates; by T2 it can never separate a same-signature pair
                 picks = rng.sample(inst.attrs, k=min(2, len(inst.attrs)))
                 mask = 0
                 for p in picks:

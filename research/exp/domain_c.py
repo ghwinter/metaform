@@ -1,14 +1,14 @@
 """
-域 C：以真实代码行为作 oracle。
+Domain C: use the behavior of real code as the oracle.
 
-隐藏不变量：`merge_intervals` 的输出比输入**短**（发生过合并）。
-对象 = 12 个区间列表测试用例；谓词 = 用例的可执行特征；
-oracle = 真的跑一遍函数，看输出长度。
+Hidden invariant: the output of `merge_intervals` is **shorter** than the input (a merge happened).
+Objects = 12 list-of-intervals test cases; predicates = executable features of a case;
+oracle = actually run the function and look at the output length.
 
-初始词汇故意缺 "存在重叠区间" 这个谓词，于是必然触发 T2——
-除非提议出正确谓词，否则再问多少个用例都无解（T6）。
+The initial vocabulary deliberately lacks the predicate "overlapping intervals exist", so T2 must trigger —
+unless the correct predicate is proposed, no number of further case questions can solve it (T6).
 
-运行：python domain_c.py
+Run: python domain_c.py
 """
 from __future__ import annotations
 
@@ -18,10 +18,10 @@ import random
 from engine import Explorer, Status
 
 
-# ---------- 被测代码 ----------
+# ---------- code under test ----------
 
 def merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:
-    """合并重叠区间；假定输入合法（要求 a <= b，且非空）。"""
+    """Merge overlapping intervals; assumes valid input (requires a <= b and non-empty)."""
     if not intervals:
         raise ValueError("empty input")
     for a, b in intervals:
@@ -36,32 +36,32 @@ def merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return [tuple(x) for x in out]
 
 
-# ---------- 用例 ----------
+# ---------- cases ----------
 
 CASES: list[list[tuple[int, int]]] = [
-    [],                                  # 0  空
-    [(1, 2)],                            # 1  单个
-    [(1, 2), (3, 4)],                    # 2  不相交
-    [(1, 3), (2, 4)],                    # 3  重叠
-    [(1, 5), (2, 3)],                    # 4  包含
-    [(5, 6), (1, 2)],                    # 5  乱序不相交
-    [(1, 2), (2, 3)],                    # 6  端点相接
-    [(-3, -1), (-2, 0)],                 # 7  负数重叠
-    [(0, 10)],                           # 8  单个大区间
-    [(1, 2), (4, 5), (7, 8)],            # 9  三个不相交
-    [(1, 4), (2, 5), (3, 6)],            # 10 三个链式重叠
-    [(1, 2), (2, 3), (3, 4)],            # 11 链式相接
+    [],                                  # 0  empty
+    [(1, 2)],                            # 1  single
+    [(1, 2), (3, 4)],                    # 2  disjoint
+    [(1, 3), (2, 4)],                    # 3  overlapping
+    [(1, 5), (2, 3)],                    # 4  contained
+    [(5, 6), (1, 2)],                    # 5  disjoint, out of order
+    [(1, 2), (2, 3)],                    # 6  endpoints touching
+    [(-3, -1), (-2, 0)],                 # 7  overlapping negatives
+    [(0, 10)],                           # 8  one large interval
+    [(1, 2), (4, 5), (7, 8)],            # 9  three disjoint
+    [(1, 4), (2, 5), (3, 6)],            # 10 three chained overlaps
+    [(1, 2), (2, 3), (3, 4)],            # 11 chained touching
 ]
 
 
 def target(case: list[tuple[int, int]]) -> bool:
-    """隐藏目标：输出比输入短（发生合并）。空输入抛异常，不计入。"""
+    """Hidden target: the output is shorter than the input (a merge happened). Empty input raises, so it does not count."""
     if not case:
         return False
     return len(merge_intervals(case)) < len(case)
 
 
-# ---------- 谓词（可执行特征） ----------
+# ---------- predicates (executable features) ----------
 
 def p_empty(c): return len(c) == 0
 def p_single(c): return len(c) == 1
@@ -72,7 +72,7 @@ def p_width_gt3(c): return any(b - a > 3 for a, b in c)
 
 
 def p_overlap(c):
-    """真正需要的那个谓词：存在一对区间重叠或相接。"""
+    """The predicate actually needed: some pair of intervals overlaps or touches."""
     for (a1, b1), (a2, b2) in itertools.combinations(c, 2):
         if max(a1, a2) <= min(b1, b2):
             return True
@@ -90,10 +90,10 @@ PREDICATES = {
     "sorted": p_sorted,
     "width_gt3": p_width_gt3,
 }
-NEEDED = ("overlap", p_overlap)   # 初始词汇里没有
+NEEDED = ("overlap", p_overlap)   # not in the initial vocabulary
 
 
-# ---------- 诱饵：看起来合理、但分不开撞车那一对的谓词 ----------
+# ---------- decoys: predicates that look plausible but cannot separate the colliding pair ----------
 
 def p_all_positive(c): return all(a >= 0 and b >= 0 for a, b in c)
 def p_max_len_2(c): return len(c) <= 2
@@ -126,7 +126,7 @@ def main() -> None:
     for name, fn in PREDICATES.items():
         e.propose(name, mask_of(fn))
 
-    # 找一对"V0 同签名、目标不同"的用例作为初始样本
+    # find a pair of cases with "same V0 signature, different target" as the initial sample
     pair = None
     for i, j in itertools.combinations(range(n), 2):
         if e.signature(i) == e.signature(j) and target(CASES[i]) != target(CASES[j]):
@@ -140,8 +140,8 @@ def main() -> None:
     print(f"初始样本: +{pos} {CASES[pos]}   -{neg} {CASES[neg]}")
     print(f"状态: {e.status().value}   （T2 触发，词汇不足）")
 
-    # 提议：先提三个"看着合理但分不开这一对"的诱饵，最后才提对的。
-    # 这模拟一个差的提议器，用来量化"提议质量 → 成本"。
+    # proposals: first propose three decoys that "look plausible but cannot separate this pair", and only then the right one.
+    # This models a bad proposer, to quantify "proposal quality → cost".
     tail = list(DECOYS.keys()) + [NEEDED[0]]
 
     proposals = 0
@@ -162,7 +162,7 @@ def main() -> None:
         queries += 1
         print(f"  提问 #{queries}: case {x} {CASES[x]!r} → {target(CASES[x])}")
 
-    # 校验：识别出的外延（含正例的等价类之并）是否就是目标
+    # check: is the identified extension (the union of equivalence classes containing positives) exactly the target
     derived = 0
     for c in e.classes():
         if c & e.pos:

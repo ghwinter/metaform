@@ -1,21 +1,21 @@
 """
-提议器接口（离线版）：把撞车对交给模型，收回候选谓词，验它们能不能劈开。
+Proposer interface (offline version): hand the colliding pairs to the model, take back candidate predicates, and test whether they cut them apart.
 
-为什么要离线：现在没有稳定的 API。这个脚本把接口与验证做出来，模型一侧先由作者代填
-（`responses_*.json`），日后换成真调用只需替换 `load_responses`。
+Why offline: there is no stable API yet. This script builds the interface and the verification; for now the model side is filled in by the authors
+(`responses_*.json`), and switching to a real call later only requires replacing `load_responses`.
 
-协议：
-  请求（JSON，打印出来给模型看）
+Protocol:
+  request (JSON, printed for the model to read)
     {"case": ..., "objects": [...], "colliding_pairs": [[x,y],...],
      "existing_predicates": [...], "instruction": "..."}
-  响应（JSON 列表）
+  response (JSON list)
     [{"name": "...", "rationale": "...", "predicate_py": "lambda case: ..."}, ...]
-  其中 `predicate_py` 必须能在 case 上求值成 bool。
+  where `predicate_py` must evaluate to a bool on a case.
 
-验证：对每个候选，算出它覆盖了几对撞车；覆盖 0 的判为无用（T2 的工程含义）。
+Verification: for each candidate, count how many colliding pairs it covers; a candidate covering 0 is judged useless (the engineering meaning of T2).
 
-运行：
-  python proposer.py --case domain_c --emit            # 只打印请求
+Run:
+  python proposer.py --case domain_c --emit            # print the request only
   python proposer.py --case domain_c --responses responses_domain_c.json
 """
 from __future__ import annotations
@@ -28,17 +28,17 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 
-# ---------- 两个可选 case ----------
+# ---------- two selectable cases ----------
 
 def case_domain_c():
-    """域 C：区间合并，隐藏不变量 = 输出比输入短。"""
+    """Domain C: interval merging, hidden invariant = the output is shorter than the input."""
     from domain_c import CASES, merge_intervals, target  # noqa: F401
 
     objs = list(range(len(CASES)))
     return CASES, objs, target
 
 
-# ---------- 协议 ----------
+# ---------- protocol ----------
 
 def build_request(case_name: str, cases, objs, pos, neg, existing) -> dict:
     pairs = [[x, y] for x in sorted(pos) for y in sorted(neg)]
@@ -65,25 +65,25 @@ SAFE = {
 }
 from itertools import combinations  # noqa: E402
 
-SOFT_THRESHOLD = 0.8   # 证据可信度低于此值：只算软违规，不硬拦
+SOFT_THRESHOLD = 0.8   # evidence reliability below this: only a soft violation, not a hard block
 
 SAFE["combinations"] = combinations
 
 
 def evaluate(resp: list[dict], cases, pairs, truth: set[int], ledger: dict[int, float] | None = None) -> list[dict]:
-    """给每个候选打分。
+    """Score each candidate.
 
-    除了"劈开几对撞车"，还算三个更硬的量（借自盲极大协议）：
-      precision / recall：谓词的外延与隐藏目标的外延有多重合——只劈开撞车对但含义不对的候选，
-                         在这里会露馅。
-      pred hit：候选自己报的"我预测为正、但样本里没给"的对象命中几个。
-      probe：反向盲极大——"你说否、但我认为为正"的对象，oracle 一确认，该候选就被证明不完整。
-             这条只需要 oracle，不需要隐藏外延，是可以部署的完整性探针。
+    Besides "how many colliding pairs it cuts", three harder quantities are computed (borrowed from the blind maximality protocol):
+      precision / recall: how far the predicate's extension overlaps the hidden target's extension — a candidate that cuts the colliding pairs but means the wrong thing
+                          is exposed here.
+      pred hit: how many of the objects the candidate itself claims "I predict positive, but the sample did not provide them" are hits.
+      probe: reverse blind maximality — an object where "you say no, but I think it is positive"; as soon as the oracle confirms it, the candidate is proven incomplete.
+             This one needs only the oracle, not the hidden extension, so it is a deployable completeness probe.
     """
     out = []
     for r in resp:
         try:
-            fn = eval(r["predicate_py"], {"__builtins__": SAFE}, {})  # noqa: S307 - 离线自填
+            fn = eval(r["predicate_py"], {"__builtins__": SAFE}, {})  # noqa: S307 - filled in offline
             ext = {i for i, c in enumerate(cases) if fn(c)}
             split = sum(1 for (a, b) in pairs if (a in ext) != (b in ext))
             inter = len(ext & truth)
@@ -97,18 +97,18 @@ def evaluate(resp: list[dict], cases, pairs, truth: set[int], ledger: dict[int, 
             invalid = 0
             for c in probes:
                 if c in ext:
-                    invalid += 1          # 探针对象本来就在候选里，不是反例
+                    invalid += 1          # the probe object is already inside the candidate, so it is not a counterexample
                 elif c in truth:
-                    confirmed += 1        # 候选说否，oracle 说是 → 候选不完整
+                    confirmed += 1        # the candidate says no, the oracle says yes → the candidate is incomplete
             ledger = ledger or {}
-            viol_all = [c for c in ledger if c not in ext]      # 排除已确认正例
+            viol_all = [c for c in ledger if c not in ext]      # exclude already-confirmed positives
             viol = [c for c in viol_all if ledger[c] >= SOFT_THRESHOLD]
             soft = [c for c in viol_all if ledger[c] < SOFT_THRESHOLD]
 
-            # 两个角色要分开判：
-            #   definition —— 候选被当成 S 的完整定义，必须包含全部已确认正例
-            #   cover      —— 候选只作为集合覆盖的元素，窄但 sound 就够（T7 允许多个拼起来）
-            # 必须真的给过预测并被确认；"没预测" 不等于 sound（否则谁都能过）
+            # the two roles must be judged separately:
+            #   definition — the candidate is taken as a complete definition of S, so it must contain every confirmed positive
+            #   cover      — the candidate is only an element of a set cover, so narrow but sound is enough (T7 allows several to be combined)
+            # it must actually have given predictions that were confirmed; "no prediction" is not sound (otherwise anything would pass)
             sound = len(preds) > 0 and hits == len(preds)
             definition_ok = (not viol) and sound and prec >= 0.999 and rec >= 0.999
             cover_ok = sound and split > 0
@@ -122,7 +122,7 @@ def evaluate(resp: list[dict], cases, pairs, truth: set[int], ledger: dict[int, 
             elif invalid == len(probes):
                 verdict = "INVALID"
             else:
-                verdict = "SURVIVED"      # 探针被 oracle 否掉，候选在这一轮没被击破
+                verdict = "SURVIVED"      # the probe was rejected by the oracle, so the candidate was not broken this round
 
             out.append({"name": r["name"], "covers": split, "total": len(pairs),
                         "precision": prec, "recall": rec,
@@ -174,7 +174,7 @@ def main() -> None:
     pos = {i for i, v in truth.items() if v}
     neg = {i for i, v in truth.items() if not v}
 
-    # 只把"在现有 6 个特征下不可分辨"的正反例对交给模型：这才是真正要解的子问题
+    # hand the model only the positive/negative pairs "indistinguishable under the existing 6 features": that is the subproblem really to be solved
     ex = Explorer(len(cases))
     for name, fn in PREDICATES.items():
         ex.propose(name, mask_of(fn))
@@ -201,19 +201,19 @@ def main() -> None:
         if not conf:
             print("no conflicts — nothing to re-ask")
             return
-        # 已知标签：台账里高可信度的确认结果（正/负）
+        # known labels: the high-reliability confirmations in the ledger (positive/negative)
         known_pos, known_neg = set(), set()
         for e in load_ledger2(lp)["entries"]:
             ev = e.get("evidence", {})
             if e.get("status", "active") != "active" or float(ev.get("reliability", 1.0)) < 0.8:
                 continue
             if e["case"] in conf:
-                continue   # 冲突对象本身不算"已知标签"
+                continue   # a conflicted object does not itself count as a "known label"
             (known_pos if ev.get("answer", True) else known_neg).add(e["case"])
 
         cls = ex.classes()
 
-        # 从台账估计 p（类纯的先验）：只看"至少有两个已确认标签"的类，Laplace 平滑
+        # estimate p (the class-purity prior) from the ledger: only classes with "at least two confirmed labels", Laplace-smoothed
         lab_total = lab_impure = 0
         for mask in cls:
             members = [j for j in range(len(cases)) if mask >> j & 1]
@@ -222,7 +222,7 @@ def main() -> None:
             if len(kp) + len(kn) >= 2:
                 lab_total += 1
                 lab_impure += 1 if (kp and kn) else 0
-        # R：一次错标的返工代价。用台账里"实际修过几条 / 其中需要修几条"来估。
+        # R: the rework cost of one mislabel. Estimated from "how many entries were actually repaired / how many of them needed repair" in the ledger.
         rep_actions = rep_entries = 0
         for e in load_ledger2(lp)["entries"]:
             acts = [h["action"] for h in e.get("history", [])]
@@ -265,9 +265,9 @@ def main() -> None:
             elif len(members) == 1:
                 purity, asks = "pure?(single)", 1
             else:
-                # 未知纯度：问一个代表赌一把，还是问完所有冲突成员？
-                # 问 1 个：1 + (1-p)·(c-1)·R（猜错时其余成员要重标，每个代价 R）
-                # 问全部：c
+                # unknown purity: ask one representative and gamble, or ask all conflicted members?
+                # ask 1: 1 + (1-p)·(c-1)·R (if the guess is wrong the other members must be relabeled, each costing R)
+                # ask all: c
                 c_ = len(cases_in)
                 cost_one = 1 + (1 - p_used) * (c_ - 1) * r_used
                 cost_all = c_
@@ -302,7 +302,7 @@ def main() -> None:
         from ledger import conflicts as find_conflicts, directions
         data = load_ledger(ledger_path)
         conflicted = set(find_conflicts(data))
-        # 只合并方向一致、且不处于冲突的条目
+        # merge only entries with a consistent direction that are not conflicted
         ledger_rel = {c: d["pos"] for c, d in directions(data).items()
                       if c not in conflicted and d["pos"] > 0}
     print(f"[ledger] conflicts: {sorted(conflicted) if conflicted else 'none'}")
@@ -311,10 +311,10 @@ def main() -> None:
     rows = evaluate(resp, cases, req["colliding_pairs"], pos, ledger_rel)
 
     if args.pool_out:
-        # 两条过滤路径：
-        #   offline（默认）：用隐藏外延算 P/R —— 只用于评估，部署时算不出来。
-        #   empirical：把候选自报的 predictions 当查询去问 oracle，只保留"预测全对且至少劈开一对"的
-        #              候选。这是部署路径：不依赖隐藏目标，只依赖 oracle 的回答。
+        # two filtering paths:
+        #   offline (default): compute P/R from the hidden extension — evaluation only, not computable at deployment time.
+        #   empirical: treat the candidate's self-reported predictions as queries to the oracle and keep only candidates
+        #              with "all predictions correct and at least one pair cut". This is the deployment path: it depends on the oracle's answers, not on the hidden target.
         if args.pool_filter in ("definition",):
             kept = [r for r in rows if r["ok"] and r["definition_ok"]]
         elif args.pool_filter in ("cover", "empirical"):
@@ -351,7 +351,7 @@ def main() -> None:
         for name, fn in P6.items():
             ids = [str(i) for i in range(n) if m6(fn) >> i & 1]
             lines.append(f"add {name} " + " ".join(ids))
-        # 种子要给到 θ=3 票，否则会被"弱票阻塞"规则挡住（这正是设计要的行为）
+        # the seeds must be given 3 votes, otherwise the "weak-vote blocking" rule stops them (which is exactly the designed behavior)
         seeds = req["colliding_pairs"][0]
         lines.append(f"vote {seeds[0]} 3 0")
         lines.append(f"vote {seeds[1]} 0 3")

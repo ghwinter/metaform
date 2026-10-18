@@ -1,16 +1,16 @@
 """
-域 B：用 Lean 当 oracle（慢、可信、需要批处理）。
+Domain B: use Lean as the oracle (slow, trustworthy, batch-required).
 
-对象 = 11..31 的整数；隐藏概念 = "是素数"。
-谓词 = 整数的可判定特征；oracle = `lean check.lean` 一次算完全部真值表
-（并在 Lean 里用 `decide` 证明"素数 ⟺ 与 30 互素"在这个区间上成立）。
+Objects = integers 11..31; hidden concept = "is prime".
+Predicates = decidable features of the integers; oracle = `lean check.lean` computes the whole truth table at once
+(and proves in Lean, via `decide`, that "prime ⟺ coprime to 30" holds on this interval).
 
-看两件事：
-  1. 循环在慢 oracle 下不变形（状态机与域 C 完全相同）；
-  2. 单次 Lean 调用 ~2.6 s，如果按查询逐个调用就要 2.6 × 查询数次；
-     批处理一次拿全表，成本与查询数无关。
+Looks at two things:
+  1. the loop does not change shape under a slow oracle (the state machine is identical to domain C);
+  2. a single Lean call is ~2.6 s, so one call per query would cost 2.6 × the number of queries;
+     batching fetches the whole table once, at a cost independent of the query count.
 
-运行：python domain_b.py
+Run: python domain_b.py
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def find_lean() -> str:
 
 
 def lean_truth_table() -> tuple[dict[int, tuple[bool, bool]], float]:
-    """跑一次 Lean，返回 {n: (isPrime, coprime30)} 与耗时。"""
+    """Run Lean once and return {n: (isPrime, coprime30)} plus the elapsed time."""
     lean = find_lean()
     t0 = time.perf_counter()
     proc = subprocess.run(
@@ -61,7 +61,7 @@ def lean_truth_table() -> tuple[dict[int, tuple[bool, bool]], float]:
     return table, dt
 
 
-# ---------- 谓词（V0 里的三个） ----------
+# ---------- predicates (the three in V0) ----------
 
 def is_even(n: int) -> bool: return n % 2 == 0
 def div3(n: int) -> bool: return n % 3 == 0
@@ -70,7 +70,7 @@ def div7(n: int) -> bool: return n % 7 == 0
 
 V0 = {"even": is_even, "div3": div3, "div7": div7}
 
-# 诱饵：在撞车那一对（13, 25）上取相同值，因此不可能改变签名
+# decoy: takes the same value on the colliding pair (13, 25), so it cannot change the signature
 DECOYS = {"odd": lambda n: n % 2 == 1,
           "gt_11": lambda n: n > 11,
           "div_11": lambda n: n % 11 == 0}
@@ -88,7 +88,7 @@ def main() -> None:
     for name, fn in V0.items():
         e.propose(name, sum(1 << idx[o] for o in objs if fn(o)))
 
-    # 找一对 V0 签名相同、真假不同的对象
+    # find a pair of objects with the same V0 signature but different truth values
     pair = None
     for a, b in itertools.combinations(objs, 2):
         if e.signature(idx[a]) == e.signature(idx[b]) and table[a][0] != table[b][0]:
@@ -103,8 +103,8 @@ def main() -> None:
 
     proposals = 0
     queries = 0
-    # 诱饵只在"与撞车那一对取值相同"时才有意义；否则它会局部切开这一对，
-    # 看起来有进展，之后又在别处撞车（见下面的循环，状态会退回 insufficient）。
+    # A decoy only makes sense when it takes the same value on the colliding pair; otherwise it splits that pair locally,
+    # which looks like progress until a collision appears elsewhere (see the loop below, the status falls back to insufficient).
     decoys = [(k, f) for k, f in DECOYS.items() if f(pos) == f(neg)]
     pool = decoys + [("coprime30", None)]
     print(f"可用诱饵: {[k for k, _ in decoys]}")

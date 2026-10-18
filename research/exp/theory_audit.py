@@ -1,19 +1,19 @@
 """
-证伪器：用暴力枚举去撞论文里的定理，撞不倒才算没撒谎。
+Falsifier: attack the theorems in the paper with brute-force enumeration; only what survives is not lying.
 
-与 verify_claims.py 不同——那里校验"实验数字"，这里校验"定理陈述"本身：
-把 n 个对象、m 个谓词的随机形式背景穷举一遍，看有没有反例。
+Unlike verify_claims.py — that one checks "experimental numbers", this one checks the "theorem statements" themselves:
+enumerate random formal contexts with n objects and m predicates exhaustively and look for a counterexample.
 
-检查项：
-  T1  可定义 ⇔ 是等价类的并（用所有布尔函数暴力枚举）
-  T2  正反例撞在同一类 ⇔ 候选集为空
-  T5  候选集为空后，追加例子仍为空（Lean 文件里编号是 T6）
-  T4  可定义集合在样本上的不同限制数 ≤ 2^m
-  T7  每个正反例对都被某个谓词分开 ⇔ 没有类同时含正反例
-  cover  贪心选出的谓词合起来确实分开所有正反例对（工具构造的正确性）
-  ops    五类算子的调度自检：跳过冗余不改变 Φ，省钱数 = 冗余步代价；早停错、探测对（`metaform ops`）
+Checks:
+  T1  definable ⇔ is a union of equivalence classes (brute-force over all Boolean functions)
+  T2  positives and negatives colliding in the same class ⇔ the candidate set is empty
+  T5  once the candidate set is empty, adding examples keeps it empty (numbered T6 in the Lean file)
+  T4  the number of distinct restrictions of definable sets to the sample ≤ 2^m
+  T7  every positive/negative pair is separated by some predicate ⇔ no class contains both a positive and a negative
+  cover  the predicates picked greedily do separate all positive/negative pairs (sanity of the tooling)
+  ops    scheduling self-check of the five operator kinds: skipping redundancy does not change Φ, savings = cost of the redundant steps; early stopping is wrong, probing is right (`metaform ops`)
 
-运行：python theory_audit.py [--trials 300]
+Run: python theory_audit.py [--trials 300]
 """
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def classes_of(sigs: list[tuple]) -> list[list[int]]:
 
 
 def definable_by_enumeration(S: list[bool], sigs: list[tuple]) -> bool:
-    """枚举所有布尔函数 φ: sig → {0,1}，看是否存在一个与 S 完全一致。"""
+    """Enumerate every Boolean function φ: sig → {0,1} and see whether one agrees with S exactly."""
     vals = sorted(set(sigs))
     for bits in itertools.product([0, 1], repeat=len(vals)):
         phi = dict(zip(vals, bits))
@@ -53,7 +53,7 @@ def is_union_of_classes(S: list[bool], cls: list[list[int]]) -> bool:
 
 
 def candidates(cls: list[list[int]], pos: set[int], neg: set[int]) -> list[frozenset[int]]:
-    """独立枚举：所有由等价类拼成的集合里，与样本一致的那些。"""
+    """Independent enumeration: among all sets assembled from equivalence classes, those consistent with the sample."""
     out = []
     for mask in range(1 << len(cls)):
         chosen = frozenset(x for i, c in enumerate(cls) if mask >> i & 1 for x in c)
@@ -84,7 +84,7 @@ def greedy_cover(preds, pos, neg):
 
 
 def engine_status(engine: str, preds: list[list[bool]], pos: set[int], neg: set[int]) -> str:
-    """把随机背景写成场景文件，让引擎自己判一次，返回它的 status。"""
+    """Write the random context as a scenario file, let the engine decide once, and return its status."""
     n = len(preds[0]) if preds else 0
     lines = [f"objects {n}"]
     for i, p in enumerate(preds):
@@ -109,7 +109,7 @@ def engine_status(engine: str, preds: list[list[bool]], pos: set[int], neg: set[
 
 
 def ops_audit(engine: str) -> int:
-    """跑 `metaform ops`：核对自检、三个场景的代价恒等式、以及探测演示的两条断言。"""
+    """Run `metaform ops`: check the self-test, the cost identities of the three scenarios, and the two assertions of the probe demo."""
     out = subprocess.run([engine, "ops"], capture_output=True, text=True, encoding="utf-8")
     try:
         doc = json.loads(out.stdout.strip().splitlines()[-1])
@@ -126,7 +126,7 @@ def ops_audit(engine: str) -> int:
             bad += 1
             print(f"  ! 代价恒等式不成立: {s['name']}")
 
-    # 无撞车 ≠ 正确：早停必须是错的，探测之后必须是对的，而且验证版要多付代价。
+    # no collision ≠ correct: early stopping must be wrong, the probe version must be right, and the verified version must pay more.
     probe = doc.get("probe", {})
     if probe.get("early_phi") != 1:
         bad += 1
@@ -144,7 +144,7 @@ def ops_audit(engine: str) -> int:
         bad += 1
         print(f"  ! 验证版的固定数字变了（期望 5 次查询、成本 14）: {probe}")
 
-    # 两原子场景：贪心必须两步成功，固定顺序必须失败。
+    # two-atom scenario: greedy must succeed in two steps, fixed order must fail.
     compose = doc.get("compose", {})
     if compose.get("greedy") != 2.0 or compose.get("greedy_ok") != 1.0:
         bad += 1
@@ -183,28 +183,28 @@ def main() -> None:
         if definable_by_enumeration(S, sigs) != is_union_of_classes(S, cls):
             fails["T1"] += 1
 
-        # 随机样本
+        # random sample
         pos = {i for i in range(n) if S[i] and rng.random() < 0.6}
         neg = {i for i in range(n) if not S[i] and rng.random() < 0.6}
         collision = any(any(x in pos for x in c) and any(x in neg for x in c) for c in cls)
         cands = candidates(cls, pos, neg)
 
-        # T2：撞车 ⇔ 候选集为空（候选集由独立枚举得到，不是同义反复）
+        # T2: collision ⇔ candidate set is empty (the candidate set comes from independent enumeration, so this is not a tautology)
         if collision != (len(cands) == 0):
             fails["T2"] += 1
 
-        # T6：候选集空后追加例子仍空
+        # T6: once the candidate set is empty, adding examples keeps it empty
         if not cands:
             pos2 = pos | {i for i in range(n) if S[i] and i not in pos and rng.random() < 0.3}
             neg2 = neg | {i for i in range(n) if not S[i] and i not in neg and rng.random() < 0.3}
             if candidates(cls, pos2, neg2):
                 fails["T6"] += 1
 
-        # T4：样本上不同限制数 ≤ 2^(不同签名数)
+        # T4: the number of distinct restrictions on the sample ≤ 2^(number of distinct signatures)
         sample = sorted(pos | neg)
         if sample:
             restr = set()
-            # 枚举所有类并（所有可定义集合），统计其在样本上的限制
+            # enumerate all unions of classes (all definable sets) and count their restrictions to the sample
             for mask in range(1 << len(cls)):
                 chosen = {x for i, c in enumerate(cls) if mask >> i & 1 for x in c}
                 restr.add(tuple(x in chosen for x in sample))
@@ -216,7 +216,7 @@ def main() -> None:
         if separate_all(preds, pos, neg) != (not collision):
             fails["T7"] += 1
 
-        # cover：贪心选出的谓词合起来应当分开所有对
+        # cover: the predicates picked greedily should together separate all pairs
         if not collision and pos and neg:
             chosen = greedy_cover(preds, pos, neg)
             if chosen is None or not separate_all([preds[i] for i in chosen], pos, neg):

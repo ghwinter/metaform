@@ -1,21 +1,21 @@
 """
-Domain A（合成形式背景）v2：提问策略在**受限假设类**下的比较。
+Domain A (synthetic formal context) v2: comparing question policies under a **restricted hypothesis class**.
 
-v1 的发现（重要）：如果假设类是"所有布尔组合"（任意可定义集），候选集 F 是
-按签名类分解的**乘积空间**，每个未定类问一次即可，期望信息增益对所有未定类都恰好是
-1 bit —— 于是"信息增益 vs 随机"的差距只反映"随机会重复问已经确定的类"，
-是个近乎同义反复的结论。v1 的 1.62× 就是这么来的。
+The v1 finding (important): if the hypothesis class is "all Boolean combinations" (any definable set), the candidate set F is
+a **product space** decomposed by signature class, asking once per undetermined class suffices, and the expected information gain
+is exactly 1 bit for every undetermined class — so the gap between "information gain vs random" only reflects that "random repeats questions about classes already determined",
+which is an almost tautological conclusion. The 1.62× of v1 comes from exactly that.
 
-v2 因此把假设类收紧为**不超过 k 个文字合取**（真实概念通常是短公式），
-此时 F 不再是乘积空间，选题才有真正的优劣。
+v2 therefore tightens the hypothesis class to **conjunctions of at most k literals** (real concepts are usually short formulas);
+F is then no longer a product space, and question selection finally has real quality differences.
 
-实验：
-  E1  受限假设类下，四种提问策略识别目标所需提问数
-  E2  同一批实例在"任意布尔组合"下的对比（说明为什么要收紧）
-  E3  预算 = 3 次提问时的命中率（实用指标）
-  E4  词汇不足时 V0 内一致假设恒为空（T2 的经验版）
+Experiments:
+  E1  questions needed by four question policies to identify the target under the restricted hypothesis class
+  E2  the same instances under "arbitrary Boolean combinations" (showing why tightening is needed)
+  E3  hit rate when the budget is 3 questions (practical metric)
+  E4  when the vocabulary is insufficient, consistent hypotheses within V0 are always empty (empirical version of T2)
 
-运行：
+Run:
   python domain_a.py --n 300 --objects 12 --attrs 8 --k 2
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ import random
 from dataclasses import dataclass
 
 
-# ---------- 基本对象 ----------
+# ---------- basic objects ----------
 
 def sig(obj: int, attrs: list[int]) -> tuple[bool, ...]:
     return tuple(bool((obj >> a) & 1) for a in attrs)
@@ -41,7 +41,7 @@ def group_by_sig(objects: list[int], attrs: list[int]) -> list[list[int]]:
 
 
 def full_class(objects: list[int], attrs: list[int]) -> list[frozenset[int]]:
-    """任意布尔组合 = 按签名分组的任意并（乘积空间）。"""
+    """Arbitrary Boolean combinations = any union of signature groups (product space)."""
     buckets = [frozenset(g) for g in group_by_sig(objects, attrs)]
     out = [frozenset()]
     for b in buckets:
@@ -50,7 +50,7 @@ def full_class(objects: list[int], attrs: list[int]) -> list[frozenset[int]]:
 
 
 def conj_class(objects: list[int], attrs: list[int], k: int) -> list[frozenset[int]]:
-    """不超过 k 个文字的合取。文字 = (attr, 取值)，用 attr 与 want 表示。"""
+    """Conjunction of at most k literals. A literal = (attr, value), represented by attr and want."""
     lits = [(a, True) for a in attrs] + [(a, False) for a in attrs]
     out: set[frozenset[int]] = {frozenset(objects)}
     for r in range(1, k + 1):
@@ -66,13 +66,13 @@ def consistent(cands: list[frozenset[int]], pos: set[int], neg: set[int]) -> lis
     return [c for c in cands if pos <= c and not (c & neg)]
 
 
-# ---------- 实例 ----------
+# ---------- instances ----------
 
 @dataclass
 class Instance:
     objects: list[int]
     attrs: list[int]           # V0
-    extra: int                 # 不在 V0 里的区分属性
+    extra: int                 # distinguishing attribute not in V0
     target: frozenset[int]
     pos: set[int]
     neg: set[int]
@@ -108,7 +108,7 @@ def make_instance(rng: random.Random, n_obj: int, n_attr: int) -> Instance | Non
     return None
 
 
-# ---------- 选题策略 ----------
+# ---------- question policy ----------
 
 def entropy(f: list[frozenset[int]]) -> float:
     return math.log2(len(f)) if f else 0.0
@@ -134,17 +134,17 @@ def pick(policy: str, f: list[frozenset[int]], pool: list[int], rng: random.Rand
     if policy == "first":
         return pool[0]
     if policy == "rand_inf":
-        # 只排除"问了也没信息"的对象，用来隔离"避免冗余提问"与"选题优劣"
+        # exclude only objects that carry no information even when asked; isolates "avoid redundant questions" from "better vs worse selection"
         inf = [o for o in pool if gain_of(f, o) > 0]
         return rng.choice(inf) if inf else rng.choice(pool)
     return rng.choice(pool)
 
 
-# ---------- 识别 ----------
+# ---------- identification ----------
 
 def identify(inst: Instance, attrs: list[int], cands: list[frozenset[int]],
              policy: str, rng: random.Random, budget: int | None = None) -> tuple[int | None, bool]:
-    """返回 (提问数, 是否命中目标)。命中 = 所有一致候选的外延相同且等于 target。"""
+    """Return (number of questions, whether the target was hit). Hit = all consistent candidates share the same extension and it equals target."""
     f = consistent(cands, inst.pos, inst.neg)
     if not f:
         return None, False
@@ -179,11 +179,11 @@ def main() -> None:
     insts = [i for i in (make_instance(rng, args.objects, args.attrs) for _ in range(args.n)) if i]
     print(f"instances={len(insts)}  objects≈{args.objects}  attrs={args.attrs}  k={args.k}")
 
-    # E4：V0 内一致假设为空
+    # E4: consistent conjunctive hypotheses within V0 are empty
     empty = sum(1 for i in insts if not consistent(conj_class(i.objects, i.attrs, args.k), i.pos, i.neg))
     print(f"E4  V0 内一致合取假设为空: {empty}/{len(insts)} ({100*empty/len(insts):.1f}%)")
 
-    # E2：任意布尔组合（v1 的设定）
+    # E2: arbitrary Boolean combinations (the v1 setting)
     print("\nE2  假设类 = 任意布尔组合")
     for policy in ("gain", "balance", "rand_inf", "random", "first"):
         qs, hits = [], 0
@@ -196,7 +196,7 @@ def main() -> None:
         mean = sum(qs) / len(qs) if qs else float("nan")
         print(f"    {policy:8s} mean_queries={mean:5.2f}  hit={hits}/{len(insts)}")
 
-    # E1：受限合取类
+    # E1: restricted conjunctive class
     print("\nE1  假设类 = ≤%d 文字合取" % args.k)
     for policy in ("gain", "balance", "rand_inf", "random", "first"):
         qs, hits = [], 0
@@ -209,7 +209,7 @@ def main() -> None:
         mean = sum(qs) / len(qs) if qs else float("nan")
         print(f"    {policy:8s} mean_queries={mean:5.2f}  hit={hits}/{len(insts)}")
 
-    # E3：预算 = 3
+    # E3: budget = 3
     print("\nE3  预算=3 次提问的命中率（合取类）")
     for policy in ("gain", "balance", "rand_inf", "random", "first"):
         hits = 0

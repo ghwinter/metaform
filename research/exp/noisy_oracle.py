@@ -1,12 +1,12 @@
 """
-噪声 oracle 下的 T2：从逻辑判定变成统计判定。
+T2 under a noisy oracle: from a logical decision to a statistical one.
 
-oracle 每次回答以概率 ε 翻转。
-  A 假触发：词汇其实够用（S 可定义），噪声在同一等价类里造出"正负并存" → 误判 insufficient
-  B 漏检：  词汇真的不够（存在真撞车对），噪声把这对的冲突抹平 → 没触发
-  C 重复投票：同一对象问 r 次取多数，等效噪声下降，A 与 B 都该改善
+The oracle flips each answer with probability ε.
+  A false trigger: the vocabulary is actually sufficient (S is definable), and noise creates "positives and negatives coexisting" within one equivalence class → wrongly reports insufficient
+  B missed detection: the vocabulary is genuinely insufficient (a real colliding pair exists), and noise erases the conflict in that pair → no trigger
+  C repeated voting: ask the same object r times and take the majority, which lowers the effective noise; both A and B should improve
 
-运行：python noisy_oracle.py
+Run: python noisy_oracle.py
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def majority(votes: list[bool]) -> bool:
 
 
 def triggered(examples: list[tuple[int, bool]], attrs: list[int], objs: list[int]) -> bool:
-    """是否存在某个等价类，里面同时被标注了正例和反例。"""
+    """Whether some equivalence class holds both a positive and a negative label."""
     for members in group_by_sig(objs, attrs):
         labels = {lab for (o, lab) in examples if o in members}
         if True in labels and False in labels:
@@ -60,8 +60,8 @@ def main() -> None:
                 others = [a for a in range(args.attrs) if a != a_star]
                 truth = {o: bool((o >> a_star) & 1) for o in objs}
 
-                # A：S 由 V0 的两个属性异或定义，因此在 V0 下可定义；
-                # 任何"同类正负并存"都只能是噪声造成的。
+                # A: S is the XOR of two attributes in V0, so it is definable under V0;
+                # any "positives and negatives in the same class" can only come from noise.
                 truth_a = {o: bool(((o >> others[0]) & 1) ^ ((o >> others[1]) & 1)) for o in objs}
                 chosen = rng.sample(objs, args.examples)
                 labels = [
@@ -71,7 +71,7 @@ def main() -> None:
                 if triggered(labels, others, objs):
                     false_alarm += 1
 
-                # B：词汇缺 a*，样本里必须包含一对"同签名、真假不同"的对象
+                # B: the vocabulary lacks a*, so the sample must contain a pair with "the same signature, different truth"
                 pair = None
                 for x, y in itertools.combinations(objs, 2):
                     if sig(x, others) == sig(y, others) and truth[x] != truth[y]:

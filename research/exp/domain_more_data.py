@@ -1,15 +1,17 @@
 """
-T6 的经验版：给出更多例子，会不会"修复"词汇不足？
+Empirical version of T6: does giving more examples "fix" vocabulary insufficiency?
 
-直觉（也是 T6）：不会。更多例子只增加约束、不改变可用语言。
-更强的断言：更多例子会**暴露**先前没被发现的词汇不足——即 F 由非空变空的概率随例子数上升。
+Intuition (also T6): no. More examples only add constraints; they do not change the available language.
+Stronger claim: more examples **expose** vocabulary insufficiency that went unnoticed before — that is,
+the probability that F goes from non-empty to empty rises with the number of examples.
 
-做法：构造隐藏目标 S = 属性 a* 的外延，但初始词汇 V0 不含 a*。
-按 k = 1..8 抽样，每次从 S 内抽 ceil(k/2) 个正例、S 外抽 rest 个负例，
-统计"V0 内一致的合取假设为空"的比例。
+Method: build a hidden target S = the extension of attribute a*, but the initial vocabulary V0 does not contain a*.
+Sample for k = 1..8; each time draw ceil(k/2) positives from inside S and the rest as negatives from outside S,
+and measure the fraction of runs where the consistent conjunctive hypotheses within V0 are empty.
 
-若无差别的现象是"一开始就空"，那说明这些实例太容易暴露；
-按题设，有些实例在 k 小的时候是**不空**的（正负例恰好签名不同），随 k 增大才撞车。
+If the no-difference phenomenon were "empty from the start", these instances would be too easy to expose;
+per the problem statement, some instances are **non-empty** for small k (positives and negatives happen to have
+different signatures) and only collide as k grows.
 """
 from __future__ import annotations
 
@@ -36,7 +38,7 @@ def main() -> None:
             neg_pool = [o for o in i.objects if o not in i.target]
             if len(pos_pool) < n_pos or len(neg_pool) < n_neg:
                 continue
-            for _ in range(20):  # 每个实例重复抽样，降低方差
+            for _ in range(20):  # repeat sampling per instance to reduce variance
                 pos = set(rng.sample(pos_pool, n_pos))
                 neg = set(rng.sample(neg_pool, n_neg))
                 cands = conj_class(i.objects, i.attrs, 2)

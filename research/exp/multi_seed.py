@@ -1,11 +1,11 @@
 """
-多 seed 方差：给论文里的关键对比补上均值 ± 标准差。
+Multi-seed variance: add mean ± standard deviation to the key comparisons in the paper.
 
-覆盖两项：
-  A. 提问策略（gain / rand_inf / random），合取类 k=2，objects=12，attrs=8
-  B. 覆盖策略（greedy / optimal / random），3×3 对、10 个随机候选
+Covers two items:
+  A. Question policy (gain / rand_inf / random), conjunctive class k=2, objects=12, attrs=8
+  B. Cover policy (greedy / optimal / random), 3×3 pairs, 10 random candidates
 
-运行：python multi_seed.py --seeds 1 2 3 4 5
+Run: python multi_seed.py --seeds 1 2 3 4 5
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import statistics
 from domain_a import conj_class, identify, make_instance
 
 
-# ---------- A：提问策略 ----------
+# ---------- A: question policy ----------
 
 def run_policy(seed: int, policy: str, n: int, objects: int, attrs: int, k: int) -> float:
     rng = random.Random(seed)
@@ -31,7 +31,7 @@ def run_policy(seed: int, policy: str, n: int, objects: int, attrs: int, k: int)
     return statistics.mean(qs) if qs else float("nan")
 
 
-# ---------- B：覆盖策略 ----------
+# ---------- B: covering policy ----------
 
 def greedy_size(cover_sets, universe):
     rem = set(universe)
