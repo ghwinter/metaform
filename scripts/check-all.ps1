@@ -19,7 +19,7 @@
     Expected Rust pass count (default 63).
 
 .PARAMETER Python
-    Python interpreter path (this machine has no usable `python`; defaults to the runtime bundled with the harness).
+    Python interpreter path. Defaults to $env:METAFORM_PYTHON, then to `python` on PATH.
 #>
 [CmdletBinding()]
 param(
@@ -28,12 +28,28 @@ param(
     [switch]$SkipAlign,
     [switch]$SkipTheory,
     [int]$RustExpected = 63,
-    [string]$Python = 'C:\Users\xzxxn\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe'
+    [string]$Python = $env:METAFORM_PYTHON
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
+$local = Join-Path $PSScriptRoot 'local.ps1'
+if (Test-Path $local) { . $local }
+if (-not $Python) { $Python = $env:METAFORM_PYTHON }
 $results = @()
+
+if (-not $Python) {
+    $cmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($cmd) { $Python = $cmd.Source }
+}
+$ok = $false
+if ($Python) {
+    try { & $Python -c "import sys" *> $null; $ok = ($LASTEXITCODE -eq 0) } catch { $ok = $false }
+}
+if (-not $ok) {
+    Write-Host '[check-all] no usable Python: set METAFORM_PYTHON or put python on PATH'
+    exit 2
+}
 
 if (-not $SkipLean) {
     & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'check-lean.ps1') | Out-Host

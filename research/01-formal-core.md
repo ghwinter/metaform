@@ -136,10 +136,10 @@ Three key points:
 ### 4.1 Engineering choices (important, saves money)
 
 Two **already compiled** copies of Mathlib exist on this machine (6.5 GB each, commit `56a00585`, Lean `v4.35.0`).
-**Do not create a new standalone project** — that would mean downloading 6.5 GB again. Add a library to the existing project instead:
+**Do not create a new standalone project** — that would mean downloading 6.5 GB again. Add a library to an existing project instead, and point `METAFORM_LEAN_PROJECT` at it:
 
 ```
-D:\GitHub\workspace\ReasearchLean\
+<existing Lake project>\
   lakefile.toml          # already requires mathlib rev v4.35.0
   ReasearchLean/
   Research/
@@ -235,7 +235,7 @@ How to compile (important, avoid the pitfall):
 
 1. **Do not** create a new Lake project under `research/lean` to run it. A new project makes Lake re-materialize dependencies such as batteries / aesop / Qq / proofwidgets, and these packages **have no precompiled artifacts**; mathlib's `cache get` hook is broken on this machine (see `.local/machine-facts.md`),
    so `lake env lean` immediately reports `unknown module prefix 'Batteries'`. That is exactly how it failed in practice.
-2. The workable approach: keep the source in `research/lean/` (it goes into the paper repository), and compile against the environment of `D:\GitHub\workspace\ReasearchLean`
+2. The workable approach: keep the source in `research/lean/` (it goes into the paper repository), and compile against the environment of an existing Lake project that can load Mathlib (`METAFORM_LEAN_PROJECT`)
    — dependencies there are already compiled, and mathlib goes through `path` to the single global copy.
    `scripts/check-lean.ps1` wraps this copy + compile process:
 

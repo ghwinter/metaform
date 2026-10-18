@@ -904,7 +904,7 @@ Rust 测试 17 → **21**（新增 4 条：initialize、tools/list、未知工�
 解压即得 `metaform.exe` + `SKILL.md` + `README.md` + `VERSION.txt`。解压后实测：
 
 ```
-$ metaform.exe ledger cases --project D:\GitHub\metaform
+$ metaform.exe ledger cases --project .
 {"cases":[7,11]}
 ```
 
@@ -942,8 +942,8 @@ Rust 测试 26 → **29**（新增 3 条：完美候选、窄候选、台账违�
 ## 5 复现
 
 ```powershell
-$py = 'C:\Users\xzxxn\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe'
-cd D:\GitHub\metaform\research\exp
+$py = $env:METAFORM_PYTHON
+cd research/exp
 & $py domain_a.py --n 300 --objects 12 --attrs 8 --k 2   # E1–E4，约 4 s
 & $py domain_prior.py                                     # E5，约 6 s
 ```
@@ -953,3 +953,5 @@ cd D:\GitHub\metaform\research\exp
 1. **成本敏感的停止规则**：单位成本 c_obj ≪ c_pred，比较三种停止规则的总成本-恢复率曲线。
 2. **谓词提议效率**：随机提议 vs 差异驱动提议（用正反例撞车处的属性差异），看需要几次提议才让 F 非空。
 3. 域 B（Lean 判定）与域 C（测试判定）上重复 1、2，确认结论不是合成域的产物。
+
+

@@ -3,7 +3,7 @@
     Extract PDFs under .library into plain text for reading and synthesis.
 
 .DESCRIPTION
-    Uses the pdftotext bundled with MiKTeX (24.04.0). PDFs emit many font warnings, so all of
+    Uses pdftotext (from MiKTeX or poppler) found on PATH. PDFs emit many font warnings, so all of
     them are swallowed; only the exit code and the output volume are kept, written to text-log.tsv.
 
     The output layout mirrors .library:
@@ -11,7 +11,7 @@
             -> .library/_text/02_problem_finding/foo.txt
 
 .PARAMETER Library
-    Library root, default D:\GitHub\metaform\.library
+    Library root, default .library at the repository root.
 
 .PARAMETER Only
     Only process files whose path contains this substring (for example 03a_).
@@ -33,8 +33,7 @@ $LogPath = Join-Path $OutRoot '_index\text-log.tsv'
 
 $pdftotext = (Get-Command pdftotext -ErrorAction SilentlyContinue).Source
 if (-not $pdftotext) {
-    $cand = 'D:\Programs\MiKTeX\miktex\bin\x64\pdftotext.exe'
-    if (Test-Path $cand) { $pdftotext = $cand } else { throw 'pdftotext.exe not found (MiKTeX 通常自带)' }
+    throw 'pdftotext.exe not found: put MiKTeX (or poppler) on PATH'
 }
 
 New-Item -ItemType Directory -Force -Path (Join-Path $OutRoot '_index') | Out-Null

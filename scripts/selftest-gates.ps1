@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Prove the four gates are alive: create failures on purpose and confirm they really turn red.
+    Prove the gates are alive: create failures on purpose and confirm they really turn red.
 
 .DESCRIPTION
     "The check passed" has two possible meanings: there really is no problem, or nothing is being
@@ -9,20 +9,37 @@
       lean    create a file with an unused variable -> expect exit code 2 (warning)
       rust    set the expected pass count to 999    -> expect exit code 1
       claims  change the expected value of gain to 2.5 -> expect exit code 1
-      ops     change probe.early_correct to true    -> expect exit code 1
+      cost    break one measured cost point        -> expect exit code 1
+      ops no. change one expected ops number        -> expect exit code 1
+      probe   change probe.early_correct to true    -> expect exit code 1
 
-    Only when all four fail as expected are the gates "alive".
+    Only when every gate fails as expected are the gates "alive".
 
 .PARAMETER Python
-    Python interpreter path.
+    Python interpreter path (defaults to $env:METAFORM_PYTHON).
 #>
 [CmdletBinding()]
 param(
-    [string]$Python = 'C:\Users\xzxxn\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe'
+    [string]$Python = $env:METAFORM_PYTHON
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
+$local = Join-Path $PSScriptRoot 'local.ps1'
+if (Test-Path $local) { . $local }
+if (-not $Python) { $Python = $env:METAFORM_PYTHON }
+if (-not $Python) {
+    $cmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($cmd) { $Python = $cmd.Source }
+}
+$ok = $false
+if ($Python) {
+    try { & $Python -c "import sys" *> $null; $ok = ($LASTEXITCODE -eq 0) } catch { $ok = $false }
+}
+if (-not $ok) {
+    Write-Host '[selftest-gates] no usable Python: set METAFORM_PYTHON (see scripts/local.example.ps1)'
+    exit 2
+}
 $results = @()
 
 # --- 1. Lean: force a warning ---

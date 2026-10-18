@@ -136,10 +136,10 @@ V ⊆ V'  ⟹  Indist V' ⊆ Indist V
 ### 4.1 工程选择（重要，省钱）
 
 本机已有两处**已编译**的 Mathlib（各 6.5 GB，commit `56a00585`，Lean `v4.35.0`）。
-**不要新建独立工程**——那要重新下 6.5 GB。直接在现成工程里加一个库：
+**不要新建独立工程**——那要重新下 6.5 GB。直接在现成工程里加一个库，并把 `METAFORM_LEAN_PROJECT` 指过去：
 
 ```
-D:\GitHub\workspace\ReasearchLean\
+<已有的 Lake 工程>\
   lakefile.toml          # 已 require mathlib rev v4.35.0
   ReasearchLean/
   Research/
@@ -237,7 +237,7 @@ end QueryDriven
    batteries / aesop / Qq / proofwidgets 等依赖，而这些包**没有预编译产物**；
    mathlib 的 `cache get` 钩子在本机失效（见 `.local/machine-facts.md`），
    于是 `lake env lean` 直接报 `unknown module prefix 'Batteries'`。实测就是这么挂的。
-2. 可用做法：源码留在 `research/lean/`（进论文仓库），编译借 `D:\GitHub\workspace\ReasearchLean`
+2. 可用做法：源码留在 `research/lean/`（进论文仓库），编译借一个能加载 Mathlib 的现成 Lake 工程（`METAFORM_LEAN_PROJECT`）
    的环境——那里依赖已编译好，且 mathlib 走 `path` 指向全局唯一副本。
    `scripts/check-lean.ps1` 把这个复制+编译的过程封好了：
 

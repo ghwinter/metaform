@@ -86,11 +86,12 @@ python research/exp/proposer.py --case domain_c --responses research/exp/respons
     --pool-out pool.txt --scenario-out case.demo                          # 生成 metaform 场景与候选池
 ```
 
-Windows 上 `python` 是 Store 桩，用 harness 自带解释器：
+脚本从 `METAFORM_PYTHON`（或 PATH 上的 `python`）取解释器。本机的 `python` 是 Microsoft Store
+桩，所以每个 shell 设一次：
 
 ```powershell
-$py = 'C:\Users\xzxxn\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe'
-& $py research\exp\domain_a.py
+$env:METAFORM_PYTHON = 'C:\path\to\python.exe'
+& $env:METAFORM_PYTHON research\exp\domain_a.py
 ```
 
 ## 结论（可核对）

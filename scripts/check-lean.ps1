@@ -3,14 +3,10 @@
     Compile the Lean formalization under research/lean and keep the output as evidence.
 
 .DESCRIPTION
-    This machine has only one copy of mathlib (D:\GitHub\lean\mathlib), but the project that can
-    actually load it is D:\GitHub\workspace\ReasearchLean -- the batteries/aesop/Qq and other
-    dependencies under its .lake\packages are already compiled. Creating a new project inside
-    metaform makes Lake re-materialize those dependencies, and they have no prebuilt artifacts
-    (the mathlib cache hook does not work on this machine).
-
-    So: the sources stay in research/lean (part of the paper repository), and compilation borrows
-    the ReasearchLean environment.
+    The Lean sources stay in research/lean (part of the paper repository) and are compiled by
+    borrowing the environment of an existing Lake project that can already load Mathlib. Point
+    METAFORM_LEAN_PROJECT (or the -Project parameter) at such a project; a fresh project inside
+    this repository would have to re-materialize Mathlib and its dependencies.
 
     This script writes all of stdout+stderr to `research/lean/last-check.log` and counts warnings.
     The paper appendix claims "no sorry and no warnings"; that is now reproducible:
@@ -25,19 +21,25 @@
     Source file name (under research/lean).
 
 .PARAMETER Project
-    Lake project whose environment is borrowed.
+    Lake project whose environment is borrowed (defaults to $env:METAFORM_LEAN_PROJECT).
 #>
 [CmdletBinding()]
 param(
     [string]$File = 'QueryDriven.lean',
     [string]$SourceDir = (Join-Path $PSScriptRoot '..\research\lean'),
-    [string]$Project = 'D:\GitHub\workspace\ReasearchLean',
+    [string]$Project = $env:METAFORM_LEAN_PROJECT,
     [string]$LogPath
 )
 
 $ErrorActionPreference = 'Stop'
+$local = Join-Path $PSScriptRoot 'local.ps1'
+if (Test-Path $local) { . $local }
+if (-not $Project) { $Project = $env:METAFORM_LEAN_PROJECT }
+if (-not $Project -or -not (Test-Path $Project)) {
+    Write-Host '[check-lean] no Lake project: set METAFORM_LEAN_PROJECT (see scripts/local.example.ps1)'
+    exit 1
+}
 $env:MATHLIB_NO_CACHE_ON_UPDATE = '1'
-$env:MATHLIB_CACHE_DIR = 'D:\GitHub\lean\.cache'
 
 $src = Join-Path $SourceDir $File
 if (-not (Test-Path $src)) {

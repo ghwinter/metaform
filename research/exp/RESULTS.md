@@ -901,7 +901,7 @@ Release: `scripts/release.ps1` → `dist/metaform-0.2.0-win64.zip` (4 entries, 2
 unzip it and you get `metaform.exe` + `SKILL.md` + `README.md` + `VERSION.txt`. Measured after unzipping:
 
 ```
-$ metaform.exe ledger cases --project D:\GitHub\metaform
+$ metaform.exe ledger cases --project .
 {"cases":[7,11]}
 ```
 
@@ -939,8 +939,8 @@ Rust tests 26 → **29** (3 new: perfect candidate, narrow candidate, ledger vio
 ## 5 Reproduction
 
 ```powershell
-$py = 'C:\Users\xzxxn\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe'
-cd D:\GitHub\metaform\research\exp
+$py = $env:METAFORM_PYTHON
+cd research/exp
 & $py domain_a.py --n 300 --objects 12 --attrs 8 --k 2   # E1–E4, about 4 s
 & $py domain_prior.py                                     # E5, about 6 s
 ```
@@ -950,3 +950,5 @@ cd D:\GitHub\metaform\research\exp
 1. **Cost-sensitive stopping rules**: with unit costs c_obj ≪ c_pred, compare the total-cost/recovery-rate curves of the three stopping rules.
 2. **Predicate proposal efficiency**: random proposals vs difference-driven proposals (using attribute differences at the collision between positive and negative examples), to see how many proposals are needed before F becomes non-empty.
 3. Repeat 1 and 2 on domain B (Lean-decided) and domain C (test-decided) to confirm the conclusions are not artifacts of the synthetic domain.
+
+

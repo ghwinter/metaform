@@ -30,3 +30,6 @@ HANDOFF.md
 # Python cache.
 __pycache__/
 *.pyc
+
+# Machine-local configuration (see scripts/local.example.ps1).
+scripts/local.ps1

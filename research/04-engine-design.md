@@ -95,10 +95,11 @@ Separation of responsibilities is this paper's structural principle: **the propo
 ## 6 Reproduction
 
 ```powershell
-cd D:\GitHub\metaform\engine
+cd engine
 cargo test                      # 6 items, covering T2/T4/T6
 pwsh -File ..\scripts\check-lean.ps1   # 6 theorems
 cd ..\research\exp
 & $py domain_a.py --n 300 --objects 12 --attrs 8 --k 2
 & $py domain_cost.py
 ```
+

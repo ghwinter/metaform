@@ -87,11 +87,12 @@ python research/exp/proposer.py --case domain_c --responses research/exp/respons
     --pool-out pool.txt --scenario-out case.demo                          # generate a metaform scenario and candidate pool
 ```
 
-On Windows `python` is a Store stub; use the interpreter bundled with the harness:
+The scripts take the interpreter from `METAFORM_PYTHON` (or from `python` on PATH). On this
+machine `python` is a Microsoft Store stub, so set the variable once per shell:
 
 ```powershell
-$py = 'C:\Users\xzxxn\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe'
-& $py research\exp\domain_a.py
+$env:METAFORM_PYTHON = 'C:\path\to\python.exe'
+& $env:METAFORM_PYTHON research\exp\domain_a.py
 ```
 
 ## Conclusions (checkable)
