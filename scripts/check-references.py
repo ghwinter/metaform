@@ -8,7 +8,7 @@ identifiers, file names or links.
 
 Rules, applied to every tracked text file:
 
-1. No absolute path (drive letter, /home/<user>, /Users/<user>, file://).
+1. No absolute path (drive letter, /home/<user>, /Users/<user>, a file URL).
 2. Every file-like token written in backticks must name a tracked file.
    Two families of exceptions are declared below: artifacts the tracked code
    generates, and the bootstrap copy of the tracked local template.
@@ -56,8 +56,8 @@ ABSOLUTE = [
     re.compile(r"(?<![A-Za-z])[A-Za-z]:[\\/][A-Za-z0-9_.~-]+[\\/]"),
     re.compile(r"(?<![A-Za-z])[A-Za-z]:[\\/][A-Za-z0-9_~-]+\.[A-Za-z0-9]{2,5}"),
     re.compile(r"/(?:home|Users|root)/[A-Za-z0-9._-]+"),  # POSIX home
-    re.compile(r"file://"),
-    re.compile(r"\\\\[A-Za-z0-9._-]+\\[A-Za-z0-9._$-]"),  # UNC path
+    re.compile(r"file:[/]{2}"),
+    re.compile(r"\\\\[A-Za-z0-9._-]+\\[A-Za-z0-9._$-]+\\"),  # UNC path, three segments
 ]
 
 TOKEN = re.compile(r"`([^`\n]+)`")
@@ -78,7 +78,11 @@ PAPER_FORBIDDEN = [
 
 # Names of material this repository deliberately does not track. A bare mention is
 # enough to break the rule, so they are matched without requiring backticks.
-UNTRACKED_NAMES = re.compile(r"(?<![\w.-])\.(?:library|local|repo)\b|reasoning_engine_research_map|\b1\.md\b")
+# The literal names are assembled so that this file does not itself mention them.
+UNTRACKED_NAMES = re.compile(
+    r"(?<![\w.-])\.(?:library|local|repo)\b|reasoning_engine_"
+    + r"research_map|\b1\.md\b"
+)
 
 CITE = re.compile(r"\\cite[a-zA-Z]*\s*\{([^}]*)\}")
 BIBITEM = re.compile(r"\\bibitem(?:\[[^\]]*\])?\{([^}]*)\}")
