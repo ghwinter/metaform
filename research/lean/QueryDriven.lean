@@ -1,20 +1,20 @@
 /-
-查询驱动的表征变更 —— 核心形式化
-对应笔记：research/01-formal-core.md
+Query-driven representational change — core formalization
+Corresponding note: research/01-formal-core.md
 
-T1 可定义性的等价刻画
-T2 必要性判据（主定理）
-T3 增长单调 / 单谓词可分
-T4 容量：可定义集在样本上的限制由取到的签名决定
-T5 查询下界
-T6 样本变大不会修复词汇不足
-T7 覆盖判据
-T8 生成单调 / T9 闭包幂等 / T10 证据唯一严格减小 / T11 重组不破撞车
+T1 Equivalence characterization of definability
+T2 Necessity criterion (main theorem)
+T3 Growth monotonicity / single-predicate separability
+T4 Capacity: the restriction of definable sets to a sample is determined by the signatures realized
+T5 Query lower bound
+T6 A larger sample does not repair insufficient vocabulary
+T7 Covering criterion
+T8 Generation monotonicity / T9 Closure idempotence / T10 Evidence is the unique strict decrease / T11 Recombination does not break collisions
 
-编号沿用本文件；论文里 T5 与 T6 对调（定理 5 = 更多数据不修复，定理 6 = 查询下界），
-附录表按 Lean 名称对应，不按编号。
+Numbering follows this file; in the paper T5 and T6 are swapped (Theorem 5 = more data does not repair, Theorem 6 = query lower bound),
+and the appendix table is indexed by Lean name, not by number.
 
-只导入需要的模块，不 import Mathlib，以缩短冷加载时间。
+Import only the modules needed, not Mathlib, to shorten cold-load time.
 -/
 import Mathlib.Data.Finset.Card
 import Mathlib.Data.Finset.Powerset
@@ -30,33 +30,33 @@ namespace QueryDriven
 
 variable {X : Type*} [Fintype X] [DecidableEq X]
 
-/-- 词汇：有限个 Bool 值谓词。 -/
+/-- Vocabulary: a finite set of Bool-valued predicates. -/
 abbrev Vocab (X : Type*) := Finset (X → Bool)
 
-/-- 签名：把"对象在词汇中各谓词上的取值"打包成一个函数。 -/
+/-- Signature: packages "the object's values on each predicate in the vocabulary" into a single function. -/
 def sig (V : Vocab X) (x : X) : (X → Bool) → Bool :=
   fun v => if v ∈ V then v x else false
 
-/-- 在当前词汇下不可分辨。 -/
+/-- Indistinguishable under the current vocabulary. -/
 def Indist (V : Vocab X) (x y : X) : Prop := sig V x = sig V y
 
-/-- 签名在词汇内的谓词上取原值。 -/
+/-- On predicates inside the vocabulary, the signature takes the original value. -/
 theorem sig_apply_of_mem {V : Vocab X} {v : X → Bool} (hv : v ∈ V) (x : X) :
     sig V x v = v x := by
   simp [sig, hv]
 
-/-- 签名在词汇外的谓词上恒为 `false`。 -/
+/-- On predicates outside the vocabulary, the signature is always `false`. -/
 theorem sig_apply_of_not_mem {V : Vocab X} {v : X → Bool} (hv : v ∉ V) (x : X) :
     sig V x v = false := by
   simp [sig, hv]
 
-/-- `S` 在 `V` 下可定义：存在布尔函数 `φ`，使 `x ∈ S ↔ φ (sig V x) = true`。 -/
+/-- `S` is definable under `V`: there is a Boolean function `φ` such that `x ∈ S ↔ φ (sig V x) = true`. -/
 def Definable (V : Vocab X) (S : Set X) : Prop :=
   ∃ φ : ((X → Bool) → Bool) → Bool, ∀ x : X, (x ∈ S ↔ φ (sig V x) = true)
 
-/-! ## T1 可定义性 = 等价类的并 -/
+/-! ## T1 Definability = union of equivalence classes -/
 
-/-- **T1**：`S` 可定义，当且仅当它在每个不可分辨类上取常值。 -/
+/-- **T1**: `S` is definable if and only if it is constant on every indistinguishability class. -/
 theorem definable_iff (V : Vocab X) (S : Set X) :
     Definable V S ↔ ∀ x y : X, Indist V x y → (x ∈ S ↔ y ∈ S) := by
   classical
@@ -73,12 +73,13 @@ theorem definable_iff (V : Vocab X) (S : Set X) :
       obtain ⟨y, hy, hyS⟩ := of_decide_eq_true hx
       exact (h y x hy).mp hyS
 
-/-! ## T2 必要性判据 -/
+/-! ## T2 Necessity criterion -/
 
-/-- **T2（主定理）**：若正例与反例在当前词汇下不可分辨，
-则不存在既与样本一致、又在当前词汇下可定义的概念。
+/-- **T2 (main theorem)**: if a positive and a negative example are indistinguishable
+under the current vocabulary, then no concept exists that is both consistent with the sample
+and definable under the current vocabulary.
 
-推论：在 `V` 内增加搜索预算不可能找到与样本一致的假设。 -/
+Corollary: increasing the search budget within `V` cannot find a hypothesis consistent with the sample. -/
 theorem no_consistent_concept (V : Vocab X) {Epos Eneg : Set X} {x y : X}
     (hx : x ∈ Epos) (hy : y ∈ Eneg) (h : Indist V x y) :
     ¬ ∃ S : Set X, Definable V S ∧ Epos ⊆ S ∧ S ∩ Eneg = ∅ := by
@@ -89,9 +90,9 @@ theorem no_consistent_concept (V : Vocab X) {Epos Eneg : Set X} {x y : X}
   rw [hdis] at hmem
   exact Set.notMem_empty y hmem
 
-/-! ## T3 词汇增长的单调性 -/
+/-! ## T3 Monotonicity under vocabulary growth -/
 
-/-- **T3**：词汇变大，不可分辨关系变细（反向包含）。 -/
+/-- **T3**: enlarging the vocabulary refines indistinguishability (reverse inclusion). -/
 theorem indist_mono {V V' : Vocab X} (h : V ⊆ V') {x y : X} (hxy : Indist V' x y) :
     Indist V x y := by
   funext v
@@ -102,7 +103,7 @@ theorem indist_mono {V V' : Vocab X} (h : V ⊆ V') {x y : X} (hxy : Indist V' x
     rwa [sig_apply_of_mem hv', sig_apply_of_mem hv'] at hcongr
   · rw [sig_apply_of_not_mem hv, sig_apply_of_not_mem hv]
 
-/-- **T3 推论**：若 `p` 在 `x, y` 上取值不同，加入 `p` 后二者不再不可分辨。 -/
+/-- **T3 corollary**: if `p` takes different values on `x, y`, then after adding `p` the two are no longer indistinguishable. -/
 theorem indist_insert (V : Vocab X) {p : X → Bool} {x y : X} (hp : p x ≠ p y) :
     ¬ Indist (insert p V) x y := by
   intro h
@@ -111,13 +112,13 @@ theorem indist_insert (V : Vocab X) {p : X → Bool} {x y : X} (hp : p x ≠ p y
     simpa [sig] using hcongr
   exact hp h1
 
-/-! ## T4 容量 -/
+/-! ## T4 Capacity -/
 
-/-- **T4（弱形式）**：两个可定义集若在样本 `E` 上取到完全相同的签名集合，
-则它们在 `E` 上处处一致。
+/-- **T4 (weak form)**: if two definable sets realize exactly the same set of signatures on the sample `E`,
+then they agree everywhere on `E`.
 
-由此，`E` 上的可定义限制至多 `2 ^ #(E.image (sig V))` 个：
-表达容量只由"样本上实现了多少种签名"决定。 -/
+Hence there are at most `2 ^ #(E.image (sig V))` definable restrictions on `E`:
+expressive capacity is determined solely by "how many signatures are realized on the sample". -/
 theorem capacity_bound (V : Vocab X) (E : Finset X) (S T : Set X)
     (hS : Definable V S) (hT : Definable V T)
     (h : ∀ s : (X → Bool) → Bool,
@@ -135,10 +136,10 @@ theorem capacity_bound (V : Vocab X) (E : Finset X) (S T : Set X)
   rw [key S hS x hx, key T hT x hx]
   exact h (sig V x)
 
-/-! ## T5 查询下界 -/
+/-! ## T5 Query lower bound -/
 
-/-- **T5**：若 `k` 次成员查询的答案能唯一确定候选内涵族 `F` 中的元素，
-则 `#F ≤ 2^k`。 -/
+/-- **T5**: if the answers to `k` membership queries uniquely determine an element of the candidate intension family `F`,
+then `#F ≤ 2^k`. -/
 theorem query_lower_bound {F : Finset (Finset X)} {k : ℕ}
     (ans : Finset X → Fin k → Bool)
     (hinj : ∀ S ∈ F, ∀ S' ∈ F, (∀ i, ans S i = ans S' i) → S = S') :
@@ -154,12 +155,12 @@ theorem query_lower_bound {F : Finset (Finset X)} {k : ℕ}
     simp [Fintype.card_bool]
   exact hmain.trans_eq hcard
 
-/-! ## T6 样本变大不会修复词汇不足 -/
+/-! ## T6 Enlarging the sample does not repair insufficient vocabulary -/
 
-/-- **T6**：词汇不足不会被"给更多例子"修复。
+/-- **T6**: insufficient vocabulary is not repaired by "giving more examples".
 
-若在样本 `(E⁺, E⁻)` 上已无一致概念，那么在任何更大的样本上也无一致概念。
-直觉：更多例子只增加约束，不改变可用语言。 -/
+If there is no consistent concept on the sample `(E⁺, E⁻)`, then there is none on any larger sample.
+Intuition: more examples only add constraints; they do not change the available language. -/
 theorem no_consistent_concept_mono (V : Vocab X) {Epos Eneg Epos' Eneg' : Set X}
     (hp : Epos ⊆ Epos') (hn : Eneg ⊆ Eneg')
     (h : ¬ ∃ S : Set X, Definable V S ∧ Epos ⊆ S ∧ S ∩ Eneg = ∅) :
@@ -175,12 +176,12 @@ theorem no_consistent_concept_mono (V : Vocab X) {Epos Eneg Epos' Eneg' : Set X}
   · intro hx
     exact absurd hx (by simp)
 
-/-! ## T7 覆盖判据：逐对可分 ⇒ 无撞车 -/
+/-! ## T7 Covering criterion: pairwise separation ⇒ no collision -/
 
-/-- **T7**：若每个正例/反例对都被词汇里某个谓词分开，则不存在撞车。
+/-- **T7**: if every positive/negative pair is separated by some predicate in the vocabulary, then no collision exists.
 
-这是"提议谓词 = 对撞车对做集合覆盖"的形式化依据：一份提议只要能覆盖
-全部 `(x,y)` 对，就足以让状态脱离 `insufficient`。 -/
+This is the formal justification for "a proposed predicate = a set cover of the colliding pairs": a proposal that covers
+all `(x,y)` pairs suffices to move the state out of `insufficient`. -/
 theorem no_collision_of_separated (V : Vocab X) {Epos Eneg : Set X}
     (h : ∀ x ∈ Epos, ∀ y ∈ Eneg, ∃ p ∈ V, p x ≠ p y) :
     ¬ ∃ x ∈ Epos, ∃ y ∈ Eneg, Indist V x y := by
@@ -190,13 +191,13 @@ theorem no_collision_of_separated (V : Vocab X) {Epos Eneg : Set X}
   rw [sig_apply_of_mem hpV, sig_apply_of_mem hpV] at h1
   exact hne h1
 
-/-! ## T4 强形式：限制的个数至多 `2^m` -/
+/-! ## T4 Strong form: at most `2^m` restrictions -/
 
-/-- **T4（计数形式）**：若每个 `T ∈ R` 都是某个 `V`-可定义集与 `E` 的交，则
-`#R ≤ 2 ^ #(E.image (sig V))`。
+/-- **T4 (counting form)**: if every `T ∈ R` is the intersection of some `V`-definable set with `E`, then
+`#R ≤ 2 ^ #(E.image (sig V))`.
 
-证明：把 `T` 映到它在 `E` 上取到的签名集合，这个映射落在签名集合的幂集里；
-由弱形式 `capacity_bound`，它在 `R` 上单射。 -/
+Proof: map `T` to the set of signatures it realizes on `E`; this map lands in the powerset of the signature set
+and, by the weak form `capacity_bound`, it is injective on `R`. -/
 theorem capacity_bound_strong (V : Vocab X) (E : Finset X) (R : Finset (Finset X))
     (hR : ∀ T ∈ R, ∃ S : Set X, Definable V S ∧ (↑T : Set X) = (↑E : Set X) ∩ S) :
     R.card ≤ 2 ^ (E.image (sig V)).card := by
@@ -256,33 +257,33 @@ theorem capacity_bound_strong (V : Vocab X) (E : Finset X) (R : Finset (Finset X
         Finset.card_le_card_of_injOn f hmem hinj
     _ = 2 ^ (E.image (sig V)).card := Finset.card_powerset _
 
-/-! ## 多算子：状态、势、以及每一类算子能改变什么
+/-! ## Multiple operators: state, potential, and what each operator class can change
 
-状态 `(H, V, E, B)` 里只留下与形式化相关的一半：候选族 `H`、证据 `E=(E⁺,E⁻)`。
-`Phi` 是"活着的假设"个数：它把「词汇不足」(`Phi = 0`)、
-「未决」(`Phi ≥ 2`)、「已决」(`Phi = 1`) 统一成同一个可数的量。
-下面四条定理说：生成只让它变大，闭包是幂等的，证据是唯一能严格减小它的步骤，
-而词汇内部的布尔重组打不破撞车。 -/
+Of the state `(H, V, E, B)` only the half relevant to the formalization is kept: the candidate family `H` and the evidence `E=(E⁺,E⁻)`.
+`Phi` is the number of "live hypotheses": it unifies "insufficient vocabulary" (`Phi = 0`),
+"undecided" (`Phi ≥ 2`), and "decided" (`Phi = 1`) into a single countable quantity.
+The four theorems below say: generation only increases it, closure is idempotent, evidence is the only step that strictly decreases it,
+and Boolean recombination inside the vocabulary cannot break collisions. -/
 
-/-- 候选内涵族：有限个候选集合。 -/
+/-- Candidate intension family: a finite set of candidate sets. -/
 abbrev Hyps (X : Type*) := Finset (Finset X)
 
-/-- 与证据一致：正例全包含，反例全排除。 -/
+/-- Consistent with the evidence: all positives included, all negatives excluded. -/
 def Consistent (S Ep En : Finset X) : Prop := Ep ⊆ S ∧ S ∩ En = ∅
 
-/-- 活着的假设：与当前证据一致的候选。 -/
+/-- Live hypotheses: the candidates consistent with the current evidence. -/
 noncomputable def live (H : Hyps X) (Ep En : Finset X) : Hyps X := by
   classical
   exact H.filter (fun S => Consistent S Ep En)
 
-/-- 势：活着的假设个数。 -/
+/-- Potential: the number of live hypotheses. -/
 noncomputable def Phi (H : Hyps X) (Ep En : Finset X) : ℕ := (live H Ep En).card
 
 variable {Ep En : Finset X}
 
-/-! ### T8 生成单调：加候选不会让状态更确定 -/
+/-! ### T8 Generation monotonicity: adding candidates does not make the state more determined -/
 
-/-- **T8**：候选族变大，势不减。归纳、溯因、类比都只写在 `H` 上，因此都不减小势。 -/
+/-- **T8**: enlarging the candidate family does not decrease the potential. Induction, abduction, and analogy all act only on `H`, so none of them decreases the potential. -/
 theorem phi_mono {H H' : Hyps X} (h : H ⊆ H') :
     Phi H Ep En ≤ Phi H' Ep En := by
   unfold Phi
@@ -291,9 +292,9 @@ theorem phi_mono {H H' : Hyps X} (h : H ⊆ H') :
   simp only [live, Finset.mem_filter] at hS ⊢
   exact ⟨h hS.1, hS.2⟩
 
-/-! ### T9 闭包幂等：在同一份证据上再检查一遍什么也不删 -/
+/-! ### T9 Closure idempotence: re-checking against the same evidence deletes nothing -/
 
-/-- **T9**：把候选族过滤到与证据一致之后，再过滤一次不改变势。 -/
+/-- **T9**: after filtering the candidate family to those consistent with the evidence, filtering again does not change the potential. -/
 theorem phi_closure_idem (H : Hyps X) :
     Phi (live H Ep En) Ep En = Phi H Ep En := by
   unfold Phi
@@ -306,10 +307,10 @@ theorem phi_closure_idem (H : Hyps X) :
   · intro hS
     exact ⟨hS, hS.2⟩
 
-/-! ### T10 证据是唯一严格减小的步骤 -/
+/-! ### T10 Evidence is the only strictly decreasing step -/
 
-/-- **T10**：若两个活假设在 `x` 上取值不同，那么问 `x` 并得到"属于"之后，
-势严格下降。这是"取证"这一类算子唯一能推进状态的地方。 -/
+/-- **T10**: if two live hypotheses differ on `x`, then after querying `x` and getting "belongs", the potential strictly decreases.
+This is the only place where the "evidence gathering" operator class can advance the state. -/
 theorem phi_evidence_lt {H : Hyps X} {h1 h2 : Finset X} {x : X}
     (_h1H : h1 ∈ live H Ep En) (h2H : h2 ∈ live H Ep En)
     (_hx1 : x ∈ h1) (hx2 : x ∉ h2) :
@@ -326,15 +327,15 @@ theorem phi_evidence_lt {H : Hyps X} {h1 h2 : Finset X} {x : X}
     exact hx2 (h2'.2.1 (Finset.mem_insert_self x Ep))
   exact Finset.card_lt_card (Finset.ssubset_iff_subset_ne.mpr ⟨hsub, hne⟩)
 
-/-! ### T11 词汇内部的布尔重组打不破撞车 -/
+/-! ### T11 Boolean recombination inside the vocabulary cannot break collisions -/
 
-/-- **T11（a）**：由当前词汇布尔组合出来的谓词，在不可分辨的两个对象上取值相同。 -/
+/-- **T11 (a)**: a predicate built by Boolean combination from the current vocabulary takes the same value on two indistinguishable objects. -/
 theorem recomb_cannot_separate {V : Vocab X} {x y : X} (hxy : Indist V x y)
     (p : X → Bool) (φ : ((X → Bool) → Bool) → Bool) (hp : ∀ z, p z = φ (sig V z)) :
     p x = p y := by
   rw [hp x, hp y, hxy]
 
-/-- **T11（b）**：把这样的谓词加进词汇，撞车依然存在。 -/
+/-- **T11 (b)**: adding such a predicate to the vocabulary leaves the collision in place. -/
 theorem indist_insert_of_eq {V : Vocab X} {p : X → Bool} {x y : X}
     (hxy : Indist V x y) (hp : p x = p y) : Indist (insert p V) x y := by
   funext v
