@@ -47,6 +47,7 @@ HANDOFF.md
 
 # engine/scenarios
 !/engine/scenarios/setcover.demo
+!/engine/scenarios/review.demo
 !/engine/scenarios/verify.demo
 
 # engine/src

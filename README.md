@@ -114,6 +114,7 @@ python research/exp/domain_cost.py                   # cost breakdown
 python research/exp/domain_more_data.py              # empirical version of Theorem 5
 python research/exp/greedy_cover.py                  # greedy cover vs optimal vs random
 engine\target\debug\metaform.exe ops                 # five operators' schedule comparison + 200 random self-checks
+engine\target\debug\metaform.exe scenarios\review.demo   # the necessity criterion applied to a review policy
 python research/exp/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # noisy oracle
 python research/exp/proposer.py --case domain_c --emit                    # see the request sent to the model
 python research/exp/proposer.py --case domain_c --responses research/exp/responses_domain_c.json \
@@ -191,6 +192,8 @@ anything that pins what the results are (Lean version, Mathlib revision, the Rus
 18. **Cheap proposals do not remove the evidence floor**: as the proposal cost falls toward zero the cost law tends to the 7.6 query rounds, so cheap thinking buys a better vocabulary, not fewer questions; queries spent under an insufficient vocabulary are unrecoverable (T5). A portfolio of candidate vocabularies is paid for in the very currency it is meant to save.
 
 19. **Cheap proposals buy the vocabulary, not the queries**: with `k` candidate vocabularies of which exactly one is sufficient, a baseline that draws one member succeeds `1/k` (0.250 at `k=5`) while the portfolio succeeds 0.955, paying 1.53 queries to eliminate each wrong candidate (`metaform portfolio`, 200 trials). The portfolio never decides a wrong extension; conflict is its only failure and rises from 0.025 at `k=3` to 0.110 at `k=10`, so success peaks at `k=3` (0.975) and falls back at `k=10` (0.890).
+
+20. **A review policy is not expressible in its own taxonomy**: sixteen findings about this paper, ten adopted and six rejected, were labelled by the audit categories (abstract, titles, captions, structure, numbers, wording, cross-references). Five pairs of adopted and rejected findings share every category predicate (1–13, 6–14, 7–15, 2–10, 2–12), so by T2 the state is exhausted: no consistent rule over categories exists. Adding three cost predicates — needs a measurement the paper does not have, risks the layout, is a matter of taste — makes it decidable (`IDENTIFIED/STOP`). `engine/scenarios/review.demo` reproduces both states.
 
 ## Honest boundaries
 
