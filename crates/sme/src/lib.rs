@@ -38,17 +38,27 @@ pub struct Statement {
 pub struct System {
     pub entities: usize,
     pub statements: Vec<Statement>,
+    /// Relations whose argument order carries no meaning. SME4 gives them a twin match with the
+    /// arguments reversed; the flag lives on the system because the relation name alone cannot say
+    /// whether `parallel(a, b)` and `parallel(b, a)` are the same fact.
+    pub symmetric: BTreeSet<String>,
 }
 
 impl System {
     pub fn new(entities: usize) -> Self {
-        System { entities, statements: Vec::new() }
+        System { entities, statements: Vec::new(), symmetric: BTreeSet::new() }
     }
 
     /// Adds a statement and returns its id. Args may only name earlier statements.
     pub fn push(&mut self, relation: &str, args: Vec<Term>) -> StatementId {
         self.statements.push(Statement { relation: relation.to_string(), args });
         (self.statements.len() - 1) as StatementId
+    }
+
+    /// Adds a statement of a symmetric relation, so the matcher also tries the reversed alignment.
+    pub fn push_symmetric(&mut self, relation: &str, args: Vec<Term>) -> StatementId {
+        self.symmetric.insert(relation.to_string());
+        self.push(relation, args)
     }
 
     fn statement(&self, id: StatementId) -> &Statement {
@@ -106,6 +116,7 @@ fn match_statements(
     target: &System,
     b: StatementId,
     t: StatementId,
+    flip: bool,
 ) -> Option<Match> {
     let bs = base.statement(b);
     let ts = target.statement(t);
@@ -116,7 +127,10 @@ fn match_statements(
     let mut statements: Vec<(StatementId, StatementId)> = vec![(b, t)];
     let mut entities: Vec<(EntityId, EntityId)> = Vec::new();
 
-    for (ba, ta) in bs.args.iter().zip(ts.args.iter()) {
+    let target_args: Vec<Term> =
+        if flip { ts.args.iter().rev().cloned().collect() } else { ts.args.clone() };
+
+    for (ba, ta) in bs.args.iter().zip(target_args.iter()) {
         match (ba, ta) {
             (Term::Entity(be), Term::Entity(te)) => {
                 if let Some((_, mapped)) = entities.iter().find(|(x, _)| x == be) {
@@ -134,7 +148,9 @@ fn match_statements(
                 }
             }
             (Term::Statement(bx), Term::Statement(tx)) => {
-                let nested = match_statements(base, target, *bx, *tx)?;
+                // The twin of a symmetric statement is at this level only; nested statements are
+                // matched by their own flags.
+                let nested = match_statements(base, target, *bx, *tx, false)?;
                 for pair in nested.entities {
                     if let Some((_, mapped)) = entities.iter().find(|(x, _)| *x == pair.0) {
                         if *mapped != pair.1 {
@@ -167,9 +183,17 @@ fn match_statements(
 pub fn local_matches(base: &System, target: &System) -> Vec<Match> {
     let mut out = Vec::new();
     for b in 0..base.statements.len() as StatementId {
+        let bs = base.statement(b);
         for t in 0..target.statements.len() as StatementId {
-            if let Some(m) = match_statements(base, target, b, t) {
+            if let Some(m) = match_statements(base, target, b, t, false) {
                 out.push(m);
+            }
+            if bs.args.len() > 1 && base.symmetric.contains(&bs.relation) {
+                if let Some(twin) = match_statements(base, target, b, t, true) {
+                    if !out.contains(&twin) {
+                        out.push(twin);
+                    }
+                }
             }
         }
     }
@@ -290,6 +314,9 @@ fn score_mapping(base: &System, target: &System, m: &Mapping) -> Score {
 pub const LOCAL_EVIDENCE: f64 = 5.0e-4;
 pub const TRICKLE_DOWN: f64 = 8.0;
 
+/// SME4's greedy cutoff: an alignment scoring below 0.8 of the best is not worth reporting.
+pub const GREEDY_CUTOFF: f64 = 0.8;
+
 /// The evidence of one alignment, split into the part carried by expressions and the part carried
 /// by entities.
 #[derive(Clone, Debug, Default)]
@@ -370,6 +397,10 @@ pub fn map(base: &System, target: &System, max_mappings: usize) -> Vec<Mapping> 
             .then(a.score.components.cmp(&b.score.components))
             .then(a.statements.cmp(&b.statements))
     });
+    if let Some(best) = mappings.first().map(|m| m.score.systematicity) {
+        let floor = best as f64 * GREEDY_CUTOFF;
+        mappings.retain(|m| m.score.systematicity as f64 >= floor);
+    }
     mappings.truncate(max_mappings);
     mappings
 }
@@ -537,6 +568,30 @@ mod tests {
         assert_eq!(separate.score.components, 2);
         assert_eq!(separate.score.systematicity, 2);
         assert!(nested.score.systematicity > separate.score.systematicity);
+    }
+
+    #[test]
+    fn symmetric_relations_get_a_twin_match() {
+        let mut base = System::new(2);
+        base.push_symmetric("parallel", vec![Term::Entity(0), Term::Entity(1)]);
+        let mut target = System::new(2);
+        target.push_symmetric("parallel", vec![Term::Entity(0), Term::Entity(1)]);
+        let pairs: Vec<Vec<(EntityId, EntityId)>> =
+            local_matches(&base, &target).iter().map(|m| m.entities.clone()).collect();
+        assert!(pairs.iter().any(|p| p.contains(&(0, 0))), "normal alignment missing");
+        assert!(pairs.iter().any(|p| p.contains(&(0, 1))), "twin alignment missing");
+    }
+
+    #[test]
+    fn an_asymmetric_relation_has_no_twin() {
+        let mut base = System::new(2);
+        base.push("above", vec![Term::Entity(0), Term::Entity(1)]);
+        let mut target = System::new(2);
+        target.push("above", vec![Term::Entity(0), Term::Entity(1)]);
+        let pairs: Vec<Vec<(EntityId, EntityId)>> =
+            local_matches(&base, &target).iter().map(|m| m.entities.clone()).collect();
+        assert!(pairs.iter().any(|p| p.contains(&(0, 0))));
+        assert!(!pairs.iter().any(|p| p.contains(&(0, 1))));
     }
 
     #[test]

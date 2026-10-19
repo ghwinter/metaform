@@ -1277,3 +1277,14 @@ Adopted: local/8x arithmetic, bottom-up evaluation, entity evidence as the sum o
 Not yet adopted: symmetric and commutative twin matches, nogood propagation inside the merge, the
 0.8 cutoff with at most three mappings, and skolem-marked candidate inferences. Those are the next
 three commits, in that order.
+
+### 10.1 Twin matches and the greedy cutoff (same day)
+
+Two of the missing pieces are in. A symmetric relation now gets a twin match with the arguments
+reversed: the flag lives on the system (`push_symmetric`), because a relation name cannot say whether
+argument order carries meaning. The merge also drops alignments that score below 0.8 of the best, the
+cutoff SME4 uses. Two tests pin the twin: present for `parallel`, absent for `above`.
+
+Two limits are stated rather than hidden: the twin is generated at the level of the symmetric
+statement itself (nested statements are matched by their own flags), and commutative n-ary order is
+still not modelled. Open: nogood propagation inside the merge, skolem-marked candidate inferences.
