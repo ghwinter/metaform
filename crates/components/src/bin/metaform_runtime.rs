@@ -16,7 +16,7 @@ use metaform_runtime::state::State;
 use metaform::{Status};
 use metaform_runtime::experience::{class_of, Experience};
 use metaform_runtime::file_proposer::FileProposer;
-use metaform_runtime::run::{fingerprint, run, Step};
+use metaform_runtime::run::{fingerprint, run, run_with_experience, Step};
 use metaform_runtime::{splits, status_with, validate, Operator};
 
 fn arg(args: &[String], name: &str) -> Option<String> {
@@ -38,22 +38,24 @@ fn status_name(status: Status) -> &'static str {
 }
 
 fn print_step(step: &Step) {
+    let hint = if step.hinted { " (hint: yes)" } else { " (hint: no)" };
     match step.adopted() {
         Some(offer) => {
             println!(
-                "  step {}: {} proposed {} ({} of {} pairs), {} -> {}",
+                "  step {}: {} proposed {} ({} of {} pairs), {} -> {}{}",
                 step.index,
                 offer.operator,
                 offer.name,
                 offer.splits,
                 step.colliding_before,
                 status_name(step.status_before),
-                status_name(step.status_after)
+                status_name(step.status_after),
+                hint
             );
         }
         None => println!(
-            "  step {}: nothing separated the {} colliding pair(s); stopped",
-            step.index, step.colliding_before
+            "  step {}: nothing separated the {} colliding pair(s); stopped{}",
+            step.index, step.colliding_before, hint
         ),
     }
     if let Some(conflict) = &step.conflict {
@@ -295,31 +297,39 @@ fn main() {
                 max_arity: arg(rest, "--max-arity").and_then(|v| v.parse().ok()).unwrap_or(2),
             }));
 
-            // If a record is given, the operator that has adopted most often in this class goes
-            // first. The order is the only thing experience changes: every operator is still
-            // asked, and the controller still decides by pairs separated.
-            if let Some(record) = arg(rest, "--use-record") {
-                let experience = match Experience::load(std::path::Path::new(&record)) {
-                    Ok(e) => e,
+            // If a record is given, the controller itself puts the operator that has adopted most
+            // often in this class first. The order is the only thing experience changes: every
+            // operator is still asked, and the controller still decides by pairs separated. Each
+            // step records whether a suggestion was in force in `Step::hinted`.
+            let experience = match arg(rest, "--use-record") {
+                Some(record) => match Experience::load(std::path::Path::new(&record)) {
+                    Ok(e) => {
+                        let class = class_of(&ctx);
+                        match e.suggest(&class) {
+                            Some(name) => {
+                                println!("experience: {} has adopted most often in this class", name)
+                            }
+                            None => println!("experience: this class has not been seen; default order"),
+                        }
+                        Some(e)
+                    }
                     Err(e) => {
                         eprintln!("cannot read {}: {}", record, e);
                         std::process::exit(2);
                     }
-                };
-                let class = class_of(&ctx);
-                match experience.suggest(&class) {
-                    Some(name) => {
-                        println!("experience: {} has adopted most often in this class", name);
-                        operators.sort_by_key(|op| if op.name() == name { 0 } else { 1 });
-                    }
-                    None => println!("experience: this class has not been seen; default order"),
-                }
-            }
+                },
+                None => None,
+            };
 
             let max_steps: usize = arg(rest, "--max-steps").and_then(|v| v.parse().ok()).unwrap_or(8);
             let budget: usize = arg(rest, "--budget").and_then(|v| v.parse().ok()).unwrap_or(4);
             let state_hash = fingerprint(&ctx);
-            let steps = run(&mut ctx, &operators, max_steps, budget);
+            let steps = match &experience {
+                Some(experience) => {
+                    run_with_experience(&mut ctx, &operators, max_steps, budget, Some(experience))
+                }
+                None => run(&mut ctx, &operators, max_steps, budget),
+            };
 
             println!("run {} (state {:016x})", command, state_hash);
             for step in &steps {
