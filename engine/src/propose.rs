@@ -44,6 +44,46 @@ pub struct Proposal<'a> {
     pub falsifier: Option<&'a str>,
 }
 
+/// One candidate the validator accepted, with everything `apply` needs to adopt it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Accepted {
+    pub name: String,
+    /// The extension the candidate covers. For a defined candidate this is the computed extension,
+    /// not a field the response supplied.
+    pub ids: Vec<usize>,
+    /// How many evidence-colliding pairs the extension separates.
+    pub splits: usize,
+    pub warrant: Option<String>,
+    pub falsifier: Option<String>,
+    /// `Some` when the candidate was defined (`all_of` / `any_of`); [`Accepted::ids`] is then its
+    /// extension. `None` means the candidate supplied its ids directly.
+    pub definition: Option<Definition>,
+}
+
+/// One candidate the validator rejected, with the ids it supplied (empty for a defined candidate).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Rejected {
+    pub name: String,
+    pub ids: Vec<i64>,
+    pub reason: String,
+}
+
+/// The complete result of validating one response against one request.
+///
+/// `accepted` / `rejected` are in response order. A whole-response rejection sets `whole_reject`
+/// and leaves the candidate lists empty; a `refused` answer sets `refused` and also has no
+/// candidates. Both are valid `Verdict`s: only the request itself can make validation fail.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Verdict {
+    pub request_id: String,
+    pub accepted: Vec<Accepted>,
+    pub rejected: Vec<Rejected>,
+    pub refused: Option<String>,
+    /// `Some(reason)` when the response was rejected as a whole (`wrong_protocol`,
+    /// `wrong_request_id`, `malformed_response`).
+    pub whole_reject: Option<String>,
+}
+
 /// The ids a mask covers, for a state with `objects` objects.
 pub fn ids_of(mask: Mask, objects: usize) -> Vec<usize> {
     (0..objects).filter(|o| (mask >> o) & 1 == 1).collect()
@@ -617,7 +657,8 @@ fn evidence_classes(req: &Request) -> Vec<Mask> {
     e.classes()
 }
 
-fn json_string(s: &str) -> String {
+/// Escape one JSON string. Shared with `metaform apply`, so both commands spell a name the same way.
+pub fn json_string(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
     for c in s.chars() {
@@ -642,17 +683,19 @@ fn ids_json(ids: &[i64]) -> String {
     format!("[{}]", items.join(","))
 }
 
-fn accepted_entry(name: &str, ids: &[i64], splits: usize, obj: &Json) -> String {
+fn accepted_json(candidate: &Accepted) -> String {
+    let ids: Vec<String> = candidate.ids.iter().map(|x| x.to_string()).collect();
     let mut out = format!(
-        "{{\"name\":{},\"ids\":{},\"splits\":{splits}",
-        json_string(name),
-        ids_json(ids)
+        "{{\"name\":{},\"ids\":[{}],\"splits\":{}",
+        json_string(&candidate.name),
+        ids.join(","),
+        candidate.splits
     );
-    if let Some(warrant) = obj.get("warrant").and_then(Json::as_str) {
+    if let Some(warrant) = &candidate.warrant {
         out.push_str(",\"warrant\":");
         out.push_str(&json_string(warrant));
     }
-    if let Some(falsifier) = obj.get("falsifier").and_then(Json::as_str) {
+    if let Some(falsifier) = &candidate.falsifier {
         out.push_str(",\"falsifier\":");
         out.push_str(&json_string(falsifier));
     }
@@ -660,33 +703,65 @@ fn accepted_entry(name: &str, ids: &[i64], splits: usize, obj: &Json) -> String 
     out
 }
 
-fn rejected_entry(name: &str, ids: &[i64], reason: &str) -> String {
+fn rejected_json(candidate: &Rejected) -> String {
     format!(
-        "{{\"name\":{},\"ids\":{},\"reason\":\"{reason}\"}}",
-        json_string(name),
-        ids_json(ids)
+        "{{\"name\":{},\"ids\":{},\"reason\":{}}}",
+        json_string(&candidate.name),
+        ids_json(&candidate.ids),
+        json_string(&candidate.reason)
     )
 }
 
-fn response_json(req: &Request, accepted: &str, rejected: &str, refused: &str) -> String {
+fn response_json(request_id: &str, accepted: &str, rejected: &str, refused: &str) -> String {
     format!(
         "{{\"protocol\":\"{PROTOCOL}\",\"request_id\":{},\"accepted\":{accepted},\"rejected\":{rejected},\"refused\":{refused}}}",
-        json_string(&req.request_id)
+        json_string(request_id)
     )
 }
 
 /// A whole-response rejection (protocol, request id, or unreadable JSON) carries no candidate fields.
-fn whole_reject(req: &Request, reason: &str) -> String {
-    let rejected = format!("[{{\"reason\":\"{reason}\"}}]");
-    response_json(req, "[]", &rejected, "null")
+fn whole_reject(req: &Request, reason: &str) -> Verdict {
+    Verdict {
+        request_id: req.request_id.clone(),
+        accepted: Vec::new(),
+        rejected: Vec::new(),
+        refused: None,
+        whole_reject: Some(reason.to_string()),
+    }
 }
 
-fn refused_response(req: &Request, refused: &str) -> String {
-    response_json(req, "[]", "[]", &json_string(refused))
+fn refused_response(req: &Request, refused: &str) -> Verdict {
+    Verdict {
+        request_id: req.request_id.clone(),
+        accepted: Vec::new(),
+        rejected: Vec::new(),
+        refused: Some(refused.to_string()),
+        whole_reject: None,
+    }
+}
+
+/// Render a verdict as the one line of JSON `metaform propose` prints. Field order is fixed and
+/// independent of any map iteration, so identical inputs produce identical bytes.
+pub fn verdict_json(verdict: &Verdict) -> String {
+    if let Some(reason) = &verdict.whole_reject {
+        let rejected = format!("[{{\"reason\":{}}}]", json_string(reason));
+        return response_json(&verdict.request_id, "[]", &rejected, "null");
+    }
+    if let Some(refused) = &verdict.refused {
+        return response_json(&verdict.request_id, "[]", "[]", &json_string(refused));
+    }
+    let accepted: Vec<String> = verdict.accepted.iter().map(accepted_json).collect();
+    let rejected: Vec<String> = verdict.rejected.iter().map(rejected_json).collect();
+    response_json(
+        &verdict.request_id,
+        &format!("[{}]", accepted.join(",")),
+        &format!("[{}]", rejected.join(",")),
+        "null",
+    )
 }
 
 /// Validate one response text against a parsed request. Pure: no file access, no state.
-fn validate(req: &Request, response_text: &str) -> String {
+fn evaluate(req: &Request, response_text: &str) -> Verdict {
     let root = match parse_json(response_text) {
         Ok(value @ Json::Obj(_)) => value,
         _ => return whole_reject(req, "malformed_response"),
@@ -717,15 +792,19 @@ fn validate(req: &Request, response_text: &str) -> String {
 
     let classes = evidence_classes(req);
     let mut seen_names: HashSet<String> = req.vocab.iter().map(|(name, _)| name.clone()).collect();
-    let mut accepted: Vec<String> = Vec::new();
-    let mut rejected: Vec<String> = Vec::new();
+    let mut accepted: Vec<Accepted> = Vec::new();
+    let mut rejected: Vec<Rejected> = Vec::new();
 
     for item in candidates {
         let obj = match item {
             Json::Obj(_) => item,
             // A non-object cannot carry a name, so it fails the first per-candidate rule.
             _ => {
-                rejected.push(rejected_entry("", &[], "missing_name"));
+                rejected.push(Rejected {
+                    name: String::new(),
+                    ids: Vec::new(),
+                    reason: "missing_name".to_string(),
+                });
                 continue;
             }
         };
@@ -734,11 +813,19 @@ fn validate(req: &Request, response_text: &str) -> String {
         let ids = parse_ids(obj.get("ids"));
 
         if name.trim().is_empty() {
-            rejected.push(rejected_entry(name, &ids.values, "missing_name"));
+            rejected.push(Rejected {
+                name: name.to_string(),
+                ids: ids.values,
+                reason: "missing_name".to_string(),
+            });
             continue;
         }
         if seen_names.contains(name) {
-            rejected.push(rejected_entry(name, &ids.values, "duplicate_name"));
+            rejected.push(Rejected {
+                name: name.to_string(),
+                ids: ids.values,
+                reason: "duplicate_name".to_string(),
+            });
             continue;
         }
         // Remember every named candidate, accepted or not: "an earlier candidate name" is enough.
@@ -748,61 +835,112 @@ fn validate(req: &Request, response_text: &str) -> String {
         let has_ids = obj.get("ids").is_some();
         let has_define = obj.get("define").is_some();
         if has_ids && has_define {
-            rejected.push(rejected_entry(name, &ids.values, "wrong_protocol"));
+            rejected.push(Rejected {
+                name: name.to_string(),
+                ids: ids.values,
+                reason: "wrong_protocol".to_string(),
+            });
             continue;
         }
         if has_define {
             let definition = match parse_definition(obj.get("define").expect("checked present")) {
                 Ok(definition) => definition,
                 Err(reason) => {
-                    rejected.push(rejected_entry(name, &ids.values, reason));
+                    rejected.push(Rejected {
+                        name: name.to_string(),
+                        ids: ids.values,
+                        reason: reason.to_string(),
+                    });
                     continue;
                 }
             };
             let ext = match definition_extension(&definition, &req.vocab) {
                 Ok(ext) => ext & object_mask(req.n),
                 Err(reason) => {
-                    rejected.push(rejected_entry(name, &ids.values, reason));
+                    rejected.push(Rejected {
+                        name: name.to_string(),
+                        ids: ids.values,
+                        reason: reason.to_string(),
+                    });
                     continue;
                 }
             };
             // A definition gets the same extension checks as an `ids` candidate.
             if ext == 0 {
-                rejected.push(rejected_entry(name, &[], "empty_extension"));
+                rejected.push(Rejected {
+                    name: name.to_string(),
+                    ids: Vec::new(),
+                    reason: "empty_extension".to_string(),
+                });
                 continue;
             }
             if ext == object_mask(req.n) {
-                rejected.push(rejected_entry(name, &[], "constant_extension"));
+                rejected.push(Rejected {
+                    name: name.to_string(),
+                    ids: Vec::new(),
+                    reason: "constant_extension".to_string(),
+                });
                 continue;
             }
             if accepted.len() >= req.limit {
-                rejected.push(rejected_entry(name, &[], "limit_exceeded"));
+                rejected.push(Rejected {
+                    name: name.to_string(),
+                    ids: Vec::new(),
+                    reason: "limit_exceeded".to_string(),
+                });
                 continue;
             }
-            let ext_ids: Vec<i64> = ids_of(ext, req.n).into_iter().map(|x| x as i64).collect();
+            let ext_ids = ids_of(ext, req.n);
             let splits = count_splits(req.n, req.pos, req.neg, &classes, ext);
-            accepted.push(accepted_entry(name, &ext_ids, splits, obj));
+            accepted.push(Accepted {
+                name: name.to_string(),
+                ids: ext_ids,
+                splits,
+                warrant: obj.get("warrant").and_then(Json::as_str).map(str::to_string),
+                falsifier: obj.get("falsifier").and_then(Json::as_str).map(str::to_string),
+                definition: Some(definition),
+            });
             continue;
         }
 
         if !ids.is_array || ids.count == 0 {
-            rejected.push(rejected_entry(name, &ids.values, "empty_extension"));
+            rejected.push(Rejected {
+                name: name.to_string(),
+                ids: ids.values,
+                reason: "empty_extension".to_string(),
+            });
             continue;
         }
         if covers_all(req.n, &ids.values) {
-            rejected.push(rejected_entry(name, &ids.values, "constant_extension"));
+            rejected.push(Rejected {
+                name: name.to_string(),
+                ids: ids.values,
+                reason: "constant_extension".to_string(),
+            });
             continue;
         }
         if ids.bad || ids.values.iter().any(|&x| x < 0 || x as usize >= req.n) {
-            rejected.push(rejected_entry(name, &ids.values, "out_of_range"));
+            rejected.push(Rejected {
+                name: name.to_string(),
+                ids: ids.values,
+                reason: "out_of_range".to_string(),
+            });
             continue;
         }
         if has_duplicates(&ids.values) {
-            rejected.push(rejected_entry(name, &ids.values, "duplicate_ids"));
+            rejected.push(Rejected {
+                name: name.to_string(),
+                ids: ids.values,
+                reason: "duplicate_ids".to_string(),
+            });
             continue;
         }
         if accepted.len() >= req.limit {
-            rejected.push(rejected_entry(name, &ids.values, "limit_exceeded"));
+            rejected.push(Rejected {
+                name: name.to_string(),
+                ids: ids.values,
+                reason: "limit_exceeded".to_string(),
+            });
             continue;
         }
 
@@ -811,12 +949,36 @@ fn validate(req: &Request, response_text: &str) -> String {
             ext |= bit(x as usize);
         }
         let splits = count_splits(req.n, req.pos, req.neg, &classes, ext);
-        accepted.push(accepted_entry(name, &ids.values, splits, obj));
+        accepted.push(Accepted {
+            name: name.to_string(),
+            ids: ids.values.iter().map(|&x| x as usize).collect(),
+            splits,
+            warrant: obj.get("warrant").and_then(Json::as_str).map(str::to_string),
+            falsifier: obj.get("falsifier").and_then(Json::as_str).map(str::to_string),
+            definition: None,
+        });
     }
 
-    let accepted_json = format!("[{}]", accepted.join(","));
-    let rejected_json = format!("[{}]", rejected.join(","));
-    response_json(req, &accepted_json, &rejected_json, "null")
+    Verdict {
+        request_id: req.request_id.clone(),
+        accepted,
+        rejected,
+        refused: None,
+        whole_reject: None,
+    }
+}
+
+fn validate(req: &Request, response_text: &str) -> String {
+    verdict_json(&evaluate(req, response_text))
+}
+
+/// Parse a request and validate a response against it.
+///
+/// `Err` means the request file itself is unusable (a CLI error). A malformed, mistargeted, or
+/// refused response is a successful validation that reports the verdict, exactly as `propose` does.
+pub fn validate_response(request_text: &str, response_text: &str) -> Result<Verdict, String> {
+    let req = parse_request(request_text)?;
+    Ok(evaluate(&req, response_text))
 }
 
 // ---------------------------------------------------------------------------

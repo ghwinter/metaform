@@ -252,6 +252,17 @@ pub fn status_str(status: Status) -> &'static str {
     }
 }
 
+/// The status and colliding-pair count `suggest` reports, under the recommended `theta`.
+///
+/// `metaform apply` calls this before and after adoption so its `before` / `after` fields use the
+/// same view as `suggest` and `state need`; a second definition of "colliding" here would let the
+/// one-command path disagree with the read-only report.
+pub fn status_and_colliding(e: &Explorer) -> (Status, usize) {
+    let theta = e.recommended_theta();
+    let (sp, sn) = e.strong(theta);
+    (e.status_with(theta), colliding_pairs(e, sp, sn).len())
+}
+
 /// Build the `metaform.propose/1` request that a proposer should fill once the state is
 /// `INSUFFICIENT`, or report that the state does not need one.
 ///

@@ -66,6 +66,7 @@ metaform state init  --project . --n 4            # persist the scenario to .met
 metaform state add   --project . --name p --define all-of:a,b  # store p = a AND b as a definition
 metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # one-shot: status and recommendations directly
+metaform apply  --project . --request request.json --response response.json # validate + adopt accepted candidates with one state write
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # read-only: Boolean candidates tried, and why none separates
 metaform plan   --project . --pool .metaform/out/pool.txt # coverage + purity + re-ask budget
 metaform report --project .                         # generate .metaform/out/report.md
@@ -112,13 +113,27 @@ names that already exist in the vocabulary). The validator rejects ids outside t
 or empty extensions, names that repeat the vocabulary or an earlier candidate, duplicate ids, and anything
 arriving under the wrong protocol or request id; a model may also decline,
 which is recorded as `refused` rather than retried. Validation is pure: it writes no file and changes no
-state, so adding a predicate remains a separate step and a proposal cannot overwrite evidence.
+state, so a proposal cannot overwrite evidence; `apply` is the explicit adoption step.
 Adopting an accepted definition persistently uses `metaform state add --project . --name p --define
 all-of:a,b` (or `any-of:a,b`); `--ids` keeps the extensional form. The state file stores the definition
 next to its extension, and every load recomputes that extension from the operands and the current object
 count, so a project that grows past the object set it was saved with keeps a correct predicate. A missing
 operand or a definition cycle is a clear error rather than a silently dropped predicate; files written
 before definitions existed load unchanged and stay extensional.
+
+`metaform apply --project . --request <request.json> --response <response.json>` collapses proposal and
+adoption into one command. It runs the same validator, adopts every accepted candidate exactly as
+`state add` would (an extensional candidate by its ids, a defined candidate by its definition, so the
+state recomputes the extension), and writes `.metaform/state.json` once at the end. A candidate whose
+name already exists in the state is skipped and reported (`name_exists`); candidates the validator
+rejected are reported in `skipped` with the validator's reason, and the rest of the response is still
+applied. A whole-response rejection (wrong protocol or request id, malformed JSON) exits non-zero and
+leaves the file unchanged, as does a definition that cannot resolve, because every adoption happens on
+a copy before the single write. The command prints one deterministic JSON line:
+`{"applied":n,"skipped":[{"name":...,"reason":...}],"before":{"status":...,"colliding":n},"after":{"status":...,"colliding":n},"request_id":"..."}`.
+`before` and `after` use the same recommended-`theta` status and colliding-pair count as `suggest` and
+`state need`, so the one-command path cannot disagree with the read-only report. The request and
+response files are only read.
 
 Under the cheap-proposal assumption this is the division that matters: the model supplies many
 candidates per call, the engine pays for the queries.
@@ -194,7 +209,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 118)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 124)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

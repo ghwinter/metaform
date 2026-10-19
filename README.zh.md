@@ -62,6 +62,7 @@ metaform state init  --project . --n 4            # 场景持久化到 .metaform
 metaform state add   --project . --name p --define all-of:a,b  # 存 p = a AND b 的定义
 metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # 一步式：直接给状态与建议
+metaform apply  --project . --request request.json --response response.json # 校验并采纳被接受的候选，只写一次状态
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # 只读：试过哪些布尔候选，以及为何都分不开
 metaform plan   --project . --pool .metaform/out/pool.txt # 覆盖 + 纯度 + 重问预算
 metaform report --project .                         # 生成 .metaform/out/report.md
@@ -98,11 +99,21 @@ metaform ops                                       # 五类算子调度对照：
 与响应文件，报告它接受了什么。候选可以是外延式的（一个名字加它覆盖的对象 id），也可以是定义式的
 （对词汇中已有名字做 `all_of` / `any_of`）。校验会拒绝超出对象范围的 id、常量或空扩展、与词汇或先前
 候选重名的名字、重复 id，以及协议或请求 id 不符的整份响应；模型也可以拒答，这被记为 `refused` 而不是
-重试。校验是纯的：不写文件、不改状态，所以"加入谓词"仍是独立一步，提议无法覆盖证据。
+重试。校验是纯的：不写文件、不改状态，所以提议无法覆盖证据；采纳由 `apply` 显式完成。
 要把被接受的定义持久化下来，用 `metaform state add --project . --name p --define all-of:a,b`
 （或 `any-of:a,b`）；`--ids` 仍保持外延式。状态文件会把定义和扩展一起存下，每次加载都按操作数与当前
 对象数重算扩展，因此对象集变大后谓词仍然正确。操作数缺失或定义成环都会给出明确错误，而不是静默丢掉
 谓词；定义出现之前写下的状态文件照常加载，保持外延式。
+
+`metaform apply --project . --request <request.json> --response <response.json>` 把提议与采纳合成一步：
+它复用同一个校验器，按 `state add` 的方式采纳每个被接受的候选（外延式按 ids，定义式存定义、由状态重算
+扩展），最后只写一次 `.metaform/state.json`。名字已存在于状态中的候选会被跳过并报告（`name_exists`）；
+被校验器拒绝的候选以其原因出现在 `skipped` 中，响应里的其余候选照常采纳。整份响应被拒（协议或请求 id
+错误、JSON 损坏）时退出非零且不改文件；定义无法解析时也一样，因为所有采纳都先在副本上完成，最后才写
+一次。命令打印一行确定性的 JSON：
+`{"applied":n,"skipped":[{"name":...,"reason":...}],"before":{"status":...,"colliding":n},"after":{"status":...,"colliding":n},"request_id":"..."}`。
+`before` / `after` 使用与 `suggest`、`state need` 相同的推荐 `theta` 状态与撞车对数，因此这条一步式路径
+不会与只读报告不一致。请求和响应文件都只读。
 
 在廉价提议的假设下，这个分工才是重点：模型每次给很多候选，引擎支付提问。
 
@@ -155,7 +166,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 118）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 124）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接

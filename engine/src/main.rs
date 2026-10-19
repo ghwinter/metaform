@@ -21,6 +21,11 @@
 //! the predicates an external model proposed under `metaform.propose/1` and prints one line of JSON
 //! without writing any file or touching the project state.
 //!
+//! `metaform apply --project <dir> --request <request.json> --response <response.json>` runs that same
+//! validation and then adopts the accepted candidates, writing `.metaform/state.json` once at the
+//! end. It skips a candidate whose name already exists, reports every candidate it did not adopt,
+//! and leaves the state unchanged when the response is rejected as a whole or an adoption fails.
+//!
 //! `metaform suggest --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]]` is the
 //! read-only proof step for an `INSUFFICIENT` state: it enumerates the Boolean definitions the
 //! vocabulary invites, counts how many it tried and how many colliding pairs they separate, and
@@ -31,6 +36,7 @@
 
 use std::io::{self, BufRead, Write};
 
+mod apply;
 mod ledger;
 mod mcp;
 mod plan;
@@ -606,6 +612,10 @@ fn main() {
         Some("propose") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
             std::process::exit(metaform::propose::cmd(&v));
+        }
+        Some("apply") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            std::process::exit(apply::cmd(&v));
         }
         Some("ops") => {
             println!("{}", metaform::operators::demo_json());
