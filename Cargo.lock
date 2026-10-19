@@ -46,6 +46,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "metaform-components"
+version = "0.1.0"
+dependencies = [
+ "metaform",
+ "metaform-runtime",
+ "metaform-sme",
+ "metaform-vsa",
+]
+
+[[package]]
 name = "metaform-ilp"
 version = "0.1.0"
 
@@ -54,8 +64,6 @@ name = "metaform-runtime"
 version = "0.1.0"
 dependencies = [
  "metaform",
- "metaform-sme",
- "metaform-vsa",
 ]
 
 [[package]]

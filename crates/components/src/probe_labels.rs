@@ -13,8 +13,8 @@
 //! The search is exhaustive over conjunctions of at most `max_arity` attributes, so this is a
 //! mechanical proposer, not a clever one. Its value is the second half of what it returns.
 
-use crate::{colliding_pairs, Context, OpStatus, Operator, OperatorResult};
 use metaform::Mask;
+use metaform_runtime::{colliding_pairs, Candidate, Context, OpStatus, Operator, OperatorResult};
 
 /// Exhaustive conjunctions of the attributes, with readable names.
 fn conjunctions(attributes: &[(String, Mask)], max_arity: usize) -> Vec<(String, Mask)> {
@@ -152,7 +152,7 @@ impl Operator for ProbeLabels {
                 .iter()
                 .filter(|&&(p, n)| ((mask >> p) & 1) != ((mask >> n) & 1))
                 .count();
-            candidates.push(crate::Candidate {
+            candidates.push(Candidate {
                 name: format!("{} (if label {} is wrong)", name, suspect),
                 extension: *mask,
                 source: "probe-labels".to_string(),
@@ -164,7 +164,9 @@ impl Operator for ProbeLabels {
                 ),
                 warrant: vec![format!("flipping object {} admits this concept", suspect)],
                 falsifier: vec![format!("object {} is labelled correctly", suspect)],
-                adoptable: true,
+                // A concept that only works if a label is wrong must not enter the vocabulary:
+                // the controller reports it, the caller decides whether to re-examine the label.
+                adoptable: false,
             });
             unresolved.push(format!(
                 "label of object {}: flipping it admits a concept that separates everything",
@@ -189,8 +191,8 @@ impl Operator for ProbeLabels {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{context, label, Context};
     use metaform::{bit, Predicate, Vocabulary};
+    use metaform_runtime::{context, label};
 
     /// The vocabulary sees nothing; b holds for 0 and 1, while 2 is labelled positive by mistake.
     fn noisy() -> Context {

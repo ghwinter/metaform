@@ -11,12 +11,13 @@
 //! What the components do not do is decide. The response says what was proposed; whether it is well
 //! formed and whether it separates anything is for the kernel to say.
 
-use metaform_runtime::state::{State, Systems};
+use metaform_components::{SmeAnalogizer, Systems, VsaRetriever};
+use metaform_runtime::state::State;
 use metaform::{Status};
 use metaform_runtime::experience::{class_of, Experience};
 use metaform_runtime::file_proposer::FileProposer;
 use metaform_runtime::run::{fingerprint, run, Step};
-use metaform_runtime::{splits, status_with, validate, Operator, SmeAnalogizer, VsaRetriever};
+use metaform_runtime::{splits, status_with, validate, Operator};
 
 fn arg(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).cloned()
@@ -286,7 +287,7 @@ fn main() {
                 }
             }
             if flag(rest, "--probe") {
-                operators.push(Box::new(metaform_runtime::probe::ProbeLabels::new(2)));
+                operators.push(Box::new(metaform_components::ProbeLabels::new(2)));
             }
             operators.push(Box::new(VsaRetriever {
                 dim: arg(rest, "--dim").and_then(|v| v.parse().ok()).unwrap_or(2048),

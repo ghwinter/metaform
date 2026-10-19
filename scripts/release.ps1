@@ -31,7 +31,7 @@ if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
 $files = @{
-    'metaform.exe'                 = 'engine\target\release\metaform.exe'
+    'metaform.exe'                 = 'target\release\metaform.exe'
     'SKILL.md'                     = 'skills\metaform\SKILL.md'
     'README.md'                    = 'README.md'
 }

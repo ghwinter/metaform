@@ -24,7 +24,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 DEMO = ROOT / "engine" / "scenarios" / "verify.demo"
-DEFAULT_ENGINE = ROOT / "engine" / "target" / "debug" / "metaform.exe"
+DEFAULT_ENGINE = ROOT / "target" / "debug" / "metaform.exe"
 MANIFEST = ROOT / "engine" / "Cargo.toml"
 
 

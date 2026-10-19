@@ -88,28 +88,29 @@ candidates per call, the engine pays for the queries.
 
 ## Components
 
-The kernel is not the whole tool. Three components sit behind the operator protocol, each in its own
-crate, and none of them may change the state:
+The kernel is not the whole tool. The proposers sit behind the operator protocol, each algorithm in
+its own crate, and none of them may change the state:
 
 | crate | what it proposes | how |
 |---|---|---|
 | `crates/vsa` | predicates whose vector similarity to a positive/negative contrast is high | MBAT binding and bundling, `retrieve` |
 | `crates/sme` | predicates inferred by mapping one relational system onto another | structure mapping, `analogize` |
 | `crates/ilp` | clauses whose extension covers the positives and no negative | relational learning, `ilp_demo` |
-| `crates/runtime` | the protocol itself, the validation, and the CLI | `Operator`, `OperatorResult`, `metaform-runtime` |
+| `crates/runtime` | nothing: it is the kernel | protocol, validation, controller, record, `Operator` |
+| `crates/components` | the concrete operators and the CLI | `VsaRetriever`, `SmeAnalogizer`, `ProbeLabels`, `metaform-runtime` |
 
 A component proposes, the kernel judges:
 
 ```powershell
-crates\runtime\target\debug\metaform-runtime.exe retrieve  --state crates/runtime/fixtures/state.txt --out response.json
-crates\runtime\target\debug\metaform-runtime.exe analogize --state crates/runtime/fixtures/state.txt --systems crates/runtime/fixtures/systems.txt --out response.json
-engine\target\debug\metaform.exe propose --request crates/runtime/fixtures/request.json --response response.json
+target\debug\metaform-runtime.exe retrieve  --state crates/runtime/fixtures/state.txt --out response.json
+target\debug\metaform-runtime.exe analogize --state crates/runtime/fixtures/state.txt --systems crates/runtime/fixtures/systems.txt --out response.json
+target\debug\metaform.exe propose --request crates/runtime/fixtures/request.json --response response.json
 ```
 
 The controller does the adopting, and records what it did:
 
 ```powershell
-crates\runtime\target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt --record runs.tsv
+target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt --record runs.tsv
 ```
 
 It asks every applicable operator, keeps what the validator accepts, adopts the proposal that
@@ -159,15 +160,15 @@ python research/exp/ledger.py corroborate --apply    # merge weak evidence for t
 python research/exp/ledger.py conflicts              # direction conflicts + re-ask queue (sorted by gap, includes json)
 pwsh -File scripts/make-bundle.ps1                   # build the submission bundle (read back and verify every entry) → dist/submission-<date>.zip
 python research/exp/verify_claims.py                 # paper-number regression (tolerance 0.06)
-python research/exp/theory_audit.py --engine engine/target/debug/metaform.exe   # theorem falsification + engine consistency
+python research/exp/theory_audit.py --engine target/debug/metaform.exe   # theorem falsification + engine consistency
 python research/exp/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
 python research/exp/domain_b.py                      # Lean as oracle, about 3 s
 python research/exp/domain_c.py                      # real code invariants
 python research/exp/domain_cost.py                   # cost breakdown
 python research/exp/domain_more_data.py              # empirical version of Theorem 5
 python research/exp/greedy_cover.py                  # greedy cover vs optimal vs random
-engine\target\debug\metaform.exe ops                 # five operators' schedule comparison + 200 random self-checks
-engine\target\debug\metaform.exe scenarios\review.demo   # the necessity criterion applied to a review policy
+target\debug\metaform.exe ops                 # five operators' schedule comparison + 200 random self-checks
+target\debug\metaform.exe scenarios\review.demo   # the necessity criterion applied to a review policy
 python research/exp/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # noisy oracle
 python research/exp/proposer.py --case domain_c --emit                    # see the request sent to the model
 python research/exp/proposer.py --case domain_c --responses research/exp/responses_domain_c.json \

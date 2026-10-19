@@ -40,6 +40,18 @@ if (Test-Path $local) { . $local }
 if (-not $Python) { $Python = $env:METAFORM_PYTHON }
 if (-not $LlmProposals) { $LlmProposals = Join-Path $root 'research\exp\llm_proposals.json' }
 
+# The script runs binaries, not just tests; build them first so it cannot pick up an old artifact
+# from a directory that a previous layout left behind.
+Push-Location $root
+try {
+    cargo build --workspace --bins --quiet
+    $build = $LASTEXITCODE
+} finally { Pop-Location }
+if ($build -ne 0) {
+    Write-Host '[components] cargo build failed'
+    exit 1
+}
+
 $failures = @()
 
 function Check([string]$name, [scriptblock]$body) {
@@ -57,7 +69,7 @@ function Require([bool]$condition, [string]$message) {
     if (-not $condition) { throw $message }
 }
 
-foreach ($crate in 'vsa', 'sme', 'ilp', 'runtime') {
+foreach ($crate in 'vsa', 'sme', 'ilp', 'runtime', 'components') {
     if ($SkipBuild) { continue }
     Check "cargo test $crate" {
         $manifest = Join-Path $root "crates\$crate\Cargo.toml"
@@ -83,7 +95,7 @@ Check 'structure mapping demo' {
 }
 
 Check 'runtime smoke' {
-    $out = cargo run --quiet --manifest-path (Join-Path $root 'crates\runtime\Cargo.toml') --bin runtime_smoke 2>&1
+    $out = cargo run --quiet --manifest-path (Join-Path $root 'crates\components\Cargo.toml') --bin runtime_smoke 2>&1
     $out | Out-Host
     Require ([bool]($out | Select-String 'status: INSUFFICIENT')) 'the state did not start insufficient'
     Require ([bool]($out | Select-String 'final: .*IDENTIFIED')) 'the run did not end identified'
@@ -91,8 +103,8 @@ Check 'runtime smoke' {
 
 Check 'the CLI path: component proposes, engine validates' {
     $fixtures = Join-Path $root 'crates\runtime\fixtures'
-    $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'
-    $engine = Join-Path $root 'engine\target\debug\metaform.exe'
+    $runtime = Join-Path $root 'target\debug\metaform-runtime.exe'
+    $engine = Join-Path $root 'target\debug\metaform.exe'
     Require (Test-Path $engine) 'the engine binary is missing (run check-rust first)'
     foreach ($case in @(@('retrieve', 'a&b'), @('analogize', 'liquid'))) {
         $response = Join-Path $env:TEMP "component_$($case[0])_$PID.json"
@@ -107,7 +119,7 @@ Check 'the CLI path: component proposes, engine validates' {
 }
 
 Check 'the probe names a label it had to disbelieve' {
-    $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'
+    $runtime = Join-Path $root 'target\debug\metaform-runtime.exe'
     $out = & $runtime run --state (Join-Path $root 'crates\runtime\fixtures\noisy_state.txt') --probe 2>&1
     $out | Out-Host
     Require ([bool]($out | Select-String 'probe-labels')) 'the probe offered nothing'
@@ -123,20 +135,20 @@ Check 'the probe names a label it had to disbelieve' {
 }
 Check 'a file-backed proposer competes on equal terms' {
     $fixtures = Join-Path $root 'crates\runtime\fixtures'
-    $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'
+    $runtime = Join-Path $root 'target\debug\metaform-runtime.exe'
     $record = Join-Path $env:TEMP "offers_$PID.tsv"
     Remove-Item $record -Force -ErrorAction SilentlyContinue
     $out = & $runtime run --state (Join-Path $fixtures 'state.txt') --proposals (Join-Path $fixtures 'proposals.txt') --record $record 2>&1
     $out | Out-Host
     Require ([bool]($out | Select-String 'step 0: file-proposer proposed b_or_c')) 'the file proposer did not win the tie'
     Require ([bool]($out | Select-String 'offered sme-analogizer')) 'the losing offer was not shown'
-    $lines = (Get-Content $record | Measure-Object -Line).Lines
+    $lines = @(Get-Content $record | Where-Object { $_ -notmatch '^#' }).Count
     Require ($lines -eq 3) "expected one record line per offer, got $lines"
     Remove-Item $record -Force -ErrorAction SilentlyContinue
 }
 Check 'experience: the record suggests an operator for a class' {
     $fixtures = Join-Path $root 'crates\runtime\fixtures'
-    $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'
+    $runtime = Join-Path $root 'target\debug\metaform-runtime.exe'
     $record = Join-Path $env:TEMP "runs_$PID.tsv"
     Remove-Item $record -Force -ErrorAction SilentlyContinue
     & $runtime run --state (Join-Path $fixtures 'state.txt') --record $record *> $null
@@ -151,7 +163,7 @@ Check 'experience: the record suggests an operator for a class' {
 }
 Check 'the controller: adopt the best proposal, then stop' {
     $fixtures = Join-Path $root 'crates\runtime\fixtures'
-    $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'
+    $runtime = Join-Path $root 'target\debug\metaform-runtime.exe'
     $out = & $runtime run --state (Join-Path $fixtures 'state.txt') 2>&1
     $out | Out-Host
     Require ([bool]($out | Select-String 'INSUFFICIENT -> IDENTIFIED')) 'no adopted step'
@@ -163,7 +175,7 @@ Check 'the controller: adopt the best proposal, then stop' {
 }
 Check 'the ILP component: a learned clause goes through the kernel' {
     $fixtures = Join-Path $root 'crates\ilp\fixtures'
-    $engine = Join-Path $root 'engine\target\debug\metaform.exe'
+    $engine = Join-Path $root 'target\debug\metaform.exe'
     Require (Test-Path $engine) 'the engine binary is missing (run check-rust first)'
     $response = Join-Path $env:TEMP "ilp_response_$PID.json"
     $out = cargo run --quiet --manifest-path (Join-Path $root 'crates\ilp\Cargo.toml') --bin ilp_demo -- --out $response 2>&1

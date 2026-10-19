@@ -189,7 +189,7 @@ pub fn fingerprint(ctx: &Context) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{label, SmeAnalogizer, VsaRetriever};
+    use crate::label;
     use metaform::{bit, Predicate, Vocabulary};
 
     fn collision() -> Context {
@@ -216,18 +216,47 @@ mod tests {
         ctx
     }
 
+    /// A kernel-only operator: it proposes the attribute `b`, which separates the colliding
+    /// pairs. No component crate is involved.
+    struct ProposeB;
+
+    impl Operator for ProposeB {
+        fn name(&self) -> &'static str {
+            "propose-b"
+        }
+
+        fn applicable(&self, _: &Context) -> bool {
+            true
+        }
+
+        fn estimate_cost(&self, _: &Context) -> f32 {
+            1.0
+        }
+
+        fn execute(&self, ctx: &Context, _: usize) -> crate::OperatorResult {
+            crate::OperatorResult {
+                candidates: vec![Candidate {
+                    name: "b".to_string(),
+                    extension: ctx.attribute("b").expect("the fixture supplies b"),
+                    source: "propose-b".to_string(),
+                    detail: String::new(),
+                    warrant: vec!["b separates every colliding pair".to_string()],
+                    falsifier: Vec::new(),
+                    adoptable: true,
+                }],
+                evidence: Vec::new(),
+                assumptions: Vec::new(),
+                unresolved: Vec::new(),
+                cost: 1.0,
+                status: crate::OpStatus::Applied,
+            }
+        }
+    }
+
     #[test]
     fn the_controller_adopts_a_separating_proposal_and_stops() {
         let mut ctx = collision();
-        let systems = crate::scenarios::water_and_heat();
-        let operators: Vec<Box<dyn Operator>> = vec![
-            Box::new(SmeAnalogizer {
-                base: systems.0,
-                target: systems.1,
-                readings: vec![("liquid".to_string(), bit(0) | bit(1))],
-            }),
-            Box::new(VsaRetriever { dim: 2048, seed: 7, max_arity: 2 }),
-        ];
+        let operators: Vec<Box<dyn Operator>> = vec![Box::new(ProposeB)];
         let steps = run(&mut ctx, &operators, 4, 4);
         assert!(!steps.is_empty());
         assert!(steps[0].adopted().is_some(), "the first step should adopt something");

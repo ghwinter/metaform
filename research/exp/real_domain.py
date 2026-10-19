@@ -28,8 +28,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-ENGINE = ROOT / "engine" / "target" / "debug" / "metaform.exe"
-RUNTIME = ROOT / "crates" / "runtime" / "target" / "debug" / "metaform-runtime.exe"
+ENGINE = ROOT / "target" / "debug" / "metaform.exe"
+RUNTIME = ROOT / "target" / "debug" / "metaform-runtime.exe"
 
 # Files that drive the tool: they start a process (the kernel binary or cargo).
 DRIVERS = {

@@ -18,7 +18,7 @@ import proposer_arms as pa
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-RUNTIME = ROOT / "crates" / "runtime" / "target" / "debug" / "metaform-runtime.exe"
+RUNTIME = ROOT / "target" / "debug" / "metaform-runtime.exe"
 
 
 def state_with_label(inst, n_obj: int, n_attr: int, label: str) -> str:

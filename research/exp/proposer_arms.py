@@ -29,8 +29,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-DEFAULT_ENGINE = ROOT / "engine" / "target" / "debug" / "metaform.exe"
-DEFAULT_RUNTIME = ROOT / "crates" / "runtime" / "target" / "debug" / "metaform-runtime.exe"
+DEFAULT_ENGINE = ROOT / "target" / "debug" / "metaform.exe"
+DEFAULT_RUNTIME = ROOT / "target" / "debug" / "metaform-runtime.exe"
 
 
 def arity(family: str) -> int:

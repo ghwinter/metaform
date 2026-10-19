@@ -54,6 +54,17 @@ if (-not $ok) {
     exit 2
 }
 
+# Every gate that runs a binary expects a fresh one in the workspace target.
+Push-Location $root
+try {
+    cargo build --workspace --bins --quiet
+    $build = $LASTEXITCODE
+} finally { Pop-Location }
+if ($build -ne 0) {
+    Write-Host '[check-all] cargo build failed'
+    exit 1
+}
+
 if (-not $SkipLean) {
     & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'check-lean.ps1') | Out-Host
     $results += [pscustomobject]@{ Check = 'lean'; Exit = $LASTEXITCODE }
@@ -80,7 +91,7 @@ if (-not $SkipComponents) {
 if (-not $SkipTheory) {
     Push-Location (Join-Path $root 'research\exp')
     try {
-        $qde = Join-Path $root 'engine\target\debug\metaform.exe'
+        $qde = Join-Path $root 'target\debug\metaform.exe'
         if (Test-Path $qde) {
             & $Python theory_audit.py --trials 200 --engine $qde | Out-Host
         }

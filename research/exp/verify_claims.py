@@ -27,7 +27,7 @@ COST_ROUNDS = 7.6
 COST_POINTS = [(1.0, 27.6), (0.5, 49.4), (0.25, 88.9), (0.125, 162.7)]
 PAPER_EN = Path(__file__).resolve().parents[2] / "paper" / "en" / "main.tex"
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_ENGINE = ROOT / "engine" / "target" / "debug" / "metaform.exe"
+DEFAULT_ENGINE = ROOT / "target" / "debug" / "metaform.exe"
 
 # the three groups of numbers from `metaform ops` (cited by the paper and the README)
 OPS_SELECTION = {"selected_cost": 3.11, "random_cost": 3.50, "fixed_cost": 3.60}

@@ -33,7 +33,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-DEFAULT_ENGINE = ROOT / "engine" / "target" / "debug" / "metaform.exe"
+DEFAULT_ENGINE = ROOT / "target" / "debug" / "metaform.exe"
 MANIFEST = ROOT / "engine" / "Cargo.toml"
 MOCK = HERE / "llm_mock.py"
 

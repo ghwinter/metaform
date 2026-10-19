@@ -16,9 +16,9 @@
 //! Usage: runtime_smoke
 
 use metaform::{bit, Mask, Predicate, Status, Vocabulary};
+use metaform_components::{scenarios, SmeAnalogizer, VsaRetriever};
 use metaform_runtime::{
-    adopt, colliding_pairs, context, label, scenarios, splits, status_with, validate, Candidate,
-    Operator, SmeAnalogizer, VsaRetriever,
+    adopt, colliding_pairs, context, label, splits, status_with, validate, Candidate, Operator,
 };
 
 fn name_of(status: Status) -> &'static str {

@@ -87,20 +87,21 @@ id、常量或空扩展、与词汇或先前候选重名的名字、重复 id，
 | `crates/vsa` | 与"正负对比向量"相似度高的谓词 | MBAT 绑定/捆绑，`retrieve` |
 | `crates/sme` | 通过结构映射推出的谓词 | 结构映射，`analogize` |
 | `crates/ilp` | 扩展覆盖正例且不覆盖负例的子句 | 关系学习，`ilp_demo` |
-| `crates/runtime` | 协议本身、校验、命令行 | `Operator`、`OperatorResult`、`metaform-runtime` |
+| `crates/runtime` | 不提议任何东西：它是内核 | 协议、校验、控制器、记录、`Operator` |
+| `crates/components` | 具体算子与命令行 | `VsaRetriever`、`SmeAnalogizer`、`ProbeLabels`、`metaform-runtime` |
 
 组件提议，内核裁决：
 
 ```powershell
-crates\runtime\target\debug\metaform-runtime.exe retrieve  --state crates/runtime/fixtures/state.txt --out response.json
-crates\runtime\target\debug\metaform-runtime.exe analogize --state crates/runtime/fixtures/state.txt --systems crates/runtime/fixtures/systems.txt --out response.json
-engine\target\debug\metaform.exe propose --request crates/runtime/fixtures/request.json --response response.json
+target\debug\metaform-runtime.exe retrieve  --state crates/runtime/fixtures/state.txt --out response.json
+target\debug\metaform-runtime.exe analogize --state crates/runtime/fixtures/state.txt --systems crates/runtime/fixtures/systems.txt --out response.json
+target\debug\metaform.exe propose --request crates/runtime/fixtures/request.json --response response.json
 ```
 
 采纳由控制器完成，而且会留下记录：
 
 ```powershell
-crates\runtime\target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt --record runs.tsv
+target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt --record runs.tsv
 ```
 
 它依次询问每个适用的算子，只保留校验器接受的候选，采纳"分开撞车对最多"的那一个（并列时取代价最低），
@@ -131,14 +132,14 @@ python research/exp/ledger.py corroborate --apply    # 同一对象的弱证据�
 python research/exp/ledger.py conflicts              # 方向冲突 + 重问队列（按差距排序，含 json）
 pwsh -File scripts/make-bundle.ps1                   # 打提交包（回读核对每个条目）→ dist/submission-<日期>.zip
 python research/exp/verify_claims.py                 # 论文数字回归（容差 0.06）
-python research/exp/theory_audit.py --engine engine/target/debug/metaform.exe   # 定理证伪 + 引擎一致性
+python research/exp/theory_audit.py --engine target/debug/metaform.exe   # 定理证伪 + 引擎一致性
 python research/exp/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
 python research/exp/domain_b.py                      # Lean 当 oracle，约 3 s
 python research/exp/domain_c.py                      # 真实代码不变量
 python research/exp/domain_cost.py                   # 成本分解
 python research/exp/domain_more_data.py              # 定理 5 的经验版
 python research/exp/greedy_cover.py                  # 贪心覆盖 vs 最优 vs 随机
-engine\target\debug\metaform.exe ops                 # 五类算子的调度对照 + 200 次随机自检
+target\debug\metaform.exe ops                 # 五类算子的调度对照 + 200 次随机自检
 python research/exp/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # 噪声 oracle
 python research/exp/proposer.py --case domain_c --emit                    # 看发给模型的请求
 python research/exp/proposer.py --case domain_c --responses research/exp/responses_domain_c.json \
