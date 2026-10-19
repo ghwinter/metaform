@@ -493,3 +493,207 @@ fn invalid_max_arity_is_rejected() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// `--emit-request` on an `INSUFFICIENT` state must print one complete, deterministic
+/// `metaform.propose/1` request -- and `propose` must accept that exact file without edits. The
+/// response is the documented empty one, so this also freezes how `candidates: []` is treated.
+#[test]
+fn emit_request_is_complete_and_accepted_by_propose() {
+    let dir = collision_fixture("emit-request");
+    let project = dir.to_str().expect("utf-8 path");
+
+    // The flag is additive: the unflagged command still reports the suggestion JSON.
+    let report = json(&run_ok(&["suggest", "--project", project]));
+    assert_eq!(report["next"], "new_atom", "{report}");
+
+    let first = run_ok(&["suggest", "--project", project, "--emit-request"]);
+    let second = run_ok(&["suggest", "--project", project, "--emit-request"]);
+    assert_eq!(
+        first, second,
+        "the same state must emit the same request byte-for-byte"
+    );
+    assert_eq!(first.lines().count(), 1, "the request is one line: {first}");
+    assert!(
+        !first.contains("\"next\"") && !first.contains("\"suggestions\""),
+        "with --emit-request the suggestion JSON must not be printed: {first}"
+    );
+
+    let request = json(&first);
+    assert_eq!(request["protocol"], "metaform.propose/1", "{request}");
+
+    let request_id = request["request_id"]
+        .as_str()
+        .expect("request_id is a string");
+    assert!(
+        request_id.starts_with("suggest-"),
+        "request_id is derived from the state: {request_id}"
+    );
+    assert_eq!(
+        request_id.len(),
+        "suggest-".len() + 16,
+        "request_id carries a fixed-width state hash: {request_id}"
+    );
+
+    assert_eq!(request["objects"], 2, "{request}");
+    assert_eq!(request["object_ids"], serde_json::json!([0, 1]), "{request}");
+    assert_eq!(
+        request["vocabulary"],
+        serde_json::json!([
+            {"name": "a", "ids": [0, 1]},
+            {"name": "b", "ids": [0, 1]}
+        ]),
+        "every predicate name with its current ids, sorted by name: {request}"
+    );
+    assert_eq!(
+        request["evidence"],
+        serde_json::json!({"pos": [0], "neg": [1]}),
+        "{request}"
+    );
+    assert_eq!(request["theta"], 3, "the recommended theta: {request}");
+    assert_eq!(
+        request["colliding_pairs"],
+        serde_json::json!([[0, 1]]),
+        "the same pair set the suggest report shows: {request}"
+    );
+    assert_eq!(
+        request["allowed"],
+        serde_json::json!({
+            "ids": true,
+            "define": {"ops": ["all_of", "any_of"], "operands": "vocabulary"}
+        }),
+        "{request}"
+    );
+
+    let mut keys: Vec<&str> = request
+        .as_object()
+        .expect("the request is a JSON object")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort_unstable();
+    assert_eq!(
+        keys,
+        [
+            "allowed",
+            "colliding_pairs",
+            "evidence",
+            "object_ids",
+            "objects",
+            "protocol",
+            "request_id",
+            "theta",
+            "vocabulary"
+        ],
+        "the request carries exactly the documented fields: {request}"
+    );
+
+    // `--out` writes the same one-line request and prints nothing.
+    let request_path = dir.join("request.json");
+    let stdout = run_ok(&[
+        "suggest",
+        "--project",
+        project,
+        "--emit-request",
+        "--out",
+        request_path.to_str().expect("utf-8 path"),
+    ]);
+    assert_eq!(stdout, "", "--out sends the request to the file, not stdout");
+    assert_eq!(
+        std::fs::read_to_string(&request_path).expect("read emitted request"),
+        first,
+        "stdout and --out must carry the identical request"
+    );
+
+    // The emitted request is valid as-is; an empty candidate list is a successful response.
+    let response_path = dir.join("response.json");
+    std::fs::write(
+        &response_path,
+        format!(
+            "{{\"protocol\":\"metaform.propose/1\",\"request_id\":\"{request_id}\",\"candidates\":[],\"refused\":null}}"
+        ),
+    )
+    .expect("write empty response");
+    let verdict = json(&run_ok(&[
+        "propose",
+        "--request",
+        request_path.to_str().expect("utf-8 path"),
+        "--response",
+        response_path.to_str().expect("utf-8 path"),
+    ]));
+    assert_eq!(verdict["protocol"], "metaform.propose/1", "{verdict}");
+    assert_eq!(verdict["request_id"], request_id, "{verdict}");
+    assert_eq!(verdict["accepted"], serde_json::json!([]), "{verdict}");
+    assert_eq!(verdict["rejected"], serde_json::json!([]), "{verdict}");
+    assert_eq!(
+        verdict["refused"],
+        serde_json::Value::Null,
+        "an empty candidate list is not a refusal: {verdict}"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A state that does not need a new atom emits no request at all: it prints the status and `null`,
+/// with no suggestion JSON, so a caller cannot mistake an empty request for a call to propose.
+#[test]
+fn settled_state_emits_a_null_request() {
+    let undetermined = temp_dir("emit-request-undetermined");
+    let project = undetermined.to_str().expect("utf-8 path");
+    run_ok(&["state", "init", "--project", project, "--n", "2"]);
+    let out = run_ok(&["suggest", "--project", project, "--emit-request"]);
+    assert_eq!(
+        out, "{\"status\":\"UNDETERMINED\",\"request\":null}\n",
+        "an open state has nothing to propose to"
+    );
+    assert_eq!(
+        out,
+        run_ok(&["suggest", "--project", project, "--emit-request"]),
+        "the settled shape is deterministic"
+    );
+
+    let identified = temp_dir("emit-request-identified");
+    let project = identified.to_str().expect("utf-8 path");
+    run_ok(&["state", "init", "--project", project, "--n", "2"]);
+    run_ok(&[
+        "state", "add", "--project", project, "--name", "p", "--ids", "0",
+    ]);
+    state_vote(project, "0", "3", "0");
+    state_vote(project, "1", "0", "3");
+    let out = run_ok(&["suggest", "--project", project, "--emit-request"]);
+    assert_eq!(
+        out, "{\"status\":\"IDENTIFIED\",\"request\":null}\n",
+        "an identified state needs no proposal"
+    );
+
+    let _ = std::fs::remove_dir_all(&undetermined);
+    let _ = std::fs::remove_dir_all(&identified);
+}
+
+/// The emitted request is read-only: `.metaform/state.json` keeps every byte and no file appears.
+#[test]
+fn emit_request_is_read_only() {
+    let dir = collision_fixture("emit-request-read-only");
+    let project = dir.to_str().expect("utf-8 path");
+    let path = state_file(&dir);
+
+    let state_before = std::fs::read(&path).expect("read state");
+    let files_before = tree(&dir);
+    let emitted = run_ok(&["suggest", "--project", project, "--emit-request"]);
+    assert!(
+        json(&emitted)["request_id"].is_string(),
+        "the request was emitted: {emitted}"
+    );
+    let state_after = std::fs::read(&path).expect("read state");
+    let files_after = tree(&dir);
+
+    assert_eq!(
+        state_before, state_after,
+        "suggest --emit-request must leave .metaform/state.json byte-for-byte unchanged"
+    );
+    assert_eq!(
+        files_before, files_after,
+        "suggest --emit-request must not create or remove files"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

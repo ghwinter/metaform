@@ -20,10 +20,23 @@
 //! pair order, question order and candidate order are deterministic: names go through
 //! `BTreeMap`/`BTreeSet`, classes are ordered by their lowest member, and colliding pairs are sorted
 //! before scoring.
+//!
+//! `--emit-request` reuses the same collision definition to build the `metaform.propose/1` request a
+//! proposer needs after `next` says `new_atom`: [`request_for_state`] returns it only for an
+//! `INSUFFICIENT` state, with a deterministic `request_id` and every field derived from the kernel's
+//! current view. It writes nothing; the CLI prints the request (or writes `--out`).
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{bit, DefOp, Definition, Explorer, Mask, Status};
+
+/// The protocol a ready-to-fill proposal request declares.
+pub const PROPOSE_PROTOCOL: &str = "metaform.propose/1";
+
+/// What a candidate may be under this protocol: an extensional `ids` list, or a Boolean `define`
+/// over names that already exist in `vocabulary` (the only operands `propose` resolves).
+const ALLOWED: &str =
+    r#"{"ids":true,"define":{"ops":["all_of","any_of"],"operands":"vocabulary"}}"#;
 
 /// One candidate definition and the colliding pairs it separates.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -230,12 +243,117 @@ pub fn to_json(report: &Report) -> String {
     )
 }
 
-fn status_str(status: Status) -> &'static str {
+/// The upper-case status word used by both `suggest` output shapes.
+pub fn status_str(status: Status) -> &'static str {
     match status {
         Status::Insufficient => "INSUFFICIENT",
         Status::Undetermined => "UNDETERMINED",
         Status::Identified => "IDENTIFIED",
     }
+}
+
+/// Build the `metaform.propose/1` request that a proposer should fill once the state is
+/// `INSUFFICIENT`, or report that the state does not need one.
+///
+/// The status is computed exactly as `suggest` computes it (recommended `theta`), so the two
+/// commands cannot disagree about whether a proposal is due. A request is emitted only for
+/// `INSUFFICIENT`; every other status returns `None` and the CLI prints
+/// `{"status":"<STATUS>","request":null}`.
+///
+/// Every field is derived from the kernel's current view: `objects` is `n` (the integer `propose`
+/// reads), `object_ids` is `0..n`, `vocabulary` is the resolved vocabulary (last occurrence of a
+/// repeated name, sorted by name), `evidence` is the strong-positive/strong-negative mask under the
+/// recommended threshold, `theta` is that threshold, and `colliding_pairs` is the same pair set the
+/// suggest report shows. `allowed` names the candidate forms `propose` accepts. `request_id` hashes
+/// the canonical state view, so replaying an unchanged state emits the identical request and no
+/// other field can drift while the id stays fixed.
+///
+/// The request is deliberately built here, next to the collision definition, so `suggest` and
+/// `propose` cannot disagree about what a pair is. It is one line by construction.
+pub fn request_for_state(e: &Explorer) -> (Status, Option<String>) {
+    let theta = e.recommended_theta();
+    let status = e.status_with(theta);
+    if status != Status::Insufficient {
+        return (status, None);
+    }
+
+    let (sp, sn) = e.strong(theta);
+    let pairs = colliding_pairs(e, sp, sn);
+    let vocab = vocabulary(e);
+    let objects: Vec<usize> = (0..e.n).collect();
+    let pos = mask_ids(sp, e.n);
+    let neg = mask_ids(sn, e.n);
+
+    let request_id = format!(
+        "suggest-{:016x}",
+        state_hash(e.n, theta, &vocab, &pos, &neg, &pairs)
+    );
+    let vocabulary_json = vocab
+        .iter()
+        .map(|(name, ext)| {
+            format!(
+                "{{\"name\":{},\"ids\":{}}}",
+                json_string(name),
+                ids_json(&mask_ids(*ext, e.n))
+            )
+        })
+        .collect::<Vec<String>>()
+        .join(",");
+
+    let request = format!(
+        "{{\"protocol\":\"{PROPOSE_PROTOCOL}\",\"request_id\":{id},\"objects\":{n},\"object_ids\":{objects},\"vocabulary\":[{vocab}],\"evidence\":{{\"pos\":{pos},\"neg\":{neg}}},\"theta\":{theta},\"colliding_pairs\":{pairs},\"allowed\":{ALLOWED}}}",
+        id = json_string(&request_id),
+        n = e.n,
+        objects = ids_json(&objects),
+        vocab = vocabulary_json,
+        pos = ids_json(&pos),
+        neg = ids_json(&neg),
+        pairs = pairs_json(&pairs),
+    );
+    (status, Some(request))
+}
+
+/// Ids set in `mask`, ascending. `n` bounds the scan so the request never mentions a nonexistent
+/// object.
+fn mask_ids(mask: Mask, n: usize) -> Vec<usize> {
+    (0..n).filter(|&x| (mask >> x) & 1 == 1).collect()
+}
+
+const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+
+/// FNV-1a over a canonical text of every state-derived request field. Deterministic across runs and
+/// independent of map iteration order, which is what `request_id` promises.
+fn state_hash(
+    n: usize,
+    theta: u8,
+    vocab: &[(String, Mask)],
+    pos: &[usize],
+    neg: &[usize],
+    pairs: &[(usize, usize)],
+) -> u64 {
+    let mut text = format!("n={n}\ntheta={theta}\n");
+    for (name, ext) in vocab {
+        text.push_str(&format!("v={name}|{}\n", join_ids(&mask_ids(*ext, n))));
+    }
+    text.push_str(&format!("pos={}\n", join_ids(pos)));
+    text.push_str(&format!("neg={}\n", join_ids(neg)));
+    for (a, b) in pairs {
+        text.push_str(&format!("p={a},{b}\n"));
+    }
+    let mut h = FNV_OFFSET;
+    for &b in text.as_bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(FNV_PRIME);
+    }
+    h
+}
+
+fn join_ids(ids: &[usize]) -> String {
+    ids.iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>()
+        .join(",")
 }
 
 /// Colliding pairs under the `theta` labels, with the class iteration order removed.

@@ -66,7 +66,7 @@ metaform state init  --project . --n 4            # persist the scenario to .met
 metaform state add   --project . --name p --define all-of:a,b  # store p = a AND b as a definition
 metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # one-shot: status and recommendations directly
-metaform suggest    --project . [--max-arity 2] [--max 20] # read-only: Boolean candidates tried, and why none separates
+metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # read-only: Boolean candidates tried, and why none separates
 metaform plan   --project . --pool .metaform/out/pool.txt # coverage + purity + re-ask budget
 metaform report --project .                         # generate .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # candidate scoring: coverage/P-R/ledger
@@ -91,6 +91,17 @@ whose members were all asked -- even one whose direct labels conflict -- is no l
 equivalence class that still has an unasked member (`objects`), with `why` naming the case
 (`unlabelled_class` or `unprobed_member`). `new_atom` omits the field because no question can repair
 the state.
+
+With `--emit-request`, `suggest` does not print the report. On an `INSUFFICIENT` state it prints one
+ready-to-fill `metaform.propose/1` request (or writes it to `--out <path>`) and leaves the state
+untouched: `protocol`, a deterministic `request_id` (`suggest-` plus a 16-hex state hash), `objects`
+(the count `propose` reads) and `object_ids`, the resolved `vocabulary` (every predicate name with its
+current ids), `evidence` (`pos` / `neg` as the kernel sees them under the recommended `theta`), that
+`theta`, `colliding_pairs`, and `allowed` (an extensional `ids` list or a `define` over the
+vocabulary). The file is valid input for `metaform propose --request <file> --response <file>` as-is,
+and a response with `"candidates":[]` is a valid empty answer. Any other status prints
+`{"status":"<STATUS>","request":null}` and no request, because those states do not need a predicate
+outside the vocabulary.
 
 ## LLM adapter
 
@@ -183,7 +194,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 115)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 118)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

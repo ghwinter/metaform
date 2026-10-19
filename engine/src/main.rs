@@ -21,10 +21,13 @@
 //! the predicates an external model proposed under `metaform.propose/1` and prints one line of JSON
 //! without writing any file or touching the project state.
 //!
-//! `metaform suggest --project . [--max-arity 2] [--max 20]` is the read-only proof step for an
-//! `INSUFFICIENT` state: it enumerates the Boolean definitions the vocabulary invites, counts how
-//! many it tried and how many colliding pairs they separate, and reports that the answer is none
-//! because every colliding pair shares a signature. It never adds a predicate.
+//! `metaform suggest --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]]` is the
+//! read-only proof step for an `INSUFFICIENT` state: it enumerates the Boolean definitions the
+//! vocabulary invites, counts how many it tried and how many colliding pairs they separate, and
+//! reports that the answer is none because every colliding pair shares a signature. It never adds a
+//! predicate. With `--emit-request` it skips the enumeration and prints a ready-to-fill
+//! `metaform.propose/1` request instead (or `{"status":"<STATUS>","request":null}` when no new atom
+//! is needed), so a proposer can answer without inventing the request shape.
 
 use std::io::{self, BufRead, Write};
 
@@ -227,9 +230,12 @@ fn parse_num(args: &[String], flag: &str, default: usize) -> Result<usize, Strin
     }
 }
 
-/// `metaform suggest --project . [--max-arity 2] [--max 20]`.
+/// `metaform suggest --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]]`.
 ///
-/// Read-only: the state is loaded, enumerated and printed; it is never saved or extended.
+/// Read-only: the state is loaded and printed; it is never saved or extended. With `--emit-request`
+/// the enumeration is skipped: an `INSUFFICIENT` state prints a ready-to-fill `metaform.propose/1`
+/// request instead (to stdout, or to `--out`), and any other status prints
+/// `{"status":"<STATUS>","request":null}`.
 fn cmd_suggest(args: &[String]) -> i32 {
     let root = project_root(args).join(".metaform");
     let Some(st) = load_state(&root.join("state.json"), "suggest") else {
@@ -253,6 +259,27 @@ fn cmd_suggest(args: &[String]) -> i32 {
             return 2;
         }
     };
+    if args.iter().any(|a| a == "--emit-request") {
+        let explorer = st.explorer();
+        let (status, request) = metaform::suggest::request_for_state(&explorer);
+        match request {
+            Some(request) => match kv(args, "--out") {
+                Some(path) => {
+                    if let Err(e) = std::fs::write(&path, format!("{request}\n")) {
+                        eprintln!("metaform suggest: cannot write request to `{path}`: {e}");
+                        return 2;
+                    }
+                }
+                None => println!("{request}"),
+            },
+            // Nothing to fill: the state does not yet need a predicate outside the vocabulary.
+            None => println!(
+                "{{\"status\":\"{}\",\"request\":null}}",
+                metaform::suggest::status_str(status)
+            ),
+        }
+        return 0;
+    }
     let report = metaform::suggest::suggest(&st.explorer(), max_arity, max);
     println!("{}", metaform::suggest::to_json(&report));
     0

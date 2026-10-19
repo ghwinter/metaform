@@ -62,7 +62,7 @@ metaform state init  --project . --n 4            # 场景持久化到 .metaform
 metaform state add   --project . --name p --define all-of:a,b  # 存 p = a AND b 的定义
 metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # 一步式：直接给状态与建议
-metaform suggest    --project . [--max-arity 2] [--max 20] # 只读：试过哪些布尔候选，以及为何都分不开
+metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # 只读：试过哪些布尔候选，以及为何都分不开
 metaform plan   --project . --pool .metaform/out/pool.txt # 覆盖 + 纯度 + 重问预算
 metaform report --project .                         # 生成 .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # 候选评分：覆盖/P-R/台账
@@ -82,6 +82,15 @@ metaform ops                                       # 五类算子调度对照：
 标签互相矛盾——也不再可问。`next` 为 `ask` 时，JSON 还带有 `ask`：对每个仍有未直接提问成员的
 撞车等价类各给一个确定性的代表对象（`objects`），`why` 说明原因（`unlabelled_class` 或
 `unprobed_member`）。`new_atom` 则完全省略该字段，因为再问也不能修复状态。
+
+加 `--emit-request` 时 `suggest` 不再打印报告。状态为 `INSUFFICIENT` 时，它打印一份可直接填写的
+`metaform.propose/1` 请求（或用 `--out <path>` 写入文件），状态保持不变：`protocol`、确定性的
+`request_id`（`suggest-` 加 16 位状态哈希）、`objects`（`propose` 读取的对象数）与 `object_ids`、
+解析后的 `vocabulary`（每个谓词名及其当前 ids）、`evidence`（推荐 `theta` 下内核看到的 `pos` /
+`neg`）、该 `theta`、`colliding_pairs`，以及 `allowed`（外延式 `ids`，或对词汇做 `define`）。该文件
+可原样作为 `metaform propose --request <file> --response <file>` 的输入，响应里 `"candidates":[]`
+是合法的空回答。其他状态只打印 `{"status":"<STATUS>","request":null}`，不打印请求，因为此时不需要
+词汇之外的谓词。
 
 ## LLM 适配器
 
@@ -146,7 +155,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 115）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 118）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接
