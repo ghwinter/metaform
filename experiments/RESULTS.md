@@ -1297,3 +1297,208 @@ skolem ids start at `target.entities`, so a caller can tell one from a real enti
 `skolems` records which base entity each one stands for. The old function stays, and a test shows the
 difference: it drops the statement, the new one marks it. Still open from SME4: nogood propagation
 inside the merge, commutative n-ary order, and a golden comparison against a dehydrated `.sme` pair.
+
+## 11. A hand-driven session on a real question (2026-10-20)
+
+**Question.** The repository pins the Rust pass count in two scripts and repeats the number in both
+READMEs. If that number moves off 124, which tracked files must be edited?
+
+This is a maintenance question about the repository itself, not a constructed domain.
+`scripts/check-rust.ps1` defaults `-Expected` to 124; `scripts/check-all.ps1` forwards its own
+`$RustExpected` default; `README.md` and `README.zh.md` state the same number in their command lists.
+`git grep -n --fixed-strings '124'` finds exactly five tracked files, so the answer is decidable
+without running a test. The pin is 124 at commit `3eb0d7d`. The answer is the four count-bearing
+files; `Cargo.lock` is the fifth hit, but its 124 is inside a checksum.
+
+**Objects.** Seven tracked files, ids 0 to 6. The set contains all five files that `git grep` finds
+for `124`, plus two count-adjacent scripts. Three are labelled positive, three negative; one is
+deliberately left unlabelled.
+
+| id | file | label | why it is in the set |
+|---|---|---|---|
+| 0 | `scripts/check-rust.ps1` | positive | owns the default pin |
+| 1 | `scripts/check-all.ps1` | positive | forwards the pin to check-rust |
+| 2 | `README.md` | positive | repeats the number in prose |
+| 3 | `README.zh.md` | unlabelled | true positive by grep, withheld from the evidence |
+| 4 | `scripts/check-lean.ps1` | negative | a script with no count |
+| 5 | `scripts/selftest-gates.ps1` | negative | mentions `Expected`, but as `-Expected 999` |
+| 6 | `Cargo.lock` | negative | 124 occurs in a checksum, not a count |
+
+**Initial vocabulary.** Set by hand with `state add`; no predicate mentions 124.
+
+| name | ids | computed as |
+|---|---|---|
+| `is_script` | 0,1,4,5 | the four `scripts/*.ps1` objects |
+| `is_doc` | 2,3 | the two README objects |
+| `mentions_Expected` | 0,1,5 | `Select-String -CaseSensitive 'Expected'` hits 0, 1 and 5; 5 is `-Expected 999` |
+
+`mentions_Expected` is the plausible-but-wrong predicate: it puts positive 0 and 1 in the same
+signature class as negative 5, so it creates the collision instead of resolving it.
+
+**Labels and the grep that establishes each.** All commands were run at the repository root;
+`Select-String` is the PowerShell grep. The positive criterion is "contains the literal pinned
+count"; the negative criterion is "does not carry it as a count".
+
+- 0 positive. `Select-String -Path scripts/check-rust.ps1 -Pattern '124' -SimpleMatch` returns
+  `17: Expected pass count (default 124: 70 kernel + ...)` and `26: [int]$Expected = 124,`. The
+  default is the pin itself, so the file must move with it.
+- 1 positive. `Select-String -Path scripts/check-all.ps1 -Pattern '124' -SimpleMatch` returns
+  `24: Expected Rust pass count (default 124).` and `35: [int]$RustExpected = 124,`. The script
+  passes `-Expected $RustExpected`, so it must move too.
+- 2 positive. `Select-String -Path README.md -Pattern '124' -SimpleMatch` returns
+  `212: ... # Rust only (pass count must == 124)`. The prose would become false.
+- 4 negative. `Select-String -Path scripts/check-lean.ps1 -Pattern '124','Expected' -CaseSensitive`
+  returns no output. It runs Lean, not the Rust count.
+- 5 negative. `Select-String -Path scripts/selftest-gates.ps1 -Pattern 'Expected' -CaseSensitive`
+  returns `62: ... check-rust.ps1') -Expected 999 | Out-Null`; the same file with
+  `-Pattern '124' -SimpleMatch` returns no output. The 999 is intentionally wrong for the negative
+  self-test; it does not track the pin, so changing 124 to N does not require touching it.
+- 6 negative. `Select-String -Path Cargo.lock -Pattern '124' -SimpleMatch` returns
+  `32: checksum = "65cd...1240a"`; `Select-String -Path Cargo.lock -Pattern 'test result|Expected|pinned' -CaseSensitive`
+  returns no output. The match is inside a hash, not a count.
+
+The unlabelled file, used only to audit the proposed extension and not as a label:
+`Select-String -Path README.zh.md -Pattern '124' -SimpleMatch` returns
+`169: ... 只跑 Rust（通过数必须 == 124）`. It is positive by the same criterion; the state was not
+told so.
+
+**Session.** `metaform init` creates the project skeleton, `state init` writes the state,
+`state add` builds the vocabulary, and `state vote` writes the six labels. The loop then runs
+`state need`, `suggest`, `suggest --emit-request`, `propose`, `apply`, and `state need` again.
+Flags were checked against `engine/src/main.rs` and the command list in `README.md`; no flag was
+guessed. All commands ran from the repository root and all exited 0. The project path is relative;
+the scratch project lives under `dist/session-2026-10-20/`.
+
+```text
+PS> target\debug\metaform.exe init --project dist/session-2026-10-20/project
+{"ok":true,"dir":"dist/session-2026-10-20/project/.metaform"}
+exit=0
+
+PS> target\debug\metaform.exe state init --project dist/session-2026-10-20/project --n 7
+{"ok":true,"n":7,"file":"dist/session-2026-10-20/project/.metaform/state.json"}
+exit=0
+
+PS> target\debug\metaform.exe state add --project dist/session-2026-10-20/project --name is_script --ids 0,1,4,5
+{"ok":true,"name":"is_script","ids":[0,1,4,5]}
+exit=0
+
+PS> target\debug\metaform.exe state add --project dist/session-2026-10-20/project --name is_doc --ids 2,3
+{"ok":true,"name":"is_doc","ids":[2,3]}
+exit=0
+
+PS> target\debug\metaform.exe state add --project dist/session-2026-10-20/project --name mentions_Expected --ids 0,1,5
+{"ok":true,"name":"mentions_Expected","ids":[0,1,5]}
+exit=0
+
+PS> target\debug\metaform.exe state vote --project dist/session-2026-10-20/project --id 0 --yes 3 --no 0
+{"ok":true,"id":0,"yes":3,"no":0}
+exit=0
+
+PS> target\debug\metaform.exe state vote --project dist/session-2026-10-20/project --id 1 --yes 3 --no 0
+{"ok":true,"id":1,"yes":3,"no":0}
+exit=0
+
+PS> target\debug\metaform.exe state vote --project dist/session-2026-10-20/project --id 2 --yes 3 --no 0
+{"ok":true,"id":2,"yes":3,"no":0}
+exit=0
+
+PS> target\debug\metaform.exe state vote --project dist/session-2026-10-20/project --id 4 --yes 0 --no 3
+{"ok":true,"id":4,"yes":0,"no":3}
+exit=0
+
+PS> target\debug\metaform.exe state vote --project dist/session-2026-10-20/project --id 5 --yes 0 --no 3
+{"ok":true,"id":5,"yes":0,"no":3}
+exit=0
+
+PS> target\debug\metaform.exe state vote --project dist/session-2026-10-20/project --id 6 --yes 0 --no 3
+{"ok":true,"id":6,"yes":0,"no":3}
+exit=0
+
+PS> target\debug\metaform.exe state need --project dist/session-2026-10-20/project
+{"status":"INSUFFICIENT","action":"PROPOSE","theta":3,"epsilon_hat":0.00,"theta_rec":3,"classes":4,"free_classes":0,"colliding_pairs":[[0,5],[1,5]],"pending":[],"unverified":[3],"suggested_labels":[]}
+exit=0
+
+PS> target\debug\metaform.exe suggest --project dist/session-2026-10-20/project --max-arity 2 --max 20
+{"status":"INSUFFICIENT","colliding":2,"reason":"boolean_recombination_cannot_separate","colliding_pairs":[[0,5],[1,5]],"next":"new_atom","tried":9,"suggestions":[]}
+exit=0
+
+PS> target\debug\metaform.exe suggest --project dist/session-2026-10-20/project --emit-request
+{"protocol":"metaform.propose/1","request_id":"suggest-70569a53b49bd339","objects":7,"object_ids":[0,1,2,3,4,5,6],"vocabulary":[{"name":"is_doc","ids":[2,3]},{"name":"is_script","ids":[0,1,4,5]},{"name":"mentions_Expected","ids":[0,1,5]}],"evidence":{"pos":[0,1,2],"neg":[4,5,6]},"theta":3,"colliding_pairs":[[0,5],[1,5]],"allowed":{"ids":true,"define":{"ops":["all_of","any_of"],"operands":"vocabulary"}}}
+exit=0
+
+PS> target\debug\metaform.exe propose --request dist/session-2026-10-20/request.json --response dist/session-2026-10-20/response.json
+{"protocol":"metaform.propose/1","request_id":"suggest-70569a53b49bd339","accepted":[{"name":"contains_pinned_count","ids":[0,1,2,3],"splits":2,"warrant":"Select-String finds 124 at check-rust L17/L26, check-all L24/L35, README L212 and README.zh L169; Cargo.lock L32 is a checksum, not a count, and is excluded","falsifier":"a file that must move with the pin but contains no 124, or a file whose 124 is incidental (Cargo.lock is the substring trap)"}],"rejected":[],"refused":null}
+exit=0
+
+PS> target\debug\metaform.exe apply --project dist/session-2026-10-20/project --request dist/session-2026-10-20/request.json --response dist/session-2026-10-20/response.json
+{"applied":1,"skipped":[],"before":{"status":"INSUFFICIENT","colliding":2},"after":{"status":"IDENTIFIED","colliding":0},"request_id":"suggest-70569a53b49bd339"}
+exit=0
+
+PS> target\debug\metaform.exe state need --project dist/session-2026-10-20/project
+{"status":"IDENTIFIED","action":"VERIFY","theta":3,"epsilon_hat":0.00,"theta_rec":3,"classes":5,"free_classes":0,"colliding_pairs":[],"pending":[],"unverified":[3],"suggested_labels":[]}
+exit=0
+```
+
+**One proposer turn.** The request is 406 characters. It allows both an extensional `ids` candidate
+and a `define` over the three existing predicates. No definition can separate the pair: objects 0,
+1 and 5 all have the signature `(is_script=T, is_doc=F, mentions_Expected=T)`, and a Boolean
+combination is constant on a signature class. `suggest` tried all nine definitions (three
+singletons, three `all_of`, three `any_of`) and found none, which is Theorem 11's negative result
+rather than a truncated search.
+
+The response therefore supplies one extensional atom. Its full text is:
+
+```json
+{"protocol":"metaform.propose/1","request_id":"suggest-70569a53b49bd339","candidates":[{"name":"contains_pinned_count","ids":[0,1,2,3],"warrant":"Select-String finds 124 at check-rust L17/L26, check-all L24/L35, README L212 and README.zh L169; Cargo.lock L32 is a checksum, not a count, and is excluded","falsifier":"a file that must move with the pin but contains no 124, or a file whose 124 is incidental (Cargo.lock is the substring trap)"}],"refused":null}
+```
+
+The extension is 0, 1, 2, 3: the two scripts that pin or forward the count, both READMEs, and not the
+two count-adjacent scripts or the checksum. It covers unlabelled object 3 (README.zh) on the strength
+of the same grep that established the other positives.
+
+**Verdict sequence.** One proposal, one proposer turn, status `INSUFFICIENT` to `IDENTIFIED`:
+
+1. `state need`: `INSUFFICIENT` / `PROPOSE`; 4 classes, 2 colliding pairs `[0,5]` and `[1,5]`;
+   `unverified` is `[3]`.
+2. `suggest`: `reason: boolean_recombination_cannot_separate`, `next: new_atom`, `tried: 9`,
+   `suggestions: []`.
+3. `suggest --emit-request`: `request_id: suggest-70569a53b49bd339`; `allowed` admits `ids` and
+   `define`.
+4. Proposer: one extensional candidate, `contains_pinned_count = [0,1,2,3]`.
+5. `propose`: accepted 1, `splits: 2`, rejected 0, refused null.
+6. `apply`: applied 1; before `INSUFFICIENT` / 2, after `IDENTIFIED` / 0.
+7. `state need`: `IDENTIFIED` / `VERIFY`; 5 classes, no colliding pairs; `unverified` is `[3]`.
+
+**Convergence and cost.** The status converged on the first proposal: the vocabulary now separates
+the positive and negative classes, so the loop stopped. It did not fully verify: the action is
+`VERIFY`, because README.zh (3) was never asked directly and its label is inherited from README.md
+in class `{2,3}`. The run stopped on the task's rule (status `IDENTIFIED`), not because every object
+had a direct vote. The proposal cost one turn and one command pair; there was no retry, no second
+candidate, and no `suggest` loop.
+
+No tokenizer was attached to the session, so the token figures are byte-based estimates at roughly
+3.5 bytes per token. The proposal turn saw the 406-byte request plus about 2 KB of grep evidence and
+file lines, roughly 1k input tokens, and emitted the 462-byte response, roughly 150 output tokens
+including the reasoning that ruled out `define`. The whole session, including reading `README.md`
+and `engine/src/main.rs` to verify the flags, was on the order of 15k to 20k input tokens; that
+reading is shared setup, not a per-proposal cost.
+
+**What this shows, and what it does not.** This is n=1, hand-driven, and there is no model API in the
+loop: `metaform` never called a model, the proposer was this same agent, and the labels, the initial
+predicates, and the proposed extension were all chosen by that one agent, so the evidence and the
+proposal are not independent. It shows that the plumbing carries a real distinction end to end on
+repository content: `suggest` proved that the plausible `mentions_Expected` predicate cannot separate
+the pair, the request was well-formed, the validator accepted exactly one candidate with
+`splits: 2`, `apply` changed the status, and a subsequent `state need` agreed with the validator.
+It also shows a real instance of the failure mode the loop is about: the existing vocabulary had a
+count-adjacent predicate and still could not express "contains the pinned count"; the missing atom
+was a property of the repository, not a Boolean recombination. It does not show that a model would
+find that atom, that the atom is minimal or stable, that the labels are correct beyond the greps
+shown, or anything about proposal cost, convergence rate, or label quality at n > 1. The engine
+checks that the candidate is non-constant, in range, and splits the colliding pairs; it cannot check
+that `contains_pinned_count` means what its name says. A candidate `[0,1,2,3,6]`, which includes the
+checksum file, would also have been accepted with `splits: 2` and would have left the same
+`IDENTIFIED` status. Excluding `Cargo.lock` is the proposer's semantic judgment, not the engine's,
+and the same holds for including the unlabelled README.zh. So the pilot shows more than "the plumbing
+works" only in the narrow sense that the insufficiency report was informative on a real question; it
+is not evidence that the loop is cheap, reliable, or model-findable.
