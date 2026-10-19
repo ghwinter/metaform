@@ -1,0 +1,13 @@
+[package]
+name = "metaform-vsa"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Vector symbolic architecture for metaform: MBAT hypervectors, binding, bundling, retrieval"
+
+[dependencies]
+rand = "0.8"
+
+[[bin]]
+name = "vsa_retrieval"
+path = "src/bin/vsa_retrieval.rs"

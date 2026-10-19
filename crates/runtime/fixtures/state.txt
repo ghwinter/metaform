@@ -1,0 +1,9 @@
+objects 4
+request_id fixture
+vocab a 0 1 2
+attr a 0 1 2
+attr b 0 1
+attr c 3
+pos 0 1
+neg 2 3
+systems crates/runtime/fixtures/systems.txt

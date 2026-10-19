@@ -1,0 +1,19 @@
+[package]
+name = "metaform-runtime"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Operator protocol for metaform: proposal components behind the exact kernel's validation"
+
+[dependencies]
+metaform = { path = "../../engine" }
+metaform-sme = { path = "../sme" }
+metaform-vsa = { path = "../vsa" }
+
+[[bin]]
+name = "runtime_smoke"
+path = "src/bin/runtime_smoke.rs"
+
+[[bin]]
+name = "metaform-runtime"
+path = "src/bin/metaform_runtime.rs"

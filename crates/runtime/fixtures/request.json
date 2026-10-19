@@ -1,0 +1,1 @@
+{"protocol":"metaform.propose/1","request_id":"fixture","objects":4,"vocabulary":[{"name":"a","ids":[0,1,2]}],"evidence":{"pos":[0,1],"neg":[2,3]},"limit":8}

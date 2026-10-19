@@ -14,6 +14,7 @@
 !/README.md
 !/README.zh.md
 !/environment.json
+!/crates/**
 !/engine/**
 !/paper/**
 !/research/**
@@ -31,6 +32,7 @@
 .metaform/
 dist/
 engine/target/
+crates/*/target/
 research/lean/.lake/
 research/exp/lean_oracle/
 **/__pycache__/
@@ -62,6 +64,10 @@ research/13-six-readings.zh.md
 research/lean/lakefile.toml
 research/lean/lake-manifest.json
 research/lean/lean-toolchain
+
+# Run output of the experiments: state files, responses, working directories.
+research/exp/tmp/
+crates/*/Cargo.lock
 
 # Conversation dumps and internal notes.
 1.md

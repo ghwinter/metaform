@@ -1,10 +1,11 @@
 <#
 .SYNOPSIS
-    Run all six assertion-bearing checks with one command: Lean formalization, Rust kernel tests, theorem falsification, bilingual alignment, and paper-number regression.
+    Run all seven assertion-bearing checks with one command: Lean formalization, Rust kernel tests, theorem falsification, bilingual alignment, and paper-number regression.
 
 .DESCRIPTION
     - check-lean: fail on any warning
     - check-rust: the pass count must equal the expected value, and ignored must be 0
+    - check-components.ps1: the proposal components build, and three proposers are judged by one validator
     - check-references.py: no path, file name or link that the repository does not contain
     - llm_e2e.py: the propose protocol accepts valid candidates and refuses malformed ones
     - verify_claims.py: key numbers in the paper must match measured values within tolerance
@@ -69,6 +70,11 @@ if (-not $SkipAlign) {
 if (-not $SkipReferences) {
     & $Python (Join-Path $PSScriptRoot 'check-references.py') | Out-Host
     $results += [pscustomobject]@{ Check = 'refs'; Exit = $LASTEXITCODE }
+}
+
+if (-not $SkipComponents) {
+    & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'check-components.ps1') | Out-Host
+    $results += [pscustomobject]@{ Check = 'components'; Exit = $LASTEXITCODE }
 }
 
 if (-not $SkipTheory) {

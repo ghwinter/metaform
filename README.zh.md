@@ -78,6 +78,27 @@ id、常量或空扩展、与词汇或先前候选重名的名字、重复 id，
 
 在廉价提议的假设下，这个分工才是重点：模型每次给很多候选，引擎支付提问。
 
+## 组件
+
+内核不是全部。算子协议后面有三个组件，各自一个 crate，**都无权改状态**：
+
+| crate | 提议什么 | 方式 |
+|---|---|---|
+| `crates/vsa` | 与"正负对比向量"相似度高的谓词 | MBAT 绑定/捆绑，`retrieve` |
+| `crates/sme` | 通过结构映射推出的谓词 | 结构映射，`analogize` |
+| `crates/runtime` | 协议本身、校验、命令行 | `Operator`、`OperatorResult`、`metaform-runtime` |
+
+组件提议，内核裁决：
+
+```powershell
+crates\runtime\target\debug\metaform-runtime.exe retrieve  --state crates/runtime/fixtures/state.txt --out response.json
+crates\runtime\target\debug\metaform-runtime.exe analogize --state crates/runtime/fixtures/state.txt --systems crates/runtime/fixtures/systems.txt --out response.json
+engine\target\debug\metaform.exe propose --request crates/runtime/fixtures/request.json --response response.json
+```
+
+只有第三行能"接受"，而接受仍不等于采纳：`research/exp/proposer_arms.py` 把同一个状态交给三个提议者
+（随机、向量检索、语言模型写的候选），由同一个内核裁决并报告结果。
+
 ## 提交信息
 
 遵循 Conventional Commits：类型（`feat`、`fix`、`docs`、`test`、`refactor`、`chore`）、可选 scope、
@@ -92,6 +113,7 @@ pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数�
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接
+pwsh -File scripts/check-components.ps1                   # 组件、CLI 路径与三提议者实验
 python research/exp/ledger.py list --all             # 反例台账（可增删改、挂起、带证据与历史）
 python research/exp/ledger.py show L2               # 看单条：来源、答案、票数、变更轨迹
 python research/exp/ledger.py corroborate --apply    # 同一对象的弱证据按 noisy-OR 合并

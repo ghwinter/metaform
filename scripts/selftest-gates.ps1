@@ -15,6 +15,7 @@
       ops no. change one expected ops number        -> expect exit code 1
       probe   change probe.early_correct to true    -> expect exit code 1
       portfolio change one portfolio row            -> expect exit code 1
+      components drop the model arm's proposals     -> expect exit code 1
 
     Only when every gate fails as expected are the gates "alive".
 
@@ -125,6 +126,18 @@ try {
 }
 finally { Pop-Location }
 $results += [pscustomobject]@{ Gate = 'claims / tampered portfolio'; Got = $code; Want = 1 }
+
+# --- 3e. Components: proposals that cannot separate anything ---
+$tampered = Join-Path $env:TEMP "llm_proposals_bad_$PID.json"
+'{"0":[{"name":"bad","ids":[0]}]}' | Set-Content -Path $tampered -Encoding utf8
+try {
+    & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'check-components.ps1') -SkipBuild -LlmProposals $tampered *> $null
+    $code = $LASTEXITCODE
+}
+finally {
+    Remove-Item $tampered -Force -ErrorAction SilentlyContinue
+}
+$results += [pscustomobject]@{ Gate = 'components / empty model arm'; Got = $code; Want = 1 }
 
 # --- 4. Probe demo: tamper with early_correct (no collision != correct) ---
 $fake = Join-Path $env:TEMP "fake_ops_$PID.cmd"

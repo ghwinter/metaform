@@ -1,0 +1,22 @@
+metaform-vsa carries code adapted from the hypervector crate.
+
+  Source:   https://github.com/rishikanthc/hypervector
+  Version:  0.1.3
+  License:  MIT OR Apache-2.0
+  Copyright (c) 2025 Rishikanth Chandrasekaran
+
+Files adapted:
+
+  crates/vsa/src/lib.rs   the VSA trait, the generic Hypervector type, the global RNG and the
+                          TieBreaker enumeration
+  crates/vsa/src/mbat.rs  the bipolar MBAT implementation
+
+Changes made in this repository:
+
+  - the once_cell dependency was replaced by std::sync::OnceLock;
+  - serde derives were removed, leaving rand as the only dependency;
+  - encoder, ssp and fhrr were not carried over;
+  - negate was added to the VSA trait, and `retrieval` is new code that belongs to this repository.
+
+The upstream license text is the same MIT and Apache-2.0 pair that this repository already ships as
+LICENSE-MIT and LICENSE-APACHE, so no additional copy is kept here.

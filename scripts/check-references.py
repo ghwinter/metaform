@@ -164,6 +164,9 @@ def main() -> int:
         if Path(rel).suffix not in SCAN_SUFFIXES:
             continue
         path = ROOT / rel
+        if not path.exists():
+            problems.append(f"{rel}: tracked but missing from the working tree")
+            continue
         text = path.read_text(encoding="utf-8", errors="replace")
         in_paper = path.resolve() in {p.resolve() for p in PAPERS}
         if path.suffix == ".tex":

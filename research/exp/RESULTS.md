@@ -955,3 +955,60 @@ cd research/exp
 3. Repeat 1 and 2 on domain B (Lean-decided) and domain C (test-decided) to confirm the conclusions are not artifacts of the synthetic domain.
 
 
+
+## 7 Three proposers, one validator (v0.5.4)
+
+A family gives every arm the same state -- objects, attributes, the vocabulary in force, and a few
+labelled examples -- and one proposal each. All proposals go through `metaform propose`, and the
+driver counts how many separate every pair that the *true* labels make indistinguishable under the
+vocabulary in force. Three families, all deterministic (`proposer_arms.py --family <f>`):
+
+| family | target | instances | random | vsa | llm (this session's model) |
+|---|---|---|---|---|---|
+| k2 | conjunction of 2 attributes | 10 | 0.200 | 0.100 | **1.000** |
+| k3 | conjunction of 3 attributes | 5 | 0.000 | 0.000 | **0.800** |
+| noisy | k2 with one wrong evidence label | 5 | 0.200 | 0.000 | **1.000** |
+
+At `r = 20` the cost column is `r/q + 7.6`: 27.6 for q = 1.0, 32.6 for q = 0.8, and infinite where q = 0.
+
+What the families show:
+
+1. **The model arm carries the loop.** It solves k2 and noisy outright and misses one k3 instance.
+   The miss is informative: with only four labels, several three-attribute conjunctions agree with
+   the evidence, and the rule used here (smallest consistent extension) chose one that leaves a true
+   positive out. The failure is a property of the evidence, not of the protocol.
+2. **Retrieval is at or below chance in every family.** With one predicate in the vocabulary and
+   four labelled objects, a contrast vector is too thin a signal; adding 3-conjunctions to its
+   candidate pool (arity 3) did not help. The earlier 0.810 measurement used twelve objects and a
+   full attribute pool, so the component is not useless in general -- it is useless *here*, which is
+   exactly the boundary the protocol is meant to expose.
+3. **The noisy family is about distrust, not accuracy.** One labelled negative is truly positive; the
+   model arm recovers the true concept anyway, while both mechanical arms keep fitting the wrong
+   label. `metaform propose` accepts all three arms' candidates, because being well-formed and being
+   true are different questions.
+
+`scripts/check-components.ps1` re-runs all three families and fails if the model arm drops below
+0.9 / 0.8 / 0.9, or stops beating retrieval.
+### 7.1 The same loop on real files from this repository
+
+`research/exp/real_domain.py` replaces the synthetic objects with the repository's own files: thirty
+Python experiments and scenario files, nine attributes read off their contents, and ten hand labels
+for one real distinction -- which files drive the tool by running a process. Five are labelled
+positive, five negative, and the labels match the mechanical truth with no disagreement.
+
+The vocabulary in force is `a_json, a_assert, a_small`, three attributes that say nothing about
+driving a process. On this real state the kernel reports `INSUFFICIENT` with six colliding pairs:
+`llm_e2e.py`, `propose_loop.py` and `proposer_arms.py` are indistinguishable from `ledger.py` and
+`llm_mock.py`. The two arms then propose:
+
+| arm | proposal | separates |
+|---|---|---|
+| retrieve | `a_ledger` | 3 of 6 colliding pairs |
+| the session's model | `runs_a_process` (the files that mention subprocess, cargo or the kernel binary) | 6 of 6 |
+
+The retrieval arm is not absurd here -- `a_ledger` is a real attribute and it does split half the
+pairs -- but it is not the concept, and nothing in the vector signal says so. The kernel does: it
+reports how many pairs a proposal separates, separately from whether the proposal is well formed.
+
+This experiment is deliberately not part of `check-components.ps1`: its objects are the repository,
+so a file added tomorrow changes the state. It is run by hand and recorded here.

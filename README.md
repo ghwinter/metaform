@@ -86,6 +86,29 @@ state, so adding a predicate remains a separate step and a proposal cannot overw
 Under the cheap-proposal assumption this is the division that matters: the model supplies many
 candidates per call, the engine pays for the queries.
 
+## Components
+
+The kernel is not the whole tool. Three components sit behind the operator protocol, each in its own
+crate, and none of them may change the state:
+
+| crate | what it proposes | how |
+|---|---|---|
+| `crates/vsa` | predicates whose vector similarity to a positive/negative contrast is high | MBAT binding and bundling, `retrieve` |
+| `crates/sme` | predicates inferred by mapping one relational system onto another | structure mapping, `analogize` |
+| `crates/runtime` | the protocol itself, the validation, and the CLI | `Operator`, `OperatorResult`, `metaform-runtime` |
+
+A component proposes, the kernel judges:
+
+```powershell
+crates\runtime\target\debug\metaform-runtime.exe retrieve  --state crates/runtime/fixtures/state.txt --out response.json
+crates\runtime\target\debug\metaform-runtime.exe analogize --state crates/runtime/fixtures/state.txt --systems crates/runtime/fixtures/systems.txt --out response.json
+engine\target\debug\metaform.exe propose --request crates/runtime/fixtures/request.json --response response.json
+```
+
+The third line is the only one that can accept anything, and accepting is still not adopting:
+`research/exp/proposer_arms.py` gives one state to three proposers (random, retrieval, and the
+proposals a language model wrote) and reports what each found, judged by the same kernel.
+
 ## Commits
 
 Messages follow Conventional Commits: a type (`feat`, `fix`, `docs`, `test`, `refactor`, `chore`), an

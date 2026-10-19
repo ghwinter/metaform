@@ -1,0 +1,488 @@
+//! Structure mapping for metaform.
+//!
+//! Clean-room implementation of the structure-mapping kernel: given two relational systems, find
+//! the alignments that are structurally consistent, prefer the ones with deeper and more
+//! connected common structure, and project the unmatched parts of the base as candidate
+//! inferences.
+//!
+//! The theory is Falkenhainer, Forbus and Gentner's structure-mapping engine; the scoring here
+//! follows the same principles (structural consistency, one-to-one correspondences,
+//! systematicity) without copying any implementation. The additions this repository needs are
+//! that the output is deterministic, that a mapping can be projected back as candidate
+//! statements for the exact kernel to check, and that the whole thing has no dependencies.
+//!
+//! Statements are defined bottom-up: a statement may only refer to statements with smaller ids.
+//! That is what makes the scoring pass a single ordered sweep.
+
+use std::collections::BTreeSet;
+
+pub type EntityId = u32;
+pub type StatementId = u32;
+
+/// An argument of a statement: either an entity or a nested statement.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Term {
+    Entity(EntityId),
+    Statement(StatementId),
+}
+
+/// A relation applied to arguments.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Statement {
+    pub relation: String,
+    pub args: Vec<Term>,
+}
+
+/// A relational system: entities plus statements over them.
+#[derive(Clone, Debug, Default)]
+pub struct System {
+    pub entities: usize,
+    pub statements: Vec<Statement>,
+}
+
+impl System {
+    pub fn new(entities: usize) -> Self {
+        System { entities, statements: Vec::new() }
+    }
+
+    /// Adds a statement and returns its id. Args may only name earlier statements.
+    pub fn push(&mut self, relation: &str, args: Vec<Term>) -> StatementId {
+        self.statements.push(Statement { relation: relation.to_string(), args });
+        (self.statements.len() - 1) as StatementId
+    }
+
+    fn statement(&self, id: StatementId) -> &Statement {
+        &self.statements[id as usize]
+    }
+}
+
+/// A structural match between one base statement and one target statement, including every
+/// nested statement and entity correspondence it implies.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Match {
+    pub base: StatementId,
+    pub target: StatementId,
+    pub statements: Vec<(StatementId, StatementId)>,
+    pub entities: Vec<(EntityId, EntityId)>,
+}
+
+impl Match {
+    pub fn size(&self) -> usize {
+        self.statements.len()
+    }
+}
+
+/// How good an alignment is. The numbers are kept separate on purpose: a single score would hide
+/// whether an alignment is deep, broad, or fragmented.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Score {
+    /// Matched statements.
+    pub matched: usize,
+    /// Sum of the statement weights, where a statement's weight is one plus the weights of its
+    /// matched children: deep common structure counts more than many isolated matches.
+    pub systematicity: u32,
+    /// Connected components of the matched structure. Fewer is better.
+    pub components: usize,
+}
+
+/// One alignment of base to target.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Mapping {
+    pub statements: Vec<(StatementId, StatementId)>,
+    pub entities: Vec<(EntityId, EntityId)>,
+    pub score: Score,
+}
+
+impl Mapping {
+    pub fn target_of(&self, base_entity: EntityId) -> Option<EntityId> {
+        self.entities.iter().find(|(b, _)| *b == base_entity).map(|(_, t)| *t)
+    }
+}
+
+/// Matches one base statement against one target statement, recursively. Returns `None` when the
+/// two cannot be aligned, in which case nothing is added to the enclosing match.
+fn match_statements(
+    base: &System,
+    target: &System,
+    b: StatementId,
+    t: StatementId,
+) -> Option<Match> {
+    let bs = base.statement(b);
+    let ts = target.statement(t);
+    if bs.relation != ts.relation || bs.args.len() != ts.args.len() {
+        return None;
+    }
+
+    let mut statements: Vec<(StatementId, StatementId)> = vec![(b, t)];
+    let mut entities: Vec<(EntityId, EntityId)> = Vec::new();
+
+    for (ba, ta) in bs.args.iter().zip(ts.args.iter()) {
+        match (ba, ta) {
+            (Term::Entity(be), Term::Entity(te)) => {
+                if let Some((_, mapped)) = entities.iter().find(|(x, _)| x == be) {
+                    if mapped != te {
+                        return None;
+                    }
+                }
+                if let Some((mapped, _)) = entities.iter().find(|(_, y)| y == te) {
+                    if mapped != be {
+                        return None;
+                    }
+                }
+                if !entities.contains(&(*be, *te)) {
+                    entities.push((*be, *te));
+                }
+            }
+            (Term::Statement(bx), Term::Statement(tx)) => {
+                let nested = match_statements(base, target, *bx, *tx)?;
+                for pair in nested.entities {
+                    if let Some((_, mapped)) = entities.iter().find(|(x, _)| *x == pair.0) {
+                        if *mapped != pair.1 {
+                            return None;
+                        }
+                    }
+                    if let Some((mapped, _)) = entities.iter().find(|(_, y)| *y == pair.1) {
+                        if *mapped != pair.0 {
+                            return None;
+                        }
+                    }
+                    if !entities.contains(&pair) {
+                        entities.push(pair);
+                    }
+                }
+                for pair in nested.statements {
+                    if !statements.contains(&pair) {
+                        statements.push(pair);
+                    }
+                }
+            }
+            _ => return None,
+        }
+    }
+
+    Some(Match { base: b, target: t, statements, entities })
+}
+
+/// Every local match hypothesis between the two systems, in a deterministic order.
+pub fn local_matches(base: &System, target: &System) -> Vec<Match> {
+    let mut out = Vec::new();
+    for b in 0..base.statements.len() as StatementId {
+        for t in 0..target.statements.len() as StatementId {
+            if let Some(m) = match_statements(base, target, b, t) {
+                out.push(m);
+            }
+        }
+    }
+    out.sort_by(|x, y| {
+        y.size()
+            .cmp(&x.size())
+            .then(x.base.cmp(&y.base))
+            .then(x.target.cmp(&y.target))
+    });
+    out
+}
+
+/// True when a correspondence set and a candidate match can belong to the same alignment: the
+/// correspondences must be one-to-one and must agree wherever they overlap.
+fn compatible_with(
+    statements: &[(StatementId, StatementId)],
+    entities: &[(EntityId, EntityId)],
+    candidate: &Match,
+) -> bool {
+    for (be, te) in entities {
+        if let Some((_, other)) = candidate.entities.iter().find(|(x, _)| x == be) {
+            if other != te {
+                return false;
+            }
+        }
+        if let Some((other, _)) = candidate.entities.iter().find(|(_, y)| y == te) {
+            if other != be {
+                return false;
+            }
+        }
+    }
+    for (bs, ts) in statements {
+        if let Some((_, other)) = candidate.statements.iter().find(|(x, _)| x == bs) {
+            if other != ts {
+                return false;
+            }
+        }
+        if let Some((other, _)) = candidate.statements.iter().find(|(_, y)| y == ts) {
+            if other != bs {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn merge(into: &mut Mapping, m: &Match) {
+    for pair in &m.statements {
+        if !into.statements.contains(pair) {
+            into.statements.push(*pair);
+        }
+    }
+    for pair in &m.entities {
+        if !into.entities.contains(pair) {
+            into.entities.push(*pair);
+        }
+    }
+}
+
+/// Scores an alignment. `components` counts connected pieces of the matched structure.
+fn score_mapping(base: &System, target: &System, m: &Mapping) -> Score {
+    let mut statements = m.statements.clone();
+    statements.sort();
+    let matched: BTreeSet<StatementId> = statements.iter().map(|(b, _)| *b).collect();
+
+    // Weights: statements are defined bottom-up, so one ascending sweep is enough.
+    let mut weight: Vec<u32> = vec![0; base.statements.len()];
+    for &b in &matched {
+        let mut w = 1u32;
+        for arg in &base.statement(b).args {
+            if let Term::Statement(child) = arg {
+                if matched.contains(child) {
+                    w += weight[*child as usize];
+                }
+            }
+        }
+        weight[b as usize] = w;
+    }
+    let systematicity: u32 = matched.iter().map(|b| weight[*b as usize]).sum();
+
+    // Connected components over parent-child links among matched statements.
+    let mut parent: Vec<usize> = (0..matched.len()).collect();
+    let index = |s: StatementId| statements.binary_search_by_key(&s, |(b, _)| *b).unwrap();
+    fn find(parent: &mut Vec<usize>, mut x: usize) -> usize {
+        while parent[x] != x {
+            parent[x] = parent[parent[x]];
+            x = parent[x];
+        }
+        x
+    }
+    for (b, _) in &statements {
+        for arg in &base.statement(*b).args {
+            if let Term::Statement(child) = arg {
+                if matched.contains(child) {
+                    let x = find(&mut parent, index(*b));
+                    let y = find(&mut parent, index(*child));
+                    parent[x] = y;
+                }
+            }
+        }
+    }
+    let mut roots = BTreeSet::new();
+    for i in 0..matched.len() {
+        let r = find(&mut parent, i);
+        roots.insert(r);
+    }
+
+    let _ = target;
+    Score { matched: matched.len(), systematicity, components: roots.len() }
+}
+
+/// All alignments worth reporting, best first.
+///
+/// Every local match is tried once as a seed and greedily extended with compatible matches; the
+/// resulting alignments are deduplicated and sorted. This is the greedy merge of the original
+/// engine in its simplest form, kept deterministic.
+pub fn map(base: &System, target: &System, max_mappings: usize) -> Vec<Mapping> {
+    let matches = local_matches(base, target);
+    let mut mappings: Vec<Mapping> = Vec::new();
+
+    for seed in &matches {
+        let mut m = Mapping { statements: Vec::new(), entities: Vec::new(), score: Score { matched: 0, systematicity: 0, components: 0 } };
+        merge(&mut m, seed);
+        for candidate in &matches {
+            if m.statements.contains(&(candidate.base, candidate.target)) {
+                continue;
+            }
+            if compatible_with(&m.statements, &m.entities, candidate) {
+                merge(&mut m, candidate);
+            }
+        }
+        m.statements.sort();
+        m.entities.sort();
+        m.score = score_mapping(base, target, &m);
+        if !mappings.iter().any(|other| other.statements == m.statements) {
+            mappings.push(m);
+        }
+    }
+
+    mappings.sort_by(|a, b| {
+        b.score
+            .systematicity
+            .cmp(&a.score.systematicity)
+            .then(b.score.matched.cmp(&a.score.matched))
+            .then(a.score.components.cmp(&b.score.components))
+            .then(a.statements.cmp(&b.statements))
+    });
+    mappings.truncate(max_mappings);
+    mappings
+}
+
+/// The statements of the base that the mapping does not match but whose arguments are all mapped:
+/// the base's unmatched structure, projected onto the target. These are candidate inferences, not
+/// conclusions; a caller must check them.
+pub fn candidate_inferences(base: &System, target: &System, m: &Mapping) -> Vec<Statement> {
+    let matched: BTreeSet<StatementId> = m.statements.iter().map(|(b, _)| *b).collect();
+    let mut out: Vec<Statement> = Vec::new();
+
+    for (b, st) in base.statements.iter().enumerate() {
+        let b = b as StatementId;
+        if matched.contains(&b) {
+            continue;
+        }
+        let mut args = Vec::with_capacity(st.args.len());
+        let mut complete = true;
+        for arg in &st.args {
+            match arg {
+                Term::Entity(e) => match m.target_of(*e) {
+                    Some(t) => args.push(Term::Entity(t)),
+                    None => {
+                        complete = false;
+                        break;
+                    }
+                },
+                Term::Statement(s) => {
+                    match m.statements.iter().find(|(bs, _)| bs == s) {
+                        Some((_, ts)) => args.push(Term::Statement(*ts)),
+                        None => {
+                            complete = false;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if !complete {
+            continue;
+        }
+        let projected = Statement { relation: st.relation.clone(), args };
+        if !target.statements.contains(&projected) && !out.contains(&projected) {
+            out.push(projected);
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn water_flow() -> System {
+        // cause(flow(water, pipe), flow(water, beaker)) style nesting, kept small.
+        let mut s = System::new(3); // 0 water, 1 pipe, 2 beaker
+        let greater = s.push("greater", vec![Term::Entity(1), Term::Entity(0)]);
+        let flow = s.push("flow", vec![Term::Entity(0), Term::Entity(2)]);
+        let cause = s.push("cause", vec![Term::Statement(greater), Term::Statement(flow)]);
+        let _ = cause;
+        s
+    }
+
+    fn heat_flow() -> System {
+        let mut s = System::new(3); // 0 heat, 1 bar, 2 coffee
+        let greater = s.push("greater", vec![Term::Entity(1), Term::Entity(0)]);
+        let flow = s.push("flow", vec![Term::Entity(0), Term::Entity(2)]);
+        let cause = s.push("cause", vec![Term::Statement(greater), Term::Statement(flow)]);
+        let _ = cause;
+        s
+    }
+
+    #[test]
+    fn identical_systems_align_completely() {
+        let s = water_flow();
+        let m = map(&s, &s, 1).remove(0);
+        assert_eq!(m.score.matched, 3);
+        assert_eq!(m.score.components, 1);
+        assert_eq!(m.entities.len(), 3);
+    }
+
+    #[test]
+    fn analogy_prefers_the_deep_common_structure() {
+        let base = water_flow();
+        let target = heat_flow();
+        let m = map(&base, &target, 1).remove(0);
+        // cause(greater(bar, heat), flow(heat, coffee)) is matched as one connected piece.
+        assert_eq!(m.score.matched, 3);
+        assert_eq!(m.score.components, 1);
+        // cause(greater, flow) contributes 1 + 1 + 1, the two children contribute 1 each.\n        assert_eq!(m.score.systematicity, 5);
+        assert_eq!(m.target_of(0), Some(0)); // water -> heat
+        assert_eq!(m.target_of(1), Some(1)); // pipe -> bar
+    }
+
+    #[test]
+    fn correspondences_are_one_to_one() {
+        // Two base entities compete for one target entity; only one may be chosen.
+        let mut base = System::new(2);
+        let r1 = base.push("r", vec![Term::Entity(0)]);
+        let r2 = base.push("r", vec![Term::Entity(1)]);
+        let mut target = System::new(1);
+        let t1 = target.push("r", vec![Term::Entity(0)]);
+        let m = map(&base, &target, 1).remove(0);
+        assert_eq!(m.entities.len(), 1);
+        let mapped = m.statements.iter().map(|(b, _)| *b).collect::<Vec<_>>();
+        assert!(
+            mapped == vec![r1] || mapped == vec![r2],
+            "expected one of the two competing statements, got {:?} against {:?}",
+            mapped,
+            t1
+        );
+    }
+
+    #[test]
+    fn unmatched_structure_is_projected_as_an_inference() {
+        // Base has one extra statement whose entities are all mapped.
+        let mut base = System::new(2);
+        let shared = base.push("same", vec![Term::Entity(0), Term::Entity(1)]);
+        let extra = base.push("extra", vec![Term::Entity(0)]);
+        let mut target = System::new(2);
+        let t_shared = target.push("same", vec![Term::Entity(0), Term::Entity(1)]);
+        let m = map(&base, &target, 1).remove(0);
+        assert!(m.statements.contains(&(shared, t_shared)));
+        let inferences = candidate_inferences(&base, &target, &m);
+        assert!(inferences.iter().any(|s| s.relation == "extra"), "{:?}", inferences);
+        let _ = extra;
+    }
+
+    #[test]
+    fn mapping_is_deterministic() {
+        let base = water_flow();
+        let target = heat_flow();
+        assert_eq!(map(&base, &target, 3), map(&base, &target, 3));
+    }
+
+    #[test]
+    fn an_unrelated_system_yields_no_alignment() {
+        let mut base = System::new(1);
+        base.push("p", vec![Term::Entity(0)]);
+        let mut target = System::new(1);
+        target.push("q", vec![Term::Entity(0)]);
+        assert!(map(&base, &target, 1).is_empty());
+    }
+
+    #[test]
+    fn connected_structure_outweighs_isolated_matches() {
+        // Both alignments match two statements; only the nested one is connected.
+        let mut base = System::new(2);
+        let b_inner = base.push("inner", vec![Term::Entity(0), Term::Entity(1)]);
+        base.push("outer", vec![Term::Statement(b_inner)]);
+        let mut target = System::new(2);
+        let t_inner = target.push("inner", vec![Term::Entity(0), Term::Entity(1)]);
+        target.push("outer", vec![Term::Statement(t_inner)]);
+        let nested = map(&base, &target, 1).remove(0);
+        assert_eq!(nested.score.components, 1);
+        assert_eq!(nested.score.systematicity, 3); // outer 1 + inner 1, then +1 for the nesting
+
+        let mut flat = System::new(2);
+        flat.push("inner", vec![Term::Entity(0)]);
+        flat.push("other", vec![Term::Entity(1)]);
+        let mut flat_target = System::new(2);
+        flat_target.push("inner", vec![Term::Entity(0)]);
+        flat_target.push("other", vec![Term::Entity(1)]);
+        let separate = map(&flat, &flat_target, 1).remove(0);
+        assert_eq!(separate.score.components, 2);
+        assert_eq!(separate.score.systematicity, 2);
+        assert!(nested.score.systematicity > separate.score.systematicity);
+    }
+}

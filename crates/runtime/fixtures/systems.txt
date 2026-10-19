@@ -1,0 +1,10 @@
+base entities 2
+base stmt greater e0 e1
+base stmt flow e0 e1
+base stmt cause s0 s1
+base stmt liquid e0
+target entities 2
+target stmt greater e0 e1
+target stmt flow e0 e1
+target stmt cause s0 s1
+reading liquid 0 1
