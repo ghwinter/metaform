@@ -1555,3 +1555,32 @@ pair -- evidence that validation checks consistency, never meaning.
 One further leak is worth recording because it is easy to miss: the answer is in the tracked history.
 Hiding the working-tree directories does not hide it, since the ledger is tracked and `git show HEAD`
 returns it.
+
+## 14. A held-out split is not enough if the vocabulary contains the answer (2026-10-20)
+
+The first held-out harness labelled four of eight objects and withheld the rest, so that echoing the
+evidence would fail. It does fail: the evidence-echo scores two misses on the withheld positives. But
+the split does not survive contact with the rest of the request, for two reasons that are about
+design, not about the proposer.
+
+1. One vocabulary atom is the withheld set. The atom "is a document" has extension {2,3}, and those
+   are exactly the withheld positives. A proposer that reads only the request can take the positive
+   evidence and union it with that atom, and score perfectly. Verified: the union candidate scores
+   two true positives, no errors.
+2. The object numbering encodes the answer. Positives are 0-3, negatives 4-7, so a guess based on
+   the id prefix reaches the same score with no reasoning at all.
+
+The lesson generalises: a held-out test is blind only if (a) no published atom coincides with the
+withheld set or its complement, (b) object ids are shuffled so the answer is not an interval, and
+(c) the withheld set is not recoverable as a short Boolean combination of published atoms -- which is
+the same theorem the engine uses, applied to the experiment.
+
+Also recorded because it is easy to miss: the scoring script hardcodes the withheld truth, so it
+must never be reachable by the proposer; the experiment directory, the working-tree session
+directories and the tracked history all contain the answer from earlier arms; and a proposer that is
+a fork of the parent session inherits the truth map, so it must be a fresh context with only the
+brief and the request.
+
+Nothing in this section invalidates the earlier finding that the request publishes the evidence. It
+sharpens it: the request publishes the evidence and the vocabulary, and a target concept that is a
+short combination of the two is published as well.
