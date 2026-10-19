@@ -120,7 +120,9 @@ HANDOFF.md
 !/research/exp/noisy_oracle.py
 !/research/exp/posterior_gate.py
 !/research/exp/probe_ledger.json
+!/research/exp/propose_loop.py
 !/research/exp/proposer_quality.py
+!/research/exp/propose_loop.py
 !/research/exp/proposer.py
 !/research/exp/responses_domain_c.json
 !/research/exp/RESULTS.md

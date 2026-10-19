@@ -1,12 +1,14 @@
 """
 Mock external model for the `metaform.propose/1` boundary.
 
-Reads a protocol request and writes a deterministic response. The three cases exercise what the
+Reads a protocol request and writes a deterministic response. The four cases exercise what the
 engine must handle:
 
   good    one valid candidate, one out-of-range candidate, one duplicate-name candidate
   bad     the wrong protocol, so the whole response must be rejected
   refuse  a `refused` string: the model declines and nothing is accepted
+  loop    the three candidates of `propose_loop.py`: `net` (usable), `slow` (duplicate name),
+          `ghost` (out of range)
 
 The mock never reads the engine and never touches state: it is the "external model" side of the
 boundary.
@@ -82,7 +84,37 @@ def refuse_response(req: dict) -> dict:
     }
 
 
-BUILDERS = {"good": good_response, "bad": bad_response, "refuse": refuse_response}
+def loop_response(req: dict) -> dict:
+    """The three candidates of one proposal round on the verify.demo state.
+
+    `net` covers the request's positive evidence (objects 0 and 2); `slow` reuses the first
+    vocabulary name, so the engine must reject it; `ghost` includes an id past `objects`.
+    """
+    n = int(req.get("objects", 0))
+    candidates = [
+        {
+            "name": "net",
+            "ids": [0, 2],
+            "warrant": "objects 0 and 2 are the positives that separate the colliding class under slow and doc",
+            "falsifier": "a negative object that `net` would also include",
+        },
+        {
+            "name": duplicate_name(req),
+            "ids": [0],
+            "warrant": "deliberately invalid: the name is already taken",
+            "falsifier": "candidate names must be fresh",
+        },
+        {
+            "name": "ghost",
+            "ids": [0, n + 3],
+            "warrant": "deliberately invalid: the second id is beyond the object count",
+            "falsifier": "every id must be smaller than `objects`",
+        },
+    ]
+    return {"protocol": PROTOCOL, "request_id": req.get("request_id"), "candidates": candidates}
+
+
+BUILDERS = {"good": good_response, "bad": bad_response, "refuse": refuse_response, "loop": loop_response}
 
 
 def main() -> None:

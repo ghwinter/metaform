@@ -102,6 +102,8 @@ if (-not $SkipExperiments) {
             $e2e = $LASTEXITCODE
             & $Python llm_e2e.py | Out-Host
             $adapter = $LASTEXITCODE
+            & $Python propose_loop.py | Out-Host
+            $loop = $LASTEXITCODE
             $results += [pscustomobject]@{ Check = 'experiments'; Exit = [Math]::Max([Math]::Max([Math]::Max($claims, $selection), $e2e), $adapter) }
         }
         finally { Pop-Location }
