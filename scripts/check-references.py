@@ -119,10 +119,24 @@ def blank_math(text: str) -> str:
 def allowlist_problems(ignore_path: Path, tracked: list[str]) -> list[str]:
     """The tree is default-deny: every tracked file must be declared in .gitignore."""
     text = ignore_path.read_text(encoding="utf-8")
-    declared = {m.group(1).strip() for m in re.finditer(r"(?m)^!/(.+?)\s*$", text)}
+    rules = [m.group(1).strip() for m in re.finditer(r"(?m)^!/(.+?)\s*$", text)]
     tracked_set = set(tracked)
-    out = [f".gitignore: tracked but not declared: {p}" for p in sorted(tracked_set - declared)]
-    out += [f".gitignore: declared but not tracked: {p}" for p in sorted(declared - tracked_set)]
+
+    def covers(rule: str, path: str) -> bool:
+        if rule.endswith("/**"):
+            return path.startswith(rule[:-3] + "/")
+        return path == rule
+
+    out = [
+        f".gitignore: tracked but not allowed: {p}"
+        for p in sorted(tracked_set)
+        if not any(covers(r, p) for r in rules)
+    ]
+    out += [
+        f".gitignore: allowed but matches nothing: {r}"
+        for r in sorted(set(rules))
+        if not any(covers(r, p) for p in tracked_set)
+    ]
     return out
 
 
