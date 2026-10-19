@@ -69,6 +69,8 @@ pub struct Context {
     pub attributes: Vec<(String, Mask)>,
     pub pos: Mask,
     pub neg: Mask,
+    /// A caller-supplied name for this state, used by file-backed proposers and by traces.
+    pub label: String,
 }
 
 impl Context {
@@ -327,7 +329,7 @@ impl Operator for SmeAnalogizer {
 
 /// Convenience for a small context.
 pub fn context(objects: usize, vocabulary: Vocabulary, attributes: Vec<(String, Mask)>) -> Context {
-    Context { objects, vocabulary, attributes, pos: 0, neg: 0 }
+    Context { objects, vocabulary, attributes, pos: 0, neg: 0, label: String::new() }
 }
 
 /// Marks an object as positive or negative in the context.
@@ -356,6 +358,7 @@ mod tests {
             ],
             pos: 0,
             neg: 0,
+            label: String::new(),
         };
         ctx
     }
@@ -456,6 +459,7 @@ mod tests {
 
 /// Small relational systems used by the demo and the tests.
 pub mod experience;
+pub mod file_proposer;
 pub mod run;
 pub mod state;
 

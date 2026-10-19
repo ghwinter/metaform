@@ -108,6 +108,7 @@ impl State {
             attributes: self.attributes.clone(),
             pos: self.pos,
             neg: self.neg,
+            label: self.request_id.clone(),
         }
     }
 }

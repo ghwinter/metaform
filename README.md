@@ -118,10 +118,19 @@ appends one line per step — state fingerprint, operator, proposal, pairs separ
 status before and after, and the state class (objects, vocabulary size, labelled examples, colliding
 pairs) before the step.
 
+One record line is written per **offer**, not per step, so a proposal that lost is visible too.
 The record is then queryable: `metaform-runtime experience --record runs.tsv --state <file>` prints
 the tallies per class and says which operator has adopted most often in the class of that state;
 `run --use-record runs.tsv` puts that operator first. Order is the only thing experience changes —
 every operator is still asked, and the controller still decides by pairs separated.
+
+Anything that is not a Rust component — a model, a script, a person with an editor — can compete by
+writing a proposals file and passing `--proposals`:
+
+```text
+# label   name      ids
+k2_0      a4        0 5 10 11
+```
 
 The third line above is the only one that can accept anything, and accepting is still not adopting:
 `research/exp/proposer_arms.py` gives one state to three proposers (random, retrieval, and the

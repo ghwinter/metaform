@@ -14,6 +14,7 @@
 use metaform_runtime::state::{State, Systems};
 use metaform::{Status};
 use metaform_runtime::experience::{class_of, Experience};
+use metaform_runtime::file_proposer::FileProposer;
 use metaform_runtime::run::{fingerprint, run, Step};
 use metaform_runtime::{splits, status_with, validate, Operator, SmeAnalogizer, VsaRetriever};
 
@@ -30,44 +31,58 @@ fn status_name(status: Status) -> &'static str {
 }
 
 fn print_step(step: &Step) {
-    if step.adopted {
-        println!(
-            "  step {}: {} proposed {} ({} of {} pairs), {} -> {}",
-            step.index,
-            step.operator,
-            step.proposal,
-            step.splits,
-            step.colliding_before,
-            status_name(step.status_before),
-            status_name(step.status_after)
-        );
-    } else {
-        println!(
+    match step.adopted() {
+        Some(offer) => {
+            println!(
+                "  step {}: {} proposed {} ({} of {} pairs), {} -> {}",
+                step.index,
+                offer.operator,
+                offer.name,
+                offer.splits,
+                step.colliding_before,
+                status_name(step.status_before),
+                status_name(step.status_after)
+            );
+        }
+        None => println!(
             "  step {}: nothing separated the {} colliding pair(s); stopped",
             step.index, step.colliding_before
-        );
+        ),
+    }
+    for offer in &step.offers {
+        if !offer.adopted {
+            println!(
+                "      offered {} {}: {} pair(s), cost {:.3} (not adopted)",
+                offer.operator, offer.name, offer.splits, offer.cost
+            );
+        }
     }
 }
 
-fn record_line(state_hash: u64, step: &Step, ctx: &metaform_runtime::Context) -> String {
-    format!(
-        "{:016x}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.3}\t{}\t{}\t{}\t{}\t{}",
-        state_hash,
-        step.index,
-        step.operator,
-        step.proposal,
-        step.splits,
-        step.colliding_before,
-        step.adopted as u8,
-        step.cost,
-        status_name(step.status_before),
-        status_name(step.status_after),
-        ctx.objects,
-        step.vocabulary_before,
-        (ctx.pos.count_ones() + ctx.neg.count_ones()) as usize
-    )
+/// One record line per offer: what the operator proposed, whether it won, and the state class.
+fn record_lines(state_hash: u64, step: &Step, ctx: &metaform_runtime::Context) -> Vec<String> {
+    step.offers
+        .iter()
+        .map(|offer| {
+            format!(
+                "{:016x}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.3}\t{}\t{}\t{}\t{}\t{}",
+                state_hash,
+                step.index,
+                offer.operator,
+                offer.name,
+                offer.splits,
+                step.colliding_before,
+                offer.adopted as u8,
+                offer.cost,
+                status_name(step.status_before),
+                status_name(step.status_after),
+                ctx.objects,
+                step.vocabulary_before,
+                (ctx.pos.count_ones() + ctx.neg.count_ones()) as usize
+            )
+        })
+        .collect()
 }
-
 fn usage() -> ! {
     eprintln!(
         "usage:\n  metaform-runtime retrieve  --state <file> --out <response.json> [--dim N] [--seed N] [--limit N]\n  metaform-runtime analogize --state <file> --systems <file> --out <response.json> [--limit N]"
@@ -128,20 +143,41 @@ fn main() {
     let Some(command) = args.get(1).map(|s| s.as_str()) else { usage() };
     let rest = &args[2..];
 
-    // Every subcommand needs a state; only the two proposal subcommands need a response file.
-    let Some(state_path) = arg(rest, "--state") else { usage() };
-    let out = arg(rest, "--out");
-    if command != "run" && command != "experience" && out.is_none() {
+    // Reject unknown flags instead of ignoring them: a silently ignored flag is how a stale binary
+    // spent a whole experiment running without the proposer it was told to use.
+    let known = [
+        "--state", "--out", "--systems", "--proposals", "--record", "--use-record", "--max-steps",
+        "--dim", "--seed", "--limit", "--max-arity",
+    ];
+    for arg in rest {
+        if arg.starts_with("--") && !known.contains(&arg.as_str()) {
+            eprintln!("unknown flag: {}", arg);
+            usage();
+        }
+    }
+
+    // Every subcommand but `experience` needs a state; the two proposal subcommands also need a
+    // response file.
+    let state = match arg(rest, "--state") {
+        Some(path) => match State::read(&path) {
+            Ok(s) => Some(s),
+            Err(e) => {
+                eprintln!("cannot read the state: {}", e);
+                std::process::exit(2);
+            }
+        },
+        None => None,
+    };
+    if state.is_none() && command != "experience" {
         usage();
     }
-    let state = match State::read(&state_path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("cannot read the state: {}", e);
-            std::process::exit(2);
-        }
-    };
-    let ctx = state.context();
+    let out = arg(rest, "--out");
+    if matches!(command, "retrieve" | "analogize") && out.is_none() {
+        usage();
+    }
+    let ctx = state.as_ref().map(|s| s.context()).unwrap_or_else(|| {
+        metaform_runtime::context(0, Default::default(), Vec::new())
+    });
     let limit: usize = arg(rest, "--limit").and_then(|v| v.parse().ok()).unwrap_or(3);
 
     let result = match command {
@@ -154,7 +190,7 @@ fn main() {
             op.execute(&ctx, limit)
         }
         "analogize" => {
-            let Some(systems_path) = arg(rest, "--systems").or(state.systems.clone()) else {
+            let Some(systems_path) = arg(rest, "--systems").or_else(|| state.as_ref().and_then(|s| s.systems.clone())) else {
                 eprintln!("analogize needs --systems or a `systems` line in the state");
                 std::process::exit(2);
             };
@@ -198,6 +234,10 @@ fn main() {
                     tally.mean_cost()
                 );
             }
+            let Some(state_ref) = state.as_ref() else {
+                std::process::exit(0);
+            };
+            let ctx = state_ref.context();
             let class = class_of(&ctx);
             match experience.suggest(&class) {
                 Some(name) => println!(
@@ -212,9 +252,9 @@ fn main() {
             std::process::exit(0);
         }
         "run" => {
-            let mut ctx = ctx.clone();
+            let mut ctx = state.as_ref().map(|s| s.context()).expect("run needs a state");
             let mut operators: Vec<Box<dyn Operator>> = Vec::new();
-            if let Some(systems_path) = arg(rest, "--systems").or(state.systems.clone()) {
+            if let Some(systems_path) = arg(rest, "--systems").or_else(|| state.as_ref().and_then(|s| s.systems.clone())) {
                 let systems = match Systems::read(&systems_path) {
                     Ok(s) => s,
                     Err(e) => {
@@ -227,6 +267,18 @@ fn main() {
                     target: systems.target,
                     readings: systems.readings,
                 }));
+            }
+            if let Some(path) = arg(rest, "--proposals") {
+                match FileProposer::load(std::path::Path::new(&path)) {
+                    Ok(p) => {
+                        println!("proposals: {} line(s) from {}", p.lines, path);
+                        operators.push(Box::new(p));
+                    }
+                    Err(e) => {
+                        eprintln!("cannot read {}: {}", path, e);
+                        std::process::exit(2);
+                    }
+                }
             }
             operators.push(Box::new(VsaRetriever {
                 dim: arg(rest, "--dim").and_then(|v| v.parse().ok()).unwrap_or(2048),
@@ -273,8 +325,10 @@ fn main() {
             if let Some(path) = arg(rest, "--record") {
                 let mut body = String::new();
                 for step in &steps {
-                    body.push_str(&record_line(state_hash, step, &ctx));
-                    body.push('\n');
+                    for line in record_lines(state_hash, step, &ctx) {
+                        body.push_str(&line);
+                        body.push('\n');
+                    }
                 }
                 use std::io::Write;
                 match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
@@ -297,7 +351,7 @@ fn main() {
     };
 
     let out = out.expect("checked above");
-    if let Err(e) = write_response(&out, &state.request_id, &result.candidates) {
+    if let Err(e) = write_response(&out, &state.as_ref().map(|s| s.request_id.clone()).unwrap_or_default(), &result.candidates) {
         eprintln!("cannot write {}: {}", out, e);
         std::process::exit(2);
     }

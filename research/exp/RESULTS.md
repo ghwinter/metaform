@@ -1067,3 +1067,37 @@ acceptable, which is the property that keeps this honest.
 
 Unseen classes get no suggestion and the default order stands; a missing record file is an empty
 record rather than an error, because the runtime has to work before it has ever run.
+
+### 7.5 Every offer is recorded, and what that showed
+
+The first version of the record wrote one line per *step*, so only the winning operator appeared. That
+made the experience table vacuous: every operator it had ever seen had adopted 100% of the time. The
+record now writes one line per **offer**, adopted or not.
+
+`research/exp/controller_runs.py` then runs the controller over the three families with both the
+retrieval component and a file-backed proposer holding the model's proposals, and the aggregated
+record looks like this:
+
+| class (objects, vocabulary, labelled, colliding) | operator | attempts | adoptions | mean cost |
+|---|---|---|---|---|
+| (12, 1, 4, 4) | file-proposer | 15 | 15 | 0.000 |
+| (12, 1, 4, 4) | vsa-retriever | 44 | 0 | 0.074 |
+| (12, 1, 4, 3) | file-proposer | 5 | 3 | 0.000 |
+| (12, 1, 4, 3) | vsa-retriever | 15 | 2 | 0.074 |
+| (12, 2, 4, 1) | vsa-retriever | 6 | 3 | 0.074 |
+
+Two things fall out of it, and neither was visible before the per-offer record existed:
+
+1. **In the four-pair class the retrieval component never wins**: 44 offers, 0 adoptions, because the
+   model's proposal separates the same pairs at cost zero and the tie is broken on cost. It is not
+   that retrieval is useless; it is that this class gives it nothing the other arm does not also give,
+   cheaper.
+2. **Two documents disagree about the noisy family**: in `proposer_arms.py` the model arm scores 1.000
+   on `noisy`, but in the controller two of the five noisy states are settled by retrieval. The
+   difference is the metric: the arms experiment asks whether a proposal separates the pairs the
+   *true* labels imply, while the controller can only see the pairs the *given* labels imply. Where a
+   label is wrong, fitting it beats being right, and the controller has no way to know.
+
+The second point is the kind of thing the tool was supposed to expose. It also says what the next
+missing operator is: something that can distrust a label, which is what the probe operator in the
+kernel already is for inherited classes.

@@ -9,34 +9,36 @@
 //! chooses among what the components offered.
 
 use crate::{
-    adopt, colliding_pairs, status_with, validate, Candidate, Context, Operator, OperatorResult,
+    adopt, colliding_pairs, status_with, validate, Candidate, Context, Operator,
 };
 use metaform::Status;
 
-/// What one step did.
+/// One operator's offer during a step.
+#[derive(Clone, Debug)]
+pub struct Offer {
+    pub operator: String,
+    pub name: String,
+    pub splits: usize,
+    pub cost: f32,
+    pub adopted: bool,
+}
+
+/// What one step did: every offer it saw, and which one was adopted.
 #[derive(Clone, Debug)]
 pub struct Step {
     pub index: usize,
     pub status_before: Status,
     pub status_after: Status,
-    /// Operator that produced the adopted proposal, or the one that tried and failed.
-    pub operator: String,
-    pub proposal: String,
-    pub splits: usize,
     pub colliding_before: usize,
     pub vocabulary_before: usize,
-    pub adopted: bool,
-    pub cost: f32,
+    pub offers: Vec<Offer>,
 }
 
-/// A proposal on the table.
-struct Offered {
-    candidate: Candidate,
-    operator: String,
-    splits: usize,
-    cost: f32,
+impl Step {
+    pub fn adopted(&self) -> Option<&Offer> {
+        self.offers.iter().find(|o| o.adopted)
+    }
 }
-
 /// Runs the loop. Returns one record per step, including the final step that stopped it.
 pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize) -> Vec<Step> {
     let mut steps = Vec::new();
@@ -47,27 +49,31 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
         if status_before != Status::Insufficient || pairs.is_empty() {
             break;
         }
+        let vocabulary_before = ctx.vocabulary.len();
 
-        // Ask every applicable operator, validate everything it offered, keep what separates.
-        let mut offers: Vec<Offered> = Vec::new();
-        let mut tried: Vec<(String, OperatorResult)> = Vec::new();
+        // Ask every applicable operator, validate everything it offered, and keep every offer that
+        // separates at least one pair -- including the ones that will not be adopted, because the
+        // record is only useful if it can see what lost.
+        let mut offers: Vec<Offer> = Vec::new();
+        let mut seen: Vec<(Offer, Candidate)> = Vec::new();
         for op in operators {
             if !op.applicable(ctx) {
                 continue;
             }
             let result = op.execute(ctx, 4);
             let verdict = validate(ctx, &result.candidates);
-            let cost = result.cost;
-            tried.push((op.name().to_string(), result));
             for candidate in verdict.accepted {
                 let splits = crate::splits(ctx, candidate.extension);
                 if splits > 0 {
-                    offers.push(Offered {
-                        candidate,
+                    let offer = Offer {
                         operator: op.name().to_string(),
+                        name: candidate.name.clone(),
                         splits,
-                        cost,
-                    });
+                        cost: result.cost,
+                        adopted: false,
+                    };
+                    offers.push(offer.clone());
+                    seen.push((offer, candidate));
                 }
             }
         }
@@ -77,56 +83,44 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
             b.splits
                 .cmp(&a.splits)
                 .then(a.cost.partial_cmp(&b.cost).unwrap_or(std::cmp::Ordering::Equal))
-                .then(a.candidate.name.cmp(&b.candidate.name))
+                .then(a.name.cmp(&b.name))
         });
 
-        match offers.first() {
-            Some(best) => {
-                let candidate = best.candidate.clone();
-                let vocabulary_before = ctx.vocabulary.len();
-                adopt(ctx, &candidate);
-                let status_after = status_with(ctx, &[]);
-                steps.push(Step {
-                    index,
-                    status_before,
-                    status_after,
-                    operator: best.operator.clone(),
-                    proposal: candidate.name.clone(),
-                    splits: best.splits,
-                    colliding_before: pairs.len(),
-                    vocabulary_before,
-                    adopted: true,
-                    cost: best.cost,
-                });
+        if let Some(best) = offers.first().cloned() {
+            if let Some((_, candidate)) =
+                seen.iter().find(|(o, _)| o.name == best.name && o.operator == best.operator)
+            {
+                adopt(ctx, candidate);
             }
-            None => {
-                // Nothing on the table separates a pair: record it and stop rather than loop.
-                let (operator, cost, name) = tried
-                    .iter()
-                    .find_map(|(name, result)| {
-                        result.candidates.first().map(|c| (name.clone(), result.cost, c.name.clone()))
-                    })
-                    .unwrap_or_else(|| ("none".to_string(), 0.0, "no proposal".to_string()));
-                steps.push(Step {
-                    index,
-                    status_before,
-                    status_after: status_before,
-                    operator,
-                    proposal: name,
-                    splits: 0,
-                    colliding_before: pairs.len(),
-                    vocabulary_before: ctx.vocabulary.len(),
-                    adopted: false,
-                    cost,
-                });
-                break;
+            let status_after = status_with(ctx, &[]);
+            let mut recorded = offers.clone();
+            for offer in recorded.iter_mut() {
+                offer.adopted = offer.name == best.name && offer.operator == best.operator;
             }
+            steps.push(Step {
+                index,
+                status_before,
+                status_after,
+                colliding_before: pairs.len(),
+                vocabulary_before,
+                offers: recorded,
+            });
+        } else {
+            // Nothing on the table separates a pair: record what was seen and stop rather than loop.
+            steps.push(Step {
+                index,
+                status_before,
+                status_after: status_before,
+                colliding_before: pairs.len(),
+                vocabulary_before,
+                offers,
+            });
+            break;
         }
     }
 
     steps
 }
-
 /// A compact, deterministic fingerprint of the state, for grouping runs.
 pub fn fingerprint(ctx: &Context) -> u64 {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
@@ -169,6 +163,7 @@ mod tests {
             ],
             pos: 0,
             neg: 0,
+            label: String::new(),
         };
         label(&mut ctx, 0, true);
         label(&mut ctx, 1, true);
@@ -191,8 +186,8 @@ mod tests {
         ];
         let steps = run(&mut ctx, &operators, 4);
         assert!(!steps.is_empty());
-        assert!(steps[0].adopted, "the first step should adopt something");
-        assert!(steps[0].splits > 0);
+        assert!(steps[0].adopted().is_some(), "the first step should adopt something");
+        assert!(steps[0].adopted().unwrap().splits > 0);
         assert!(colliding_pairs(&ctx).is_empty(), "the collision should be gone");
     }
 
@@ -210,8 +205,8 @@ mod tests {
             fn estimate_cost(&self, _: &Context) -> f32 {
                 1.0
             }
-            fn execute(&self, _: &Context, _: usize) -> OperatorResult {
-                OperatorResult {
+            fn execute(&self, _: &Context, _: usize) -> crate::OperatorResult {
+                crate::OperatorResult {
                     candidates: vec![Candidate {
                         name: "constant".to_string(),
                         extension: 0,
@@ -232,8 +227,8 @@ mod tests {
         let operators: Vec<Box<dyn Operator>> = vec![Box::new(Useless)];
         let steps = run(&mut ctx, &operators, 4);
         assert_eq!(steps.len(), 1);
-        assert!(!steps[0].adopted);
-        assert_eq!(steps[0].splits, 0);
+        assert!(steps[0].adopted().is_none());
+        assert!(steps[0].offers.is_empty(), "nothing separated, so nothing was offered");
     }
 
     #[test]

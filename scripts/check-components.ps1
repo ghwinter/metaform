@@ -106,6 +106,19 @@ Check 'the CLI path: component proposes, engine validates' {
     }
 }
 
+Check 'a file-backed proposer competes on equal terms' {
+    $fixtures = Join-Path $root 'crates\runtime\fixtures'
+    $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'
+    $record = Join-Path $env:TEMP "offers_$PID.tsv"
+    Remove-Item $record -Force -ErrorAction SilentlyContinue
+    $out = & $runtime run --state (Join-Path $fixtures 'state.txt') --proposals (Join-Path $fixtures 'proposals.txt') --record $record 2>&1
+    $out | Out-Host
+    Require ([bool]($out | Select-String 'step 0: file-proposer proposed b_or_c')) 'the file proposer did not win the tie'
+    Require ([bool]($out | Select-String 'offered sme-analogizer')) 'the losing offer was not shown'
+    $lines = (Get-Content $record | Measure-Object -Line).Lines
+    Require ($lines -eq 3) "expected one record line per offer, got $lines"
+    Remove-Item $record -Force -ErrorAction SilentlyContinue
+}
 Check 'experience: the record suggests an operator for a class' {
     $fixtures = Join-Path $root 'crates\runtime\fixtures'
     $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'
