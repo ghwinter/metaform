@@ -66,6 +66,7 @@ metaform state init  --project . --n 4            # persist the scenario to .met
 metaform state add   --project . --name p --define all-of:a,b  # store p = a AND b as a definition
 metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # one-shot: status and recommendations directly
+metaform suggest    --project . [--max-arity 2] [--max 20] # read-only: Boolean candidates tried, and why none separates
 metaform plan   --project . --pool .metaform/out/pool.txt # coverage + purity + re-ask budget
 metaform report --project .                         # generate .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # candidate scoring: coverage/P-R/ledger
@@ -76,6 +77,14 @@ metaform ops                                       # five-operator schedule comp
 The ledger is **append-only**: retracting means appending a `retracted` line with the same id; when
 folded, the later line wins.
 This repository uses it too: the `.metaform/` directory at the root is its output (migrated from the old JSON by `scripts/migrate-ledger-to-tsv.py`).
+
+`suggest` is the read-only proof step for an `INSUFFICIENT` state. It enumerates every `all_of`
+(arity 1 through `--max-arity`) and every `any_of` (arity `--max-arity`) over the current vocabulary,
+scores each against the colliding pairs, and reports how many candidates it `tried`. Every colliding
+pair shares a signature, so every Boolean recombination is constant on it (Theorem 11): `suggestions`
+stays empty and `reason` says why. `next` names what can actually change the state: with at most two
+colliding pairs, one more question (`ask`); otherwise a predicate outside the current atoms
+(`new_atom`).
 
 ## LLM adapter
 
@@ -168,7 +177,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 82)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 101)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

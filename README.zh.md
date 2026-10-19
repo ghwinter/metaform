@@ -62,6 +62,7 @@ metaform state init  --project . --n 4            # 场景持久化到 .metaform
 metaform state add   --project . --name p --define all-of:a,b  # 存 p = a AND b 的定义
 metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # 一步式：直接给状态与建议
+metaform suggest    --project . [--max-arity 2] [--max 20] # 只读：试过哪些布尔候选，以及为何都分不开
 metaform plan   --project . --pool .metaform/out/pool.txt # 覆盖 + 纯度 + 重问预算
 metaform report --project .                         # 生成 .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # 候选评分：覆盖/P-R/台账
@@ -71,6 +72,12 @@ metaform ops                                       # 五类算子调度对照：
 
 台账是**只追加**的：撤销 = 追加一行同 id 的 `retracted`，折叠时后者胜。
 本仓库自己也在用：根目录下的 `.metaform/` 就是它的产物（`scripts/migrate-ledger-to-tsv.py` 从旧 JSON 迁来）。
+
+`suggest` 是 `INSUFFICIENT` 状态下只读的证明步骤。它对当前词汇枚举所有 `all_of`（元数 1 到
+`--max-arity`）与所有 `any_of`（元数 `--max-arity`），逐个对撞车对打分，并报告 `tried` 了多少个
+候选。每个撞车对的两个对象签名相同，任何布尔重组在它上面都是常数（定理 11）：所以 `suggestions`
+为空，`reason` 说明原因。`next` 指出真正能改变状态的下一步：撞车对不超过两对时再问一个问题
+（`ask`），否则需要一个当前原子之外的谓词（`new_atom`）。
 
 ## LLM 适配器
 
@@ -135,7 +142,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 82）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 101）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接

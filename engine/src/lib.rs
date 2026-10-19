@@ -22,6 +22,9 @@ use serde::{Deserialize, Serialize};
 pub mod operators;
 pub mod propose;
 
+/// `suggest`: enumerate Boolean definitions over the vocabulary and report why none can break a collision.
+pub mod suggest;
+
 /// Portfolio identification: several vocabularies, exactly one of which is sufficient (paper Theorem 2).
 pub mod portfolio;
 

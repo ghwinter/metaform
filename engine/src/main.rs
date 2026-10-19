@@ -20,6 +20,11 @@
 //! Protocol boundary: `metaform propose --request <request.json> --response <response.json>` validates
 //! the predicates an external model proposed under `metaform.propose/1` and prints one line of JSON
 //! without writing any file or touching the project state.
+//!
+//! `metaform suggest --project . [--max-arity 2] [--max 20]` is the read-only proof step for an
+//! `INSUFFICIENT` state: it enumerates the Boolean definitions the vocabulary invites, counts how
+//! many it tried and how many colliding pairs they separate, and reports that the answer is none
+//! because every colliding pair shares a signature. It never adds a predicate.
 
 use std::io::{self, BufRead, Write};
 
@@ -207,6 +212,50 @@ fn parse_define(raw: &str) -> Result<Definition, String> {
         operands.push(name.to_string());
     }
     Ok(Definition { op, operands })
+}
+
+/// Parse a numeric flag, keeping "absent" distinct from "present but malformed".
+fn parse_num(args: &[String], flag: &str, default: usize) -> Result<usize, String> {
+    match args.iter().position(|a| a == flag) {
+        None => Ok(default),
+        Some(i) => match args.get(i + 1) {
+            Some(raw) => raw
+                .parse::<usize>()
+                .map_err(|_| format!("{flag} expects a non-negative integer, got `{raw}`")),
+            None => Err(format!("{flag} expects a value")),
+        },
+    }
+}
+
+/// `metaform suggest --project . [--max-arity 2] [--max 20]`.
+///
+/// Read-only: the state is loaded, enumerated and printed; it is never saved or extended.
+fn cmd_suggest(args: &[String]) -> i32 {
+    let root = project_root(args).join(".metaform");
+    let Some(st) = load_state(&root.join("state.json"), "suggest") else {
+        return 2;
+    };
+    let max_arity = match parse_num(args, "--max-arity", 2) {
+        Ok(0) => {
+            eprintln!("metaform suggest: --max-arity must be at least 1");
+            return 2;
+        }
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("metaform suggest: {e}");
+            return 2;
+        }
+    };
+    let max = match parse_num(args, "--max", 20) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("metaform suggest: {e}");
+            return 2;
+        }
+    };
+    let report = metaform::suggest::suggest(&st.explorer(), max_arity, max);
+    println!("{}", metaform::suggest::to_json(&report));
+    0
 }
 
 fn cmd_init(args: &[String]) -> i32 {
@@ -510,6 +559,10 @@ fn main() {
         Some("state") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
             std::process::exit(cmd_state(&v));
+        }
+        Some("suggest") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            std::process::exit(cmd_suggest(&v));
         }
         Some("score") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
