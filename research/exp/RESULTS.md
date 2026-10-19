@@ -1128,3 +1128,22 @@ correcting evidence is not something a proposal may do -- so the conflict stays 
 rather than being resolved. And it has false positives: on every state it names at least one object
 that is labelled correctly, because a wrong label and an unusual object look the same from four
 examples. The list is a question to put to a checker, not a verdict.
+
+### 7.7 Raised, recorded, counted — and the case it misses
+
+When the adopted proposal cannot separate every pair and the probe has named a suspect, the controller
+now says so in the run (`conflict: ...`), writes a flag in the record, and `experience` counts the
+steps per class. On the five noisy states that gives three flagged steps, all in the class
+`(12, 1, 4, 3)`.
+
+Three, not five, and the two missing ones are the interesting part. In `noisy:3` and `noisy:4` the
+adopted proposal separates **every** pair under the labels as given -- it fits the mistake exactly --
+so the controller has nothing to complain about, even though the probe had named the truly flipped
+object in its suspects. The conflict flag fires when the labels are *inconsistent*, not when they are
+*consistently wrong*, and from the outside those two look different only if somebody looks at the
+suspects anyway.
+
+That is a property of the mechanism, not a bug to patch away: a detector that fires on every proposal
+would flag every state. What it means practically is that the probe's suspect list has to be read
+even when the run reports success, which is the same lesson as `splits` being necessary and not
+sufficient.

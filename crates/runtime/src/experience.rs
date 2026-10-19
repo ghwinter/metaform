@@ -51,6 +51,8 @@ impl Tally {
 #[derive(Clone, Debug, Default)]
 pub struct Experience {
     pub table: BTreeMap<(Class, String), Tally>,
+    /// Steps whose adopted proposal could not separate everything, per class.
+    pub conflicts: BTreeMap<Class, usize>,
 }
 
 /// One record line. The last three fields are optional so that records written before they existed
@@ -63,6 +65,9 @@ struct Line<'a> {
     objects: usize,
     vocabulary: usize,
     labelled: usize,
+    conflict: bool,
+    fingerprint: &'a str,
+    step: &'a str,
 }
 
 fn parse(line: &str) -> Option<Line<'_>> {
@@ -78,6 +83,9 @@ fn parse(line: &str) -> Option<Line<'_>> {
         objects: f.get(10).and_then(|v| v.parse().ok()).unwrap_or(0),
         vocabulary: f.get(11).and_then(|v| v.parse().ok()).unwrap_or(0),
         labelled: f.get(12).and_then(|v| v.parse().ok()).unwrap_or(0),
+        conflict: f.get(13).map(|v| *v == "1").unwrap_or(false),
+        fingerprint: f[0],
+        step: f[1],
     })
 }
 
@@ -91,6 +99,9 @@ impl Experience {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(experience),
             Err(e) => return Err(e),
         };
+        // A step's conflict flag is repeated on every offer line of that step; count the step once.
+        let mut counted: std::collections::BTreeSet<(String, String)> =
+            std::collections::BTreeSet::new();
         for line in text.lines() {
             let Some(parsed) = parse(line) else { continue };
             let class = Class {
@@ -108,6 +119,11 @@ impl Experience {
                 tally.adoptions += 1;
             }
             tally.cost_sum += parsed.cost;
+            if parsed.conflict
+                && counted.insert((parsed.fingerprint.to_string(), parsed.step.to_string()))
+            {
+                *experience.conflicts.entry(class).or_insert(0) += 1;
+            }
         }
         Ok(experience)
     }

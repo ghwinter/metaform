@@ -112,6 +112,14 @@ Check 'the probe names a label it had to disbelieve' {
     $out | Out-Host
     Require ([bool]($out | Select-String 'probe-labels')) 'the probe offered nothing'
     Require ([bool]($out | Select-String 'if label 2 is wrong')) 'the probe did not name the suspect'
+    Require ([bool]($out | Select-String 'conflict:')) 'the conflict was not raised'
+    $record = Join-Path $env:TEMP "conflict_$PID.tsv"
+    Remove-Item $record -Force -ErrorAction SilentlyContinue
+    & $runtime run --state (Join-Path $root 'crates\runtime\fixtures\noisy_state.txt') --probe --record $record *> $null
+    $tally = & $runtime experience --record $record 2>&1
+    $tally | Out-Host
+    Require ([bool]($tally | Select-String 'step\(s\) with a doubtful label')) 'experience did not count the conflict'
+    Remove-Item $record -Force -ErrorAction SilentlyContinue
 }
 Check 'a file-backed proposer competes on equal terms' {
     $fixtures = Join-Path $root 'crates\runtime\fixtures'

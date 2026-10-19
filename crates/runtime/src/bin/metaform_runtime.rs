@@ -55,6 +55,9 @@ fn print_step(step: &Step) {
             step.index, step.colliding_before
         ),
     }
+    if let Some(conflict) = &step.conflict {
+        println!("      conflict: {}", conflict);
+    }
     for offer in &step.offers {
         if !offer.adopted {
             println!(
@@ -75,7 +78,7 @@ fn record_lines(state_hash: u64, step: &Step, ctx: &metaform_runtime::Context) -
         .iter()
         .map(|offer| {
             format!(
-                "{:016x}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.3}\t{}\t{}\t{}\t{}\t{}",
+                "{:016x}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.3}\t{}\t{}\t{}\t{}\t{}\t{}",
                 state_hash,
                 step.index,
                 offer.operator,
@@ -88,7 +91,8 @@ fn record_lines(state_hash: u64, step: &Step, ctx: &metaform_runtime::Context) -
                 status_name(step.status_after),
                 ctx.objects,
                 step.vocabulary_before,
-                (ctx.pos.count_ones() + ctx.neg.count_ones()) as usize
+                (ctx.pos.count_ones() + ctx.neg.count_ones()) as usize,
+                if step.conflict.is_some() { 1 } else { 0 }
             )
         })
         .collect()
@@ -243,6 +247,16 @@ fn main() {
                     tally.adoptions,
                     tally.mean_cost()
                 );
+            }
+            if !experience.conflicts.is_empty() {
+                println!();
+                println!("label conflicts by class");
+                for (class, count) in &experience.conflicts {
+                    println!(
+                        "({}, {}, {}, {})  {} step(s) with a doubtful label",
+                        class.objects, class.vocabulary, class.labelled, class.colliding, count
+                    );
+                }
             }
             let Some(state_ref) = state.as_ref() else {
                 std::process::exit(0);

@@ -34,6 +34,8 @@ pub struct Step {
     pub colliding_before: usize,
     pub vocabulary_before: usize,
     pub offers: Vec<Offer>,
+    /// A label the probe had to disbelieve, when the adopted proposal could not separate everything.
+    pub conflict: Option<String>,
 }
 
 impl Step {
@@ -100,6 +102,23 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
             for offer in recorded.iter_mut() {
                 offer.adopted = offer.name == best.name && offer.operator == best.operator;
             }
+            // If the best offer still leaves pairs unexplained, anything the probe said about a
+            // doubtful label belongs in the report: the state is not merely undecided, it is
+            // contradictory under the labels as given.
+            let conflict = if best.splits < pairs.len() {
+                let notes: Vec<String> = recorded
+                    .iter()
+                    .filter(|o| o.operator == "probe-labels" && !o.note.is_empty())
+                    .map(|o| format!("{} {}", o.name, o.note))
+                    .collect();
+                if notes.is_empty() {
+                    None
+                } else {
+                    Some(notes.join("; "))
+                }
+            } else {
+                None
+            };
             steps.push(Step {
                 index,
                 status_before,
@@ -107,9 +126,22 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
                 colliding_before: pairs.len(),
                 vocabulary_before,
                 offers: recorded,
+                conflict,
             });
         } else {
             // Nothing on the table separates a pair: record what was seen and stop rather than loop.
+            let conflict = offers
+                .iter()
+                .any(|o| o.operator == "probe-labels")
+                .then(|| {
+                    offers
+                        .iter()
+                        .filter(|o| o.operator == "probe-labels" && !o.note.is_empty())
+                        .map(|o| format!("{} {}", o.name, o.note))
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                })
+                .filter(|s| !s.is_empty());
             steps.push(Step {
                 index,
                 status_before,
@@ -117,6 +149,7 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
                 colliding_before: pairs.len(),
                 vocabulary_before,
                 offers,
+                conflict,
             });
             break;
         }

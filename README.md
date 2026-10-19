@@ -121,7 +121,9 @@ pairs) before the step.
 One record line is written per **offer**, not per step, so a proposal that lost is visible too.
 The record is then queryable: `metaform-runtime experience --record runs.tsv --state <file>` prints
 the tallies per class and says which operator has adopted most often in the class of that state;
-`run --use-record runs.tsv` puts that operator first. Order is the only thing experience changes —
+`run --use-record runs.tsv` puts that operator first. With `--probe` the controller also reports a
+`conflict:` line -- and records it -- when the adopted proposal cannot separate every pair and the
+probe has named a label it had to disbelieve. Order is the only thing experience changes —
 every operator is still asked, and the controller still decides by pairs separated.
 
 Anything that is not a Rust component — a model, a script, a person with an editor — can compete by
