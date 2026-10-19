@@ -106,6 +106,13 @@ Check 'the CLI path: component proposes, engine validates' {
     }
 }
 
+Check 'the probe names a label it had to disbelieve' {
+    $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'
+    $out = & $runtime run --state (Join-Path $root 'crates\runtime\fixtures\noisy_state.txt') --probe 2>&1
+    $out | Out-Host
+    Require ([bool]($out | Select-String 'probe-labels')) 'the probe offered nothing'
+    Require ([bool]($out | Select-String 'if label 2 is wrong')) 'the probe did not name the suspect'
+}
 Check 'a file-backed proposer competes on equal terms' {
     $fixtures = Join-Path $root 'crates\runtime\fixtures'
     $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'

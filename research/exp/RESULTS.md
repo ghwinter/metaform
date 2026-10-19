@@ -1101,3 +1101,30 @@ Two things fall out of it, and neither was visible before the per-offer record e
 The second point is the kind of thing the tool was supposed to expose. It also says what the next
 missing operator is: something that can distrust a label, which is what the probe operator in the
 kernel already is for inherited classes.
+
+### 7.6 The probe: naming a label it had to disbelieve
+
+The controller decides by pairs separated, and that count comes from the labels it was given. When a
+label is wrong, a concept that fits the true structure separates fewer pairs than a concept that fits
+the mistake, so the honest proposal loses and nothing records why (7.5).
+
+`probe-labels` answers the direct question instead: for each labelled object, if that one label were
+reconsidered, would some concept separate everything? It reports one candidate per suspect, and its
+candidates are ordinary proposals -- it cannot change the evidence, only say which label it had to
+disbelieve.
+
+Run on the five noisy states with the flipped label known, it names the true object in all five:
+
+| state | truly flipped | named among the suspects |
+|---|---|---|
+| noisy:0 | 5 | 1, 5 |
+| noisy:1 | 4 | 4, 2 |
+| noisy:2 | 4 | 4, 0, 11 |
+| noisy:3 | 3 | 3, 5 |
+| noisy:4 | 10 | 10, 2, 6 |
+
+Two things it does not do, and these matter more than the recall. It cannot act on a suspicion --
+correcting evidence is not something a proposal may do -- so the conflict stays visible in the record
+rather than being resolved. And it has false positives: on every state it names at least one object
+that is labelled correctly, because a wrong label and an unusual object look the same from four
+examples. The list is a question to put to a checker, not a verdict.

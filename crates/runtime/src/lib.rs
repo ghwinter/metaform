@@ -460,6 +460,7 @@ mod tests {
 /// Small relational systems used by the demo and the tests.
 pub mod experience;
 pub mod file_proposer;
+pub mod probe;
 pub mod run;
 pub mod state;
 

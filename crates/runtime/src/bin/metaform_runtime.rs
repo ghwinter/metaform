@@ -22,6 +22,12 @@ fn arg(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).cloned()
 }
 
+/// A flag without a value. `arg` looks at the *next* token, so a bare `--probe` at the end of a
+/// command line would otherwise be invisible.
+fn flag(args: &[String], name: &str) -> bool {
+    args.iter().any(|a| a == name)
+}
+
 fn status_name(status: Status) -> &'static str {
     match status {
         Status::Insufficient => "INSUFFICIENT",
@@ -52,8 +58,12 @@ fn print_step(step: &Step) {
     for offer in &step.offers {
         if !offer.adopted {
             println!(
-                "      offered {} {}: {} pair(s), cost {:.3} (not adopted)",
-                offer.operator, offer.name, offer.splits, offer.cost
+                "      offered {} {}: {} pair(s), cost {:.3} (not adopted){}",
+                offer.operator,
+                offer.name,
+                offer.splits,
+                offer.cost,
+                if offer.note.is_empty() { String::new() } else { format!(" -- {}", offer.note) }
             );
         }
     }
@@ -146,7 +156,7 @@ fn main() {
     // Reject unknown flags instead of ignoring them: a silently ignored flag is how a stale binary
     // spent a whole experiment running without the proposer it was told to use.
     let known = [
-        "--state", "--out", "--systems", "--proposals", "--record", "--use-record", "--max-steps",
+        "--state", "--out", "--systems", "--proposals", "--record", "--use-record", "--max-steps", "--probe",
         "--dim", "--seed", "--limit", "--max-arity",
     ];
     for arg in rest {
@@ -279,6 +289,9 @@ fn main() {
                         std::process::exit(2);
                     }
                 }
+            }
+            if flag(rest, "--probe") {
+                operators.push(Box::new(metaform_runtime::probe::ProbeLabels::new(2)));
             }
             operators.push(Box::new(VsaRetriever {
                 dim: arg(rest, "--dim").and_then(|v| v.parse().ok()).unwrap_or(2048),

@@ -1,0 +1,7 @@
+objects 4
+request_id probe
+vocab a 0 1 2 3
+attr a 0 1 2 3
+attr b 0 1
+pos 0 1 2
+neg 3

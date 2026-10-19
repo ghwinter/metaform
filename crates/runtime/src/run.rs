@@ -21,6 +21,8 @@ pub struct Offer {
     pub splits: usize,
     pub cost: f32,
     pub adopted: bool,
+    /// The operator's own words about this offer, carried through for the report.
+    pub note: String,
 }
 
 /// What one step did: every offer it saw, and which one was adopted.
@@ -71,6 +73,7 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
                         splits,
                         cost: result.cost,
                         adopted: false,
+                        note: candidate.warrant.first().cloned().unwrap_or_default(),
                     };
                     offers.push(offer.clone());
                     seen.push((offer, candidate));
