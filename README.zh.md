@@ -74,10 +74,10 @@ metaform ops                                       # 五类算子调度对照：
 ## LLM 适配器
 
 引擎自己不调用模型，它校验模型返回的东西。`metaform propose` 读取协议 `metaform.propose/1` 的请求文件
-与响应文件，报告它接受了什么。候选是外延式的：一个名字加它覆盖的对象 id。校验会拒绝超出对象范围的
-id、常量或空扩展、与词汇或先前候选重名的名字、重复 id，以及协议或请求 id 不符的整份响应；模型也可以
-拒答，这被记为 `refused` 而不是重试。校验是纯的：不写文件、不改状态，所以"加入谓词"仍是独立一步，
-提议无法覆盖证据。
+与响应文件，报告它接受了什么。候选可以是外延式的（一个名字加它覆盖的对象 id），也可以是定义式的
+（对词汇中已有名字做 `all_of` / `any_of`）。校验会拒绝超出对象范围的 id、常量或空扩展、与词汇或先前
+候选重名的名字、重复 id，以及协议或请求 id 不符的整份响应；模型也可以拒答，这被记为 `refused` 而不是
+重试。校验是纯的：不写文件、不改状态，所以"加入谓词"仍是独立一步，提议无法覆盖证据。
 
 在廉价提议的假设下，这个分工才是重点：模型每次给很多候选，引擎支付提问。
 
@@ -130,7 +130,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 71）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 82）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接

@@ -8,9 +8,18 @@
 //!   1. response `protocol` must be `metaform.propose/1` → otherwise the whole response is `wrong_protocol`
 //!   2. response `request_id` must equal the request's → otherwise `wrong_request_id`
 //!   3. a non-null `refused` string declines the task: nothing is accepted, the string is echoed
-//!   4. per candidate: `missing_name`, `duplicate_name`, `empty_extension`, `constant_extension`,
-//!      `out_of_range`, `duplicate_ids`, `limit_exceeded`
-//!   5. accepted candidates report `splits`: how many evidence-colliding pairs they separate
+//!   4. per candidate: `missing_name`, `duplicate_name`; a candidate carrying both `ids` and `define`,
+//!      or a malformed `define`, is `wrong_protocol`
+//!   5. an `ids` candidate then fails `empty_extension`, `constant_extension`, `out_of_range`, `duplicate_ids`
+//!   6. a `define` candidate then fails `empty_definition`, `duplicate_operand`, `unknown_predicate`,
+//!      `empty_extension`, `constant_extension`
+//!   7. `limit_exceeded` for both forms
+//!   8. accepted candidates report `splits`: how many evidence-colliding pairs they separate
+//!
+//! A candidate is extensional (`ids`) or defined (`define: {"all_of": [...]}` / `{"any_of": [...]}`).
+//! A definition may only name predicates that already exist in the request vocabulary; the operands are
+//! combined with bitwise AND (`all_of`) or OR (`any_of`) and intersected with the object mask. The
+//! resulting extension then follows the same acceptance path as an `ids` candidate.
 //!
 //! Pair logic follows `score` in `main.rs`: positives and negatives that share an equivalence class under
 //! the current vocabulary form a colliding pair, and a candidate splits the pair when its membership
@@ -509,6 +518,85 @@ fn covers_all(n: usize, ids: &[i64]) -> bool {
     (0..n).all(|x| ids.contains(&(x as i64)))
 }
 
+/// Mask of the request's `n` objects (`n <= 64`).
+fn object_mask(n: usize) -> Mask {
+    if n == 0 {
+        0
+    } else {
+        Mask::MAX >> (64 - n)
+    }
+}
+
+/// The operator of a `define` clause.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DefOp {
+    AllOf,
+    AnyOf,
+}
+
+/// A parsed `define` clause: one operator over names that already exist in the request vocabulary.
+struct Definition {
+    op: DefOp,
+    operands: Vec<String>,
+}
+
+/// Parse a `define` value. A malformed clause is a candidate-level `wrong_protocol` rejection.
+fn parse_definition(value: &Json) -> Result<Definition, &'static str> {
+    let Json::Obj(fields) = value else {
+        return Err("wrong_protocol");
+    };
+    // Exactly one operator. Two operators (or an unknown key) would make the extension ambiguous.
+    let [(key, operands)] = fields.as_slice() else {
+        return Err("wrong_protocol");
+    };
+    let op = match key.as_str() {
+        "all_of" => DefOp::AllOf,
+        "any_of" => DefOp::AnyOf,
+        _ => return Err("wrong_protocol"),
+    };
+    let Json::Arr(items) = operands else {
+        return Err("wrong_protocol");
+    };
+    let mut names = Vec::with_capacity(items.len());
+    for item in items {
+        match item.as_str() {
+            Some(name) => names.push(name.to_string()),
+            None => return Err("wrong_protocol"),
+        }
+    }
+    Ok(Definition { op, operands: names })
+}
+
+/// Evaluate a definition against the request vocabulary. The caller intersects with the object mask.
+fn definition_extension(
+    def: &Definition,
+    vocab: &[(String, Mask)],
+) -> Result<Mask, &'static str> {
+    if def.operands.is_empty() {
+        return Err("empty_definition");
+    }
+    let mut seen = HashSet::new();
+    for operand in &def.operands {
+        if !seen.insert(operand.as_str()) {
+            return Err("duplicate_operand");
+        }
+    }
+    let mut ext = match def.op {
+        DefOp::AllOf => Mask::MAX,
+        DefOp::AnyOf => 0,
+    };
+    for operand in &def.operands {
+        let Some((_, mask)) = vocab.iter().find(|(name, _)| name == operand) else {
+            return Err("unknown_predicate");
+        };
+        ext = match def.op {
+            DefOp::AllOf => ext & mask,
+            DefOp::AnyOf => ext | mask,
+        };
+    }
+    Ok(ext)
+}
+
 fn count_splits(n: usize, pos: Mask, neg: Mask, classes: &[Mask], ext: Mask) -> usize {
     let mut total = 0;
     for class in classes {
@@ -669,6 +757,47 @@ fn validate(req: &Request, response_text: &str) -> String {
         // Remember every named candidate, accepted or not: "an earlier candidate name" is enough.
         seen_names.insert(name.to_string());
 
+        // A candidate is either extensional (`ids`) or defined (`define`), never both.
+        let has_ids = obj.get("ids").is_some();
+        let has_define = obj.get("define").is_some();
+        if has_ids && has_define {
+            rejected.push(rejected_entry(name, &ids.values, "wrong_protocol"));
+            continue;
+        }
+        if has_define {
+            let definition = match parse_definition(obj.get("define").expect("checked present")) {
+                Ok(definition) => definition,
+                Err(reason) => {
+                    rejected.push(rejected_entry(name, &ids.values, reason));
+                    continue;
+                }
+            };
+            let ext = match definition_extension(&definition, &req.vocab) {
+                Ok(ext) => ext & object_mask(req.n),
+                Err(reason) => {
+                    rejected.push(rejected_entry(name, &ids.values, reason));
+                    continue;
+                }
+            };
+            // A definition gets the same extension checks as an `ids` candidate.
+            if ext == 0 {
+                rejected.push(rejected_entry(name, &[], "empty_extension"));
+                continue;
+            }
+            if ext == object_mask(req.n) {
+                rejected.push(rejected_entry(name, &[], "constant_extension"));
+                continue;
+            }
+            if accepted.len() >= req.limit {
+                rejected.push(rejected_entry(name, &[], "limit_exceeded"));
+                continue;
+            }
+            let ext_ids: Vec<i64> = ids_of(ext, req.n).into_iter().map(|x| x as i64).collect();
+            let splits = count_splits(req.n, req.pos, req.neg, &classes, ext);
+            accepted.push(accepted_entry(name, &ext_ids, splits, obj));
+            continue;
+        }
+
         if !ids.is_array || ids.count == 0 {
             rejected.push(rejected_entry(name, &ids.values, "empty_extension"));
             continue;
@@ -796,6 +925,153 @@ mod tests {
             r#"{"name":"c2","ids":[5],"reason":"out_of_range"}],"refused":null}"#
         );
         assert_eq!(got, want);
+    }
+
+    const REQ_DEFINED: &str = r#"{"protocol":"metaform.propose/1","request_id":"r-3","objects":3,"vocabulary":[{"name":"a","ids":[0,1]},{"name":"b","ids":[0,2]}],"evidence":{"pos":[0],"neg":[1]},"limit":8}"#;
+
+    #[test]
+    fn propose_accepts_defined_all_of_and_reports_its_extension() {
+        // a & b = {0}. The definition is a Boolean combination of a and b, so it is constant on the
+        // classes a and b induce: no pair collides in this request, hence splits = 0.
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","candidates":["#,
+            r#"{"name":"p","define":{"all_of":["a","b"]},"warrant":"a and b","falsifier":"exactly one operand"}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","accepted":["#,
+            r#"{"name":"p","ids":[0],"splits":0,"warrant":"a and b","falsifier":"exactly one operand"}"#,
+            r#"],"rejected":[],"refused":null}"#
+        );
+        assert_eq!(output(REQ_DEFINED, resp), want);
+    }
+
+    #[test]
+    fn propose_accepts_defined_any_of_and_reports_its_extension() {
+        // a | b = {0,1,2}, which is not all 4 objects.
+        let req = r#"{"protocol":"metaform.propose/1","request_id":"r-4","objects":4,"vocabulary":[{"name":"a","ids":[0,1]},{"name":"b","ids":[2]}],"evidence":{"pos":[0],"neg":[3]},"limit":8}"#;
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-4","candidates":["#,
+            r#"{"name":"q","define":{"any_of":["a","b"]}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-4","accepted":["#,
+            r#"{"name":"q","ids":[0,1,2],"splits":0}"#,
+            r#"],"rejected":[],"refused":null}"#
+        );
+        assert_eq!(output(req, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_definition_with_unknown_operand() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","candidates":["#,
+            r#"{"name":"p","define":{"all_of":["a","nope"]}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","accepted":[],"#,
+            r#""rejected":[{"name":"p","ids":[],"reason":"unknown_predicate"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_DEFINED, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_definition_that_names_the_candidate_itself() {
+        // `p` is a candidate name, not a vocabulary name: it does not exist yet.
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","candidates":["#,
+            r#"{"name":"p","define":{"any_of":["p"]}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","accepted":[],"#,
+            r#""rejected":[{"name":"p","ids":[],"reason":"unknown_predicate"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_DEFINED, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_operand_defined_earlier_in_the_same_response() {
+        // `q` is accepted in this response, but a definition may only use the request vocabulary.
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","candidates":["#,
+            r#"{"name":"q","define":{"all_of":["a","b"]}},"#,
+            r#"{"name":"p","define":{"any_of":["q"]}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","accepted":["#,
+            r#"{"name":"q","ids":[0],"splits":0}"#,
+            r#"],"rejected":[{"name":"p","ids":[],"reason":"unknown_predicate"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_DEFINED, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_empty_definition() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","candidates":["#,
+            r#"{"name":"p","define":{"all_of":[]}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","accepted":[],"#,
+            r#""rejected":[{"name":"p","ids":[],"reason":"empty_definition"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_DEFINED, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_duplicate_operand() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","candidates":["#,
+            r#"{"name":"p","define":{"all_of":["a","a"]}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","accepted":[],"#,
+            r#""rejected":[{"name":"p","ids":[],"reason":"duplicate_operand"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_DEFINED, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_defined_candidate_with_a_taken_name() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","candidates":["#,
+            r#"{"name":"a","define":{"any_of":["b"]}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","accepted":[],"#,
+            r#""rejected":[{"name":"a","ids":[],"reason":"duplicate_name"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_DEFINED, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_candidate_with_both_ids_and_define() {
+        // The candidate form is ambiguous, so it is a candidate-level `wrong_protocol`; the supplied
+        // ids are echoed but not used.
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","candidates":["#,
+            r#"{"name":"p","ids":[0],"define":{"all_of":["a","b"]}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-3","accepted":[],"#,
+            r#""rejected":[{"name":"p","ids":[0],"reason":"wrong_protocol"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_DEFINED, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_defined_empty_and_constant_extensions() {
+        let req = r#"{"protocol":"metaform.propose/1","request_id":"r-5","objects":4,"vocabulary":[{"name":"a","ids":[0,1]},{"name":"b","ids":[2,3]}],"evidence":{"pos":[0],"neg":[2]},"limit":8}"#;
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-5","candidates":["#,
+            r#"{"name":"none","define":{"all_of":["a","b"]}},"#,
+            r#"{"name":"every","define":{"any_of":["a","b"]}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-5","accepted":[],"#,
+            r#""rejected":[{"name":"none","ids":[],"reason":"empty_extension"},"#,
+            r#"{"name":"every","ids":[],"reason":"constant_extension"}],"refused":null}"#
+        );
+        assert_eq!(output(req, resp), want);
     }
 
     #[test]

@@ -80,9 +80,10 @@ This repository uses it too: the `.metaform/` directory at the root is its outpu
 
 The engine never calls a model itself; it validates what a model returns. `metaform propose` reads a
 request file and a response file under protocol `metaform.propose/1` and reports what it accepts.
-Candidates are extensional: a name plus the object ids it covers. The validator rejects ids outside the
-object range, constant or empty extensions, names that repeat the vocabulary or an earlier candidate,
-duplicate ids, and anything arriving under the wrong protocol or request id; a model may also decline,
+Candidates are extensional (a name plus the object ids it covers) or defined (`all_of` / `any_of` over
+names that already exist in the vocabulary). The validator rejects ids outside the object range, constant
+or empty extensions, names that repeat the vocabulary or an earlier candidate, duplicate ids, and anything
+arriving under the wrong protocol or request id; a model may also decline,
 which is recorded as `refused` rather than retried. Validation is pure: it writes no file and changes no
 state, so adding a predicate remains a separate step and a proposal cannot overwrite evidence.
 
@@ -160,7 +161,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 71)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 82)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain
