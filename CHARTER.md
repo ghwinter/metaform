@@ -546,9 +546,9 @@ change itself.
 | | Milestone | Criterion | Now |
 |---|---|---|---|
 | M0 | a runtime exists | state, operators, controller, record — all four, running one scenario | done |
-| M1 | a representation change can be triggered | the engine decides "vocabulary insufficient", gives a coverage target, accepts an external predicate | partial: the decision exists, the predicate protocol does not |
+| M1 | a representation change can be triggered | the engine decides "vocabulary insufficient", gives a coverage target, accepts an external predicate | partial: judgement and coverage target work, and the protocol now accepts a defined predicate (`define: {all_of\|any_of}` over existing predicates); what is still missing is that the definition is not stored for re-computation when the object set changes |
 | M2 | real use at equal budget | a fixed model and budget, three arms, conclusions from unseen tasks | pilot: two arms, four cases each, budget not strictly accounted |
-| M3 | accumulation across tasks | the experience table drives selection, proposals per task family fall, every policy comes from a verified entry | skeleton: the table exists, the controller does not read it |
+| M3 | accumulation across tasks | the experience table drives selection, proposals per task family fall, every policy comes from a verified entry | skeleton: the table exists, and the controller consults it through the experience hint, which changes ask order only and never the adopted proposal |
 | M4 | bootstrapping | metaform iterates metaform, and every deliverable carries an executable claim | embryonic: the claims register and the gates |
 
 ### 6.2 Self-improvement levels
@@ -586,7 +586,7 @@ What can be said now:
 What cannot be said yet:
 
 - There is no real model in the loop (the protocol is pure; the responses are fabricated).
-- There is no relational necessity criterion (only unary signatures so far).
+- The tree-shaped fragment of the relational necessity criterion is decided by colour refinement with a minimised witness; general conjunctive queries (a homomorphism test) are still open.
 - No operator type covers decomposition or analogy (they change the goal and the structure, but have no
   statable effect on the measure).
 - There is no validation on a large real repository.
