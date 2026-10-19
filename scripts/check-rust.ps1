@@ -14,15 +14,16 @@
       1  not satisfied
 
 .PARAMETER Expected
-    Expected pass count (default 101: 64 kernel + 28 CLI/ledger/scenario/MCP/plan/propose/report/score +
-    1 propose integration test + 3 state integration tests + 5 suggest integration tests).
+    Expected pass count (default 103: 64 kernel + 28 CLI/ledger/scenario/MCP/plan/propose/report/score +
+    1 propose integration test + 3 state integration tests + 5 suggest integration tests +
+    2 new_atom_loop integration tests).
 
 .PARAMETER Manifest
     Cargo.toml path.
 #>
 [CmdletBinding()]
 param(
-    [int]$Expected = 101,
+    [int]$Expected = 103,
     [string]$Manifest = (Join-Path $PSScriptRoot '..\engine\Cargo.toml')
 )
 
