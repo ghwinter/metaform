@@ -93,6 +93,17 @@ impl Experience {
         experience
     }
 
+    /// Builds a table directly from rows, in the shape [`Experience::rows`] returns them. A later
+    /// row for the same class and operator replaces an earlier one. This is for callers and tests
+    /// that already have tallies and do not want to write a record file first.
+    pub fn from_rows(rows: impl IntoIterator<Item = (Class, String, Tally)>) -> Experience {
+        let mut experience = Experience::default();
+        for (class, operator, tally) in rows {
+            experience.table.insert((class, operator), tally);
+        }
+        experience
+    }
+
     /// The operator that has adopted most often in this class, cheapest on a tie. `None` when the
     /// class has never been seen.
     pub fn suggest(&self, class: &Class) -> Option<String> {
