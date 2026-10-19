@@ -39,7 +39,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "metaform"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -47,7 +47,7 @@ dependencies = [
 
 [[package]]
 name = "metaform-components"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "metaform",
  "metaform-runtime",
@@ -57,22 +57,22 @@ dependencies = [
 
 [[package]]
 name = "metaform-ilp"
-version = "0.1.0"
+version = "0.6.0"
 
 [[package]]
 name = "metaform-runtime"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "metaform",
 ]
 
 [[package]]
 name = "metaform-sme"
-version = "0.1.0"
+version = "0.6.0"
 
 [[package]]
 name = "metaform-vsa"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "rand",
 ]

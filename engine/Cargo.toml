@@ -1,6 +1,6 @@
 [package]
 name = "metaform"
-version = "0.5.0"
+version.workspace = true
 license = "MIT OR Apache-2.0"
 edition = "2021"
 description = "Query-driven representation change: the core state machine (the executable counterpart of the paper's formalization)"
