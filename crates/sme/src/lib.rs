@@ -281,6 +281,59 @@ fn score_mapping(base: &System, target: &System, m: &Mapping) -> Score {
     Score { matched: matched.len(), systematicity, components: roots.len() }
 }
 
+/// The evidence arithmetic of SME4, measured from its own dehydrated runs.
+///
+/// A local match is worth 5.0e-4; a parent receives eight times the evidence of each child
+/// (`trickle-down` 8.0). The corpus pins this: in the geometry runs an entity that is the argument
+/// of nine matched expressions scores exactly 9 x 8 x 5.0e-4 = 0.036. Adopting the numbers rather
+/// than inventing a score makes the port comparable with the original.
+pub const LOCAL_EVIDENCE: f64 = 5.0e-4;
+pub const TRICKLE_DOWN: f64 = 8.0;
+
+/// The evidence of one alignment, split into the part carried by expressions and the part carried
+/// by entities.
+#[derive(Clone, Debug, Default)]
+pub struct Evidence {
+    pub expressions: f64,
+    pub entities: std::collections::BTreeMap<EntityId, f64>,
+    pub total: f64,
+}
+
+/// Computes SME4's evidence over an alignment. Statements are defined bottom-up, so one ascending
+/// sweep computes every expression's evidence before the entities that use it.
+pub fn evidence(base: &System, target: &System, m: &Mapping) -> Evidence {
+    let lookup: std::collections::BTreeMap<StatementId, StatementId> =
+        m.statements.iter().cloned().collect();
+    let mut ev: std::collections::BTreeMap<StatementId, f64> = std::collections::BTreeMap::new();
+    for &b in lookup.keys() {
+        let bs = base.statement(b);
+        let mut children = 0.0;
+        for arg in &bs.args {
+            if let Term::Statement(child) = arg {
+                if let Some(v) = ev.get(child) {
+                    children += *v;
+                }
+            }
+        }
+        ev.insert(b, LOCAL_EVIDENCE + TRICKLE_DOWN * children);
+    }
+    let expressions: f64 = ev.values().sum();
+    let mut entities: std::collections::BTreeMap<EntityId, f64> = std::collections::BTreeMap::new();
+    for (&b, &t) in &lookup {
+        let bs = base.statement(b);
+        let ts = target.statement(t);
+        for (ba, ta) in bs.args.iter().zip(ts.args.iter()) {
+            if let (Term::Entity(be), Term::Entity(te)) = (ba, ta) {
+                if m.entities.contains(&(*be, *te)) {
+                    *entities.entry(*be).or_default() += TRICKLE_DOWN * ev[&b];
+                }
+            }
+        }
+    }
+    let total = expressions + entities.values().sum::<f64>();
+    Evidence { expressions, entities, total }
+}
+
 /// All alignments worth reporting, best first.
 ///
 /// Every local match is tried once as a seed and greedily extended with compatible matches; the
@@ -484,5 +537,36 @@ mod tests {
         assert_eq!(separate.score.components, 2);
         assert_eq!(separate.score.systematicity, 2);
         assert!(nested.score.systematicity > separate.score.systematicity);
+    }
+
+    #[test]
+    fn entity_evidence_matches_the_sme4_arithmetic() {
+        // Nine matched expressions over entity 0. SME4's corpus scores the entity match
+        // 9 x 8 x 5.0e-4 = 0.036; this pins the constants to the original rather than to taste.
+        let mut base = System::new(1);
+        let mut target = System::new(1);
+        for i in 0..9 {
+            let r = format!("p{i}");
+            base.push(&r, vec![Term::Entity(0)]);
+            target.push(&r, vec![Term::Entity(0)]);
+        }
+        let m = map(&base, &target, 1).pop().expect("a mapping");
+        let e = evidence(&base, &target, &m);
+        assert!((e.entities[&0] - 0.036).abs() < 1e-9, "entity evidence {}", e.entities[&0]);
+        assert!(e.total > e.expressions, "the entity carries the trickle-down");
+    }
+
+    #[test]
+    fn nested_structure_pays_eight_times_per_level() {
+        // A statement that contains a matched child is worth 5.0e-4 + 8 x 5.0e-4 = 0.0045.
+        let mut base = System::new(2);
+        let inner = base.push("inner", vec![Term::Entity(0), Term::Entity(1)]);
+        base.push("outer", vec![Term::Statement(inner)]);
+        let mut target = System::new(2);
+        let t_inner = target.push("inner", vec![Term::Entity(0), Term::Entity(1)]);
+        target.push("outer", vec![Term::Statement(t_inner)]);
+        let m = map(&base, &target, 1).remove(0);
+        let e = evidence(&base, &target, &m);
+        assert!((e.expressions - (0.0045 + 0.0005)).abs() < 1e-9, "expressions {}", e.expressions);
     }
 }

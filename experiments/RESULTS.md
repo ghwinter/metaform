@@ -1254,3 +1254,26 @@ literals, and its redundancy test is coverage on bitarrays; there is no general 
 theta-subsumption in the source. A necessity argument over clauses needs three pieces, and all three
 are now here: theta-subsumption with injective matching, a coverage bitset, and literal-addition
 refinement as an ordinary function a runtime can call.
+
+## 10. SME4's evidence arithmetic (2026-10-20)
+
+The SME4 source was read before touching the structure mapper. Its shape: expressions are
+(predicate . args) with entities created implicitly from argument positions; local matches are only
+expression-by-expression, bucketed by identical functor (entity-by-entity is never proposed); a local
+match is worth 5.0e-4, and each parent receives eight times the evidence of each child. Conflicts are
+computed as nogoods shared through descendants, so one-to-one and no-cross-mapping are emergent
+rather than checked at proposal time. Merge is greedy over kernels in descending score, accepting a
+kernel only if it keeps at least 0.8 of the best score and at most 3 mappings are kept. Candidate
+inferences come only from unmatched top-level source expressions and stand for unmapped entities as
+skolems.
+
+Calibration from the corpus, not from taste: in the geometry runs an entity that is the argument of
+nine matched expressions scores exactly 9 x 8 x 5.0e-4 = 0.036, and an eight-parent entity 0.032.
+The port now carries those constants (`LOCAL_EVIDENCE`, `TRICKLE_DOWN`) and an `evidence()` function,
+with tests pinning both numbers. The structural counters (matched, systematicity, components) stay
+alongside: one number would hide whether an alignment is deep or merely wide.
+
+Adopted: local/8x arithmetic, bottom-up evaluation, entity evidence as the sum over parent matches.
+Not yet adopted: symmetric and commutative twin matches, nogood propagation inside the merge, the
+0.8 cutoff with at most three mappings, and skolem-marked candidate inferences. Those are the next
+three commits, in that order.
