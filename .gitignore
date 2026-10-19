@@ -39,6 +39,7 @@
 .repo/
 .metaform/
 dist/
+tmp/
 engine/target/
 /target/
 crates/*/target/
