@@ -1502,3 +1502,27 @@ checksum file, would also have been accepted with `splits: 2` and would have lef
 and the same holds for including the unlabelled README.zh. So the pilot shows more than "the plumbing
 works" only in the narrow sense that the insufficiency report was informative on a real question; it
 is not evidence that the loop is cheap, reliable, or model-findable.
+
+## 12. A second proposer arm, and why it does not count as blind (2026-10-20)
+
+The plan was a controlled comparison: the first arm knew the labels and proposed; a second arm
+would see only the request and the repository, with the evidence ledger off limits. The second arm
+was run, and it was not blind. Three channels leaked the answer before it proposed:
+
+1. a repository-wide grep for the predicate names matched the evidence ledger, and the grep output
+   itself carried the accepted proposal;
+2. the session transcript holds the first response verbatim, and it sits beside the request;
+3. the project state already contains the accepted predicate, because the first arm adopted it.
+
+The arm is therefore not evidence about findability. It is still useful evidence about two other
+things. It rebuilt the same extension from file facts alone and named the predicate differently
+(pins_rust_pass_count), and the engine accepted it with splits two on a clean rebuild whose request
+id matched. And it found a distinction the first arm had not needed to state: the property is
+"carries the pinned count", not "contains the number" -- the lock file's 124 is inside a checksum,
+so a substring predicate would wrongly include a negative.
+
+What a blind arm requires, written down so the next attempt does not repeat the mistake: a fresh
+project built from a written specification rather than from the post-adoption state, a request
+emitted before any proposal exists, no ledger or transcript in the tree the proposer can reach, and
+a grep that excludes the evidence directory. Only then is the turn count and the hit rate a
+measurement rather than a demonstration.
