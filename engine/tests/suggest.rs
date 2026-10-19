@@ -121,6 +121,46 @@ fn tree(dir: &Path) -> Vec<String> {
     out
 }
 
+fn state_add(project: &str, name: &str, ids: &str) {
+    run_ok(&[
+        "state", "add", "--project", project, "--name", name, "--ids", ids,
+    ]);
+}
+
+fn state_vote(project: &str, id: &str, yes: &str, no: &str) {
+    run_ok(&[
+        "state", "vote", "--project", project, "--id", id, "--yes", yes, "--no", no,
+    ]);
+}
+
+/// Three objects in one class: 0 is a strong positive, 1 a strong negative, and 2 was never asked.
+/// The colliding pair (0,1) is real, but object 2 inherits its label from the class.
+fn inherited_fixture(tag: &str) -> PathBuf {
+    let dir = temp_dir(tag);
+    let project = dir.to_str().expect("utf-8 path");
+    run_ok(&["state", "init", "--project", project, "--n", "3"]);
+    state_add(project, "a", "0,1,2");
+    state_vote(project, "0", "3", "0");
+    state_vote(project, "1", "0", "3");
+    dir
+}
+
+/// Six objects in one class: three strong positives against three strong negatives give nine
+/// colliding pairs, above the two-pair threshold where `suggest` prefers a new atom.
+fn wide_collision_fixture(tag: &str) -> PathBuf {
+    let dir = temp_dir(tag);
+    let project = dir.to_str().expect("utf-8 path");
+    run_ok(&["state", "init", "--project", project, "--n", "6"]);
+    state_add(project, "a", "0,1,2,3,4,5");
+    for id in ["0", "1", "2"] {
+        state_vote(project, id, "3", "0");
+    }
+    for id in ["3", "4", "5"] {
+        state_vote(project, id, "0", "3");
+    }
+    dir
+}
+
 #[test]
 fn suggest_reports_the_empty_search_and_is_deterministic() {
     let dir = collision_fixture("deterministic");
@@ -154,6 +194,62 @@ fn suggest_reports_the_empty_search_and_is_deterministic() {
         "two singletons + one conjunction + one disjunction: {value}"
     );
     assert_eq!(value["suggestions"], serde_json::json!([]), "{value}");
+
+    let ask = &value["ask"];
+    assert_eq!(ask["why"], "conflicting_labels", "{value}");
+    assert_eq!(ask["questions"], 1, "{value}");
+    assert_eq!(ask["objects"], serde_json::json!([0]), "{value}");
+    assert_eq!(
+        ask["objects"].as_array().expect("objects is an array").len() as u64,
+        ask["questions"].as_u64().expect("questions is a number"),
+        "objects.len() must equal questions: {value}"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A real collision whose class also holds an unasked member: the question names the unasked
+/// member, not one of the two objects that already answered.
+#[test]
+fn suggest_ask_names_the_inherited_member() {
+    let dir = inherited_fixture("ask-inherited");
+    let project = dir.to_str().expect("utf-8 path");
+
+    let value = json(&run_ok(&["suggest", "--project", project]));
+    assert_eq!(value["status"], "INSUFFICIENT", "{value}");
+    assert_eq!(value["next"], "ask", "{value}");
+    assert_eq!(
+        value["colliding_pairs"],
+        serde_json::json!([[0, 1]]),
+        "{value}"
+    );
+
+    let ask = &value["ask"];
+    assert_eq!(ask["why"], "unprobed_member", "{value}");
+    assert_eq!(ask["objects"], serde_json::json!([2]), "{value}");
+    assert_eq!(
+        ask["objects"].as_array().expect("objects is an array").len() as u64,
+        ask["questions"].as_u64().expect("questions is a number"),
+        "objects.len() must equal questions: {value}"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Above two colliding pairs the next move is a new atom, so `ask` is omitted rather than `null`.
+#[test]
+fn suggest_new_atom_omits_ask() {
+    let dir = wide_collision_fixture("ask-new-atom");
+    let project = dir.to_str().expect("utf-8 path");
+
+    let value = json(&run_ok(&["suggest", "--project", project]));
+    assert_eq!(value["status"], "INSUFFICIENT", "{value}");
+    assert_eq!(value["next"], "new_atom", "{value}");
+    assert_eq!(value["colliding"], 9, "{value}");
+    assert!(
+        value.get("ask").is_none(),
+        "new_atom must omit the ask field entirely: {value}"
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }

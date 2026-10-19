@@ -84,7 +84,10 @@ scores each against the colliding pairs, and reports how many candidates it `tri
 pair shares a signature, so every Boolean recombination is constant on it (Theorem 11): `suggestions`
 stays empty and `reason` says why. `next` names what can actually change the state: with at most two
 colliding pairs, one more question (`ask`); otherwise a predicate outside the current atoms
-(`new_atom`).
+(`new_atom`). When `next` is `ask`, the JSON also carries `ask`: one deterministic representative per
+colliding equivalence class that direct answers have not settled (`objects`), with `why` naming the
+case (`unlabelled_class`, `unprobed_member`, or `conflicting_labels`). `new_atom` omits the field
+because no question can repair the state.
 
 ## LLM adapter
 
@@ -177,7 +180,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 103)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 111)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain
