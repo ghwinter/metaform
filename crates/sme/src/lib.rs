@@ -634,7 +634,8 @@ mod tests {
         // cause(greater(bar, heat), flow(heat, coffee)) is matched as one connected piece.
         assert_eq!(m.score.matched, 3);
         assert_eq!(m.score.components, 1);
-        // cause(greater, flow) contributes 1 + 1 + 1, the two children contribute 1 each.\n        assert_eq!(m.score.systematicity, 5);
+        // cause(greater, flow) contributes 1 + 1 + 1, the two children contribute 1 each.
+        assert_eq!(m.score.systematicity, 5);
         assert_eq!(m.target_of(0), Some(0)); // water -> heat
         assert_eq!(m.target_of(1), Some(1)); // pipe -> bar
     }
