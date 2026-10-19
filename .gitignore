@@ -64,6 +64,8 @@ HANDOFF.md
 !/engine/src/state.rs
 
 # root
+!/LICENSE-APACHE
+!/LICENSE-MIT
 !/environment.json
 
 # paper/en

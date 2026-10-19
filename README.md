@@ -226,6 +226,12 @@ The release stops at a validated boundary, not at a runtime. What is left, in or
    growth across tasks, are the two pieces a metareasoning runtime needs. Acceptance: two task families, a measurable
    drop in proposals per task, and no strategy adopted without a verified entry.
 
+## License
+
+The code, the proofs, and the gates are released under MIT OR Apache-2.0, at your option; the two
+texts are `LICENSE-MIT` and `LICENSE-APACHE`. The paper is released under the Creative Commons
+Attribution 4.0 International license (CC BY 4.0).
+
 ## Provenance
 
 - The problem was posed in one long research conversation. That conversation is an input, not a
