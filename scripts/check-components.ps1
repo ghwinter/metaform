@@ -106,6 +106,21 @@ Check 'the CLI path: component proposes, engine validates' {
     }
 }
 
+Check 'experience: the record suggests an operator for a class' {
+    $fixtures = Join-Path $root 'crates\runtime\fixtures'
+    $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'
+    $record = Join-Path $env:TEMP "runs_$PID.tsv"
+    Remove-Item $record -Force -ErrorAction SilentlyContinue
+    & $runtime run --state (Join-Path $fixtures 'state.txt') --record $record *> $null
+    & $runtime run --state (Join-Path $fixtures 'state.txt') --record $record *> $null
+    $out = & $runtime experience --record $record --state (Join-Path $fixtures 'state.txt') 2>&1
+    $out | Out-Host
+    Require ([bool]($out | Select-String 'suggestion: vsa-retriever')) 'the record did not suggest the retriever'
+    $out = & $runtime run --state (Join-Path $fixtures 'state.txt') --use-record $record 2>&1
+    $out | Out-Host
+    Require ([bool]($out | Select-String 'experience: vsa-retriever has adopted most often')) 'the controller ignored the record'
+    Remove-Item $record -Force -ErrorAction SilentlyContinue
+}
 Check 'the controller: adopt the best proposal, then stop' {
     $fixtures = Join-Path $root 'crates\runtime\fixtures'
     $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'

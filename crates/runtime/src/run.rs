@@ -24,6 +24,7 @@ pub struct Step {
     pub proposal: String,
     pub splits: usize,
     pub colliding_before: usize,
+    pub vocabulary_before: usize,
     pub adopted: bool,
     pub cost: f32,
 }
@@ -82,6 +83,7 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
         match offers.first() {
             Some(best) => {
                 let candidate = best.candidate.clone();
+                let vocabulary_before = ctx.vocabulary.len();
                 adopt(ctx, &candidate);
                 let status_after = status_with(ctx, &[]);
                 steps.push(Step {
@@ -92,6 +94,7 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
                     proposal: candidate.name.clone(),
                     splits: best.splits,
                     colliding_before: pairs.len(),
+                    vocabulary_before,
                     adopted: true,
                     cost: best.cost,
                 });
@@ -112,6 +115,7 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
                     proposal: name,
                     splits: 0,
                     colliding_before: pairs.len(),
+                    vocabulary_before: ctx.vocabulary.len(),
                     adopted: false,
                     cost,
                 });

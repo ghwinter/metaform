@@ -115,7 +115,13 @@ crates\runtime\target\debug\metaform-runtime.exe run --state crates\runtime\fixt
 It asks every applicable operator, keeps what the validator accepts, adopts the proposal that
 separates the most colliding pairs (cheapest on a tie), stops when nothing separates anything, and
 appends one line per step — state fingerprint, operator, proposal, pairs separated, adopted, cost,
-status before and after — so a sequence of runs can be read afterwards.
+status before and after, and the state class (objects, vocabulary size, labelled examples, colliding
+pairs) before the step.
+
+The record is then queryable: `metaform-runtime experience --record runs.tsv --state <file>` prints
+the tallies per class and says which operator has adopted most often in the class of that state;
+`run --use-record runs.tsv` puts that operator first. Order is the only thing experience changes —
+every operator is still asked, and the controller still decides by pairs separated.
 
 The third line above is the only one that can accept anything, and accepting is still not adopting:
 `research/exp/proposer_arms.py` gives one state to three proposers (random, retrieval, and the

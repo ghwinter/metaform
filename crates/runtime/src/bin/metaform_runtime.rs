@@ -13,6 +13,7 @@
 
 use metaform_runtime::state::{State, Systems};
 use metaform::{Status};
+use metaform_runtime::experience::{class_of, Experience};
 use metaform_runtime::run::{fingerprint, run, Step};
 use metaform_runtime::{splits, status_with, validate, Operator, SmeAnalogizer, VsaRetriever};
 
@@ -48,9 +49,9 @@ fn print_step(step: &Step) {
     }
 }
 
-fn record_line(state_hash: u64, step: &Step) -> String {
+fn record_line(state_hash: u64, step: &Step, ctx: &metaform_runtime::Context) -> String {
     format!(
-        "{:016x}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.3}\t{}\t{}",
+        "{:016x}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.3}\t{}\t{}\t{}\t{}\t{}",
         state_hash,
         step.index,
         step.operator,
@@ -60,7 +61,10 @@ fn record_line(state_hash: u64, step: &Step) -> String {
         step.adopted as u8,
         step.cost,
         status_name(step.status_before),
-        status_name(step.status_after)
+        status_name(step.status_after),
+        ctx.objects,
+        step.vocabulary_before,
+        (ctx.pos.count_ones() + ctx.neg.count_ones()) as usize
     )
 }
 
@@ -127,7 +131,7 @@ fn main() {
     // Every subcommand needs a state; only the two proposal subcommands need a response file.
     let Some(state_path) = arg(rest, "--state") else { usage() };
     let out = arg(rest, "--out");
-    if command != "run" && out.is_none() {
+    if command != "run" && command != "experience" && out.is_none() {
         usage();
     }
     let state = match State::read(&state_path) {
@@ -168,6 +172,45 @@ fn main() {
             };
             op.execute(&ctx, limit)
         }
+        "experience" => {
+            let Some(record) = arg(rest, "--record") else {
+                eprintln!("experience needs --record <file>");
+                std::process::exit(2);
+            };
+            let experience = match Experience::load(std::path::Path::new(&record)) {
+                Ok(e) => e,
+                Err(e) => {
+                    eprintln!("cannot read {}: {}", record, e);
+                    std::process::exit(2);
+                }
+            };
+            println!("class (objects, vocabulary, labelled, colliding)  operator  attempts  adoptions  mean cost");
+            for (class, operator, tally) in experience.rows() {
+                println!(
+                    "({}, {}, {}, {})  {}  {}  {}  {:.3}",
+                    class.objects,
+                    class.vocabulary,
+                    class.labelled,
+                    class.colliding,
+                    operator,
+                    tally.attempts,
+                    tally.adoptions,
+                    tally.mean_cost()
+                );
+            }
+            let class = class_of(&ctx);
+            match experience.suggest(&class) {
+                Some(name) => println!(
+                    "this state is class ({}, {}, {}, {}); suggestion: {}",
+                    class.objects, class.vocabulary, class.labelled, class.colliding, name
+                ),
+                None => println!(
+                    "this state is class ({}, {}, {}, {}); suggestion: none, the class has not been seen",
+                    class.objects, class.vocabulary, class.labelled, class.colliding
+                ),
+            }
+            std::process::exit(0);
+        }
         "run" => {
             let mut ctx = ctx.clone();
             let mut operators: Vec<Box<dyn Operator>> = Vec::new();
@@ -191,6 +234,27 @@ fn main() {
                 max_arity: arg(rest, "--max-arity").and_then(|v| v.parse().ok()).unwrap_or(2),
             }));
 
+            // If a record is given, the operator that has adopted most often in this class goes
+            // first. The order is the only thing experience changes: every operator is still
+            // asked, and the controller still decides by pairs separated.
+            if let Some(record) = arg(rest, "--use-record") {
+                let experience = match Experience::load(std::path::Path::new(&record)) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        eprintln!("cannot read {}: {}", record, e);
+                        std::process::exit(2);
+                    }
+                };
+                let class = class_of(&ctx);
+                match experience.suggest(&class) {
+                    Some(name) => {
+                        println!("experience: {} has adopted most often in this class", name);
+                        operators.sort_by_key(|op| if op.name() == name { 0 } else { 1 });
+                    }
+                    None => println!("experience: this class has not been seen; default order"),
+                }
+            }
+
             let max_steps: usize = arg(rest, "--max-steps").and_then(|v| v.parse().ok()).unwrap_or(8);
             let state_hash = fingerprint(&ctx);
             let steps = run(&mut ctx, &operators, max_steps);
@@ -209,7 +273,7 @@ fn main() {
             if let Some(path) = arg(rest, "--record") {
                 let mut body = String::new();
                 for step in &steps {
-                    body.push_str(&record_line(state_hash, step));
+                    body.push_str(&record_line(state_hash, step, &ctx));
                     body.push('\n');
                 }
                 use std::io::Write;

@@ -1051,3 +1051,19 @@ On the fixture state the run takes one step: retrieval proposes `a&b`, it separa
 pairs, and the state goes from `INSUFFICIENT` to `IDENTIFIED`. On a state that is already decided the
 run takes no step at all, which is the property worth having: the controller does not act when there
 is nothing to act on. `scripts/check-components.ps1` asserts both.
+
+### 7.4 Experience: what the record says, and what it is allowed to change
+
+Each record line now carries the state class as well — objects, vocabulary size, labelled examples,
+colliding pairs, all taken *before* the step. `metaform-runtime experience` aggregates by class and
+operator: attempts, adoptions, mean cost, and for a given state the operator that has adopted most
+often in its class.
+
+On the fixture state, two recorded runs are enough to make the class (4, 1, 4, 2) point at
+`vsa-retriever`, and `run --use-record` then puts the retriever first. That is all the layer does:
+it reorders the operators. Every operator is still asked, the validator still decides what is well
+formed, and the controller still decides by pairs separated. The record cannot make a bad proposal
+acceptable, which is the property that keeps this honest.
+
+Unseen classes get no suggestion and the default order stands; a missing record file is an empty
+record rather than an error, because the runtime has to work before it has ever run.
