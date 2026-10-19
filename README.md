@@ -82,12 +82,15 @@ This repository uses it too: the `.metaform/` directory at the root is its outpu
 (arity 1 through `--max-arity`) and every `any_of` (arity `--max-arity`) over the current vocabulary,
 scores each against the colliding pairs, and reports how many candidates it `tried`. Every colliding
 pair shares a signature, so every Boolean recombination is constant on it (Theorem 11): `suggestions`
-stays empty and `reason` says why. `next` names what can actually change the state: with at most two
-colliding pairs, one more question (`ask`); otherwise a predicate outside the current atoms
-(`new_atom`). When `next` is `ask`, the JSON also carries `ask`: one deterministic representative per
-colliding equivalence class that direct answers have not settled (`objects`), with `why` naming the
-case (`unlabelled_class`, `unprobed_member`, or `conflicting_labels`). `new_atom` omits the field
-because no question can repair the state.
+stays empty and `reason` says why. `next` names what can actually change the state: while some
+colliding class still has a member that was never asked directly, one more question (`ask`) verifies
+that member's inherited label; otherwise the state needs a predicate outside the current atoms
+(`new_atom`). Asking only appends evidence and cannot remove a colliding pair (Theorem 5), so a class
+whose members were all asked -- even one whose direct labels conflict -- is no longer askable. When
+`next` is `ask`, the JSON also carries `ask`: one deterministic representative per colliding
+equivalence class that still has an unasked member (`objects`), with `why` naming the case
+(`unlabelled_class` or `unprobed_member`). `new_atom` omits the field because no question can repair
+the state.
 
 ## LLM adapter
 
@@ -180,7 +183,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 113)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 115)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

@@ -4,7 +4,9 @@
 //! definitions the vocabulary invites, counts them, and reports that none can separate a colliding
 //! pair: every such pair shares a signature, so every Boolean recombination is constant on it
 //! (Theorem 11; `README.md`: "Boolean recombination inside the vocabulary cannot break a collision").
-//! These tests freeze that result and the read-only boundary.
+//! These tests freeze that result, the read-only boundary, and the `next` dispatch: `ask` only while
+//! a colliding class still has an unasked member; a fully probed class -- even one whose direct
+//! labels conflict -- needs a new atom.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -45,7 +47,8 @@ fn state_file(project: &Path) -> PathBuf {
 }
 
 /// A two-object project whose only two predicates are both true on both objects. The votes make
-/// object 0 a strong positive and object 1 a strong negative, so the pair collides.
+/// object 0 a strong positive and object 1 a strong negative, so the pair collides. Both members
+/// were asked, so the class is fully probed and no question can repair it.
 fn collision_fixture(tag: &str) -> PathBuf {
     let dir = temp_dir(tag);
     let project = dir.to_str().expect("utf-8 path");
@@ -146,7 +149,7 @@ fn inherited_fixture(tag: &str) -> PathBuf {
 }
 
 /// Six objects in one class: three strong positives against three strong negatives give nine
-/// colliding pairs, above the two-pair threshold where `suggest` prefers a new atom.
+/// colliding pairs, and every member was asked, so no question is left to ask.
 fn wide_collision_fixture(tag: &str) -> PathBuf {
     let dir = temp_dir(tag);
     let project = dir.to_str().expect("utf-8 path");
@@ -158,6 +161,20 @@ fn wide_collision_fixture(tag: &str) -> PathBuf {
     for id in ["3", "4", "5"] {
         state_vote(project, id, "0", "3");
     }
+    dir
+}
+
+/// Three objects in one class, all asked: 0 is a strong positive, 1 a strong negative, and 2 votes
+/// `yes`/`no`, so its side decides the measured pair set. With 2 on either side the class is fully
+/// probed and its direct labels conflict.
+fn fully_probed_fixture(tag: &str, yes: &str, no: &str) -> PathBuf {
+    let dir = temp_dir(tag);
+    let project = dir.to_str().expect("utf-8 path");
+    run_ok(&["state", "init", "--project", project, "--n", "3"]);
+    state_add(project, "a", "0,1,2");
+    state_vote(project, "0", "3", "0");
+    state_vote(project, "1", "0", "3");
+    state_vote(project, "2", yes, no);
     dir
 }
 
@@ -185,25 +202,21 @@ fn suggest_reports_the_empty_search_and_is_deterministic() {
         serde_json::json!([[0, 1]]),
         "{value}"
     );
+    // Both members were asked, so the old count-based rule's `ask` (one pair) would be a fixed
+    // point: another vote cannot remove the pair. The dispatch rule now says `new_atom` instead.
     assert_eq!(
-        value["next"], "ask",
-        "one colliding pair is the cheap-ask case"
+        value["next"], "new_atom",
+        "every member of the colliding class was asked: {value}"
+    );
+    assert!(
+        value.get("ask").is_none(),
+        "new_atom must omit the ask field entirely: {value}"
     );
     assert_eq!(
         value["tried"], 4,
         "two singletons + one conjunction + one disjunction: {value}"
     );
     assert_eq!(value["suggestions"], serde_json::json!([]), "{value}");
-
-    let ask = &value["ask"];
-    assert_eq!(ask["why"], "conflicting_labels", "{value}");
-    assert_eq!(ask["questions"], 1, "{value}");
-    assert_eq!(ask["objects"], serde_json::json!([0]), "{value}");
-    assert_eq!(
-        ask["objects"].as_array().expect("objects is an array").len() as u64,
-        ask["questions"].as_u64().expect("questions is a number"),
-        "objects.len() must equal questions: {value}"
-    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -236,7 +249,114 @@ fn suggest_ask_names_the_inherited_member() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Above two colliding pairs the next move is a new atom, so `ask` is omitted rather than `null`.
+/// Regression: a fully probed conflicting class used to be a fixed point. Under the old count-based
+/// rule this state (two colliding pairs, so `<= 2`) reported `next:"ask"` with
+/// `why:"conflicting_labels"` and named the class anchor, byte-identically, forever. Every member
+/// has now been asked and asking only appends evidence, so the report must recommend the one move
+/// that can change the state: a new atom. The third vote is cast on either side, so the test shows
+/// that being fully probed -- not the direction of that vote -- decides the recommendation.
+#[test]
+fn fully_probed_conflict_recommends_new_atom() {
+    for (tag, yes, no, pairs) in [
+        (
+            "fully-probed-positive",
+            "3",
+            "0",
+            serde_json::json!([[0, 1], [2, 1]]),
+        ),
+        (
+            "fully-probed-negative",
+            "0",
+            "3",
+            serde_json::json!([[0, 1], [0, 2]]),
+        ),
+    ] {
+        let dir = fully_probed_fixture(tag, yes, no);
+        let project = dir.to_str().expect("utf-8 path");
+
+        let first = run_ok(&["suggest", "--project", project]);
+        let second = run_ok(&["suggest", "--project", project]);
+        assert_eq!(
+            first, second,
+            "the same fully probed state must produce byte-identical output"
+        );
+
+        let value = json(&first);
+        assert_eq!(value["status"], "INSUFFICIENT", "{value}");
+        assert_eq!(
+            value["reason"], "boolean_recombination_cannot_separate",
+            "{value}"
+        );
+        assert_eq!(value["colliding_pairs"], pairs, "{value}");
+        assert_eq!(
+            value["next"], "new_atom",
+            "no member is left to ask, so the recommendation changed: {value}"
+        );
+        assert!(
+            value.get("ask").is_none(),
+            "new_atom must omit the ask field entirely: {value}"
+        );
+        assert_eq!(value["suggestions"], serde_json::json!([]), "{value}");
+
+        if yes == "3" {
+            assert_eq!(
+                first,
+                concat!(
+                    r#"{"status":"INSUFFICIENT","colliding":2,"#,
+                    r#""reason":"boolean_recombination_cannot_separate","#,
+                    r#""colliding_pairs":[[0,1],[2,1]],"next":"new_atom","tried":1,"suggestions":[]}"#,
+                    "\n"
+                ),
+                "the new recommendation is exact and repeatable"
+            );
+        }
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// The fix must not over-correct: while the colliding class still has a member that was never asked
+/// directly, that probe is still the question, because its label is inherited rather than tested.
+#[test]
+fn inherited_label_still_recommends_ask() {
+    let dir = inherited_fixture("still-ask");
+    let project = dir.to_str().expect("utf-8 path");
+
+    let first = run_ok(&["suggest", "--project", project]);
+    let second = run_ok(&["suggest", "--project", project]);
+    assert_eq!(
+        first, second,
+        "the same state must produce byte-identical output"
+    );
+
+    let value = json(&first);
+    assert_eq!(value["status"], "INSUFFICIENT", "{value}");
+    assert_eq!(value["next"], "ask", "{value}");
+    assert_eq!(
+        value["colliding_pairs"],
+        serde_json::json!([[0, 1]]),
+        "{value}"
+    );
+
+    let ask = &value["ask"];
+    assert_eq!(ask["why"], "unprobed_member", "{value}");
+    assert_eq!(ask["questions"], 1, "{value}");
+    assert_eq!(
+        ask["objects"],
+        serde_json::json!([2]),
+        "the unasked member is the question: {value}"
+    );
+    assert_eq!(
+        ask["objects"].as_array().expect("objects is an array").len() as u64,
+        ask["questions"].as_u64().expect("questions is a number"),
+        "objects.len() must equal questions: {value}"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A fully probed class leaves no question, so `ask` is omitted rather than `null` -- the same
+/// shape as the many-pair case under the old rule.
 #[test]
 fn suggest_new_atom_omits_ask() {
     let dir = wide_collision_fixture("ask-new-atom");

@@ -8,11 +8,11 @@
 //! `state add` exactly as the CLI reports it, and checks that `state need` no longer sees the pair.
 //!
 //! The first test uses the documented fixture (`red`, `round`, `small`; object 1 positive, object 2
-//! negative). That state has exactly one colliding pair, so `suggest` names `ask` as the cheap next
-//! move (README: "with at most two colliding pairs, one more question (`ask`); otherwise a predicate
-//! outside the current atoms (`new_atom`)"). The vocabulary still cannot separate the pair, and the
-//! adopted new atom is what removes it. The second test covers the `new_atom` branch itself: three
-//! colliding pairs and an empty vocabulary make `suggest` report `next: "new_atom"`, and the same
+//! negative). That state has exactly one colliding pair, and both of its members were asked
+//! directly, so `suggest` recommends a new atom (`new_atom`): asking cannot remove the pair and
+//! there is no unasked member left to probe. The vocabulary still cannot separate the pair, and the
+//! adopted new atom is what removes it. The second test covers the many-pair case: three colliding
+//! pairs from a 1-vs-3 vote also make `suggest` report `next: "new_atom"`, and the same
 //! propose -> adopt -> need sequence resolves all three.
 
 use std::path::{Path, PathBuf};
@@ -160,8 +160,9 @@ fn proposed_new_atom_resolves_the_collision() {
         "{before}"
     );
 
-    // Step 2: the Boolean search finds nothing and names the next move. One pair is the `ask` case
-    // (README); the read-only check covers the first `suggest` run.
+    // Step 2: the Boolean search finds nothing and names the next move. Both members of the
+    // colliding class were asked, so no probe is left and the recommendation is `new_atom`; the
+    // read-only check covers the first `suggest` run.
     let report = suggest_read_only(project);
     assert_eq!(report["status"], "INSUFFICIENT", "{report}");
     assert_eq!(
@@ -179,8 +180,12 @@ fn proposed_new_atom_resolves_the_collision() {
         "{report}"
     );
     assert_eq!(
-        report["next"], "ask",
-        "one colliding pair is the cheap-ask case: {report}"
+        report["next"], "new_atom",
+        "both members of the colliding class were asked, so no probe is left: {report}"
+    );
+    assert!(
+        report.get("ask").is_none(),
+        "new_atom must omit the ask field entirely: {report}"
     );
     assert_eq!(
         report["tried"], 9,
@@ -266,8 +271,9 @@ fn proposed_new_atom_resolves_the_collision() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The `new_atom` branch: more than two colliding pairs make even the cheap `ask` step insufficient,
-/// so `suggest` names `new_atom`. Adopting one new extensional predicate resolves all three pairs.
+/// The many-pair `new_atom` branch: a fully probed 1-vs-3 vote yields three colliding pairs, so
+/// `suggest` names `new_atom` -- the old count rule and the new rule agree here. Adopting one new
+/// extensional predicate resolves all three pairs.
 #[test]
 fn three_colliding_pairs_recommend_new_atom() {
     let dir = temp_dir("new-atom");

@@ -1,7 +1,7 @@
 //! End-to-end check of the `ask` loop, CLI only: `suggest` names an object, a person answers it, the
 //! answer is recorded, and `state need` / `suggest` see the new state.
 //!
-//! The fixture is the one `tests/suggest.rs` uses for `unprobed_member`: one atom covers `{0,1,2}`,
+//! The fixture is the one `engine/tests/suggest.rs` uses for `unprobed_member`: one atom covers `{0,1,2}`,
 //! object 0 is a strong positive, object 1 a strong negative, and object 2 has never been asked. The
 //! class is mixed, so the pair (0,1) collides and `ask` names the unprobed member 2.
 //!
@@ -9,15 +9,18 @@
 //!
 //! - A normal answer is recorded and changes the state: `state.json` gains the vote, `ledger.tsv`
 //!   gains row `L1` (`by=ask`, `answer=true`), `unverified` drops from `[2]` to `[]`, and the next
-//!   `suggest` names a different object (0, `conflicting_labels`).
+//!   `suggest` recommends `new_atom` -- every member of the class is now probed, so no question is
+//!   left. (Under the old count-based rule this state reported `ask`, anchor 0,
+//!   `conflicting_labels`, forever; that fixed point is what the dispatch fix removed.)
 //! - The original colliding pair (0,1) does **not** disappear. A vote only adds evidence, and asking
-//!   cannot repair a collision (Theorem 5; `suggest.rs`: "Asking cannot repair a collision"). Object
-//!   2 is a third member of the colliding class, so its answer adds a pair -- `(2,1)` when it answers
-//!   positive, `(0,2)` when it answers negative -- instead of retracting either label of 0 or 1. The
-//!   test asserts the measured pair set and says so, rather than asserting the pair is gone.
+//!   cannot remove a collision (Theorem 5; `suggest.rs`: "Asking appends evidence and cannot remove
+//!   a colliding pair"). Object 2 is a third member of the colliding class, so its answer adds a
+//!   pair -- `(2,1)` when it answers positive, `(0,2)` when it answers negative -- instead of
+//!   retracting either label of 0 or 1. The test asserts the measured pair set and says so, rather
+//!   than asserting the pair is gone.
 //! - The inconsistent answer is not a separate branch. It is recorded, the class is treated as
-//!   conflicting (`conflicting_labels`), the status stays `INSUFFICIENT`, and the tool keeps asking.
-//!   It never silently settles into an extension.
+//!   conflicting and fully probed, the status stays `INSUFFICIENT`, and `suggest` recommends
+//!   `new_atom`: more questions cannot repair the class.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -148,7 +151,7 @@ fn ledger_columns() -> Vec<String> {
 }
 
 #[test]
-fn consistent_answer_is_recorded_and_moves_the_question() {
+fn consistent_answer_is_recorded_and_ends_the_ask_loop() {
     let dir = inherited_fixture("consistent");
     let project = dir.to_str().expect("utf-8 path");
 
@@ -186,7 +189,7 @@ fn consistent_answer_is_recorded_and_moves_the_question() {
     );
     assert_eq!(
         report["next"], "ask",
-        "one colliding pair is the cheap-ask case: {report}"
+        "the class still has an unasked member (object 2): {report}"
     );
     assert_eq!(report["ask"]["why"], "unprobed_member", "{report}");
     assert_eq!(report["ask"]["questions"], 1, "{report}");
@@ -195,9 +198,6 @@ fn consistent_answer_is_recorded_and_moves_the_question() {
         serde_json::json!([2]),
         "the ask must name the never-asked member: {report}"
     );
-    let target = report["ask"]["objects"][0]
-        .as_u64()
-        .expect("ask.objects[0] is an object id");
 
     // Step 2: answer it the way a person would.
     //
@@ -295,9 +295,11 @@ fn consistent_answer_is_recorded_and_moves_the_question() {
     );
     assert_eq!(after["pending"], serde_json::json!([]), "{after}");
 
-    // Step 4: `suggest` again. `suggestions` stays empty and `next` stays `ask`; what changes is the
-    // target: the class is now fully probed and its labels disagree, so `ask` takes the
-    // `conflicting_labels` branch and names the class anchor 0 instead of the unprobed 2.
+    // Step 4: `suggest` again. The class is now fully probed and its labels disagree, so no
+    // question is left: the recommendation changes from `ask` to `new_atom` and the `ask` field is
+    // gone. This is the fixed point the count-based rule used to report (`ask`, anchor 0,
+    // `conflicting_labels`, forever) -- the measured pair set changed the recommendation, so it is
+    // no longer byte-identical to the pre-answer report.
     let report_after = suggest_read_only(&dir);
     assert_eq!(report_after["status"], "INSUFFICIENT", "{report_after}");
     assert_eq!(report_after["colliding"], 2, "{report_after}");
@@ -307,32 +309,23 @@ fn consistent_answer_is_recorded_and_moves_the_question() {
         "{report_after}"
     );
     assert_eq!(
-        report_after["next"], "ask",
-        "two pairs are still the cheap-ask case: {report_after}"
+        report_after["next"], "new_atom",
+        "every member was asked, so no question can repair the class: {report_after}"
     );
-    assert_eq!(
-        report_after["ask"]["why"], "conflicting_labels",
-        "{report_after}"
+    assert!(
+        report_after.get("ask").is_none(),
+        "new_atom must omit the ask field entirely: {report_after}"
     );
-    assert_eq!(report_after["ask"]["questions"], 1, "{report_after}");
-    assert_eq!(
-        report_after["ask"]["objects"],
-        serde_json::json!([0]),
-        "{report_after}"
-    );
-    let next_target = report_after["ask"]["objects"][0]
-        .as_u64()
-        .expect("ask.objects[0] is an object id");
     assert_ne!(
-        next_target, target,
-        "the new ask must name a different object: {report_after}"
+        report_after["next"], report["next"],
+        "the answer changes the recommendation instead of repeating it: {report_after}"
     );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
-fn inconsistent_answer_is_recorded_and_the_tool_keeps_asking() {
+fn inconsistent_answer_is_recorded_and_recommends_new_atom() {
     let dir = inherited_fixture("inconsistent");
     let project = dir.to_str().expect("utf-8 path");
 
@@ -406,10 +399,11 @@ fn inconsistent_answer_is_recorded_and_the_tool_keeps_asking() {
     assert_eq!(after["action"], "PROPOSE", "{after}");
     assert_eq!(after["unverified"], serde_json::json!([]), "{after}");
 
-    // `suggest` takes the `conflicting_labels` branch: every member was asked and their direct
-    // labels disagree, so one more vote on the class anchor is named. `next` stays `ask` (two
-    // pairs) and nothing is reported as identified. There is no separate branch for an inconsistent
-    // answer: it is the same shape as the consistent case, with the pair on the other side.
+    // `suggest` recommends `new_atom`: every member was asked, so the conflict is a fixed point for
+    // questions and no `ask` field is emitted. (Changed under the new dispatch rule: this used to
+    // stay on `ask`, naming the anchor with `conflicting_labels`, forever.) There is no separate
+    // branch for an inconsistent answer: it is the same shape as the consistent case, with the pair
+    // on the other side.
     let report_after = suggest_read_only(&dir);
     assert_eq!(report_after["status"], "INSUFFICIENT", "{report_after}");
     assert_eq!(report_after["colliding"], 2, "{report_after}");
@@ -419,17 +413,12 @@ fn inconsistent_answer_is_recorded_and_the_tool_keeps_asking() {
         "{report_after}"
     );
     assert_eq!(
-        report_after["next"], "ask",
-        "the engine keeps asking instead of settling: {report_after}"
+        report_after["next"], "new_atom",
+        "the engine asks no question it cannot answer, but does not settle either: {report_after}"
     );
-    assert_eq!(
-        report_after["ask"]["why"], "conflicting_labels",
-        "{report_after}"
-    );
-    assert_eq!(
-        report_after["ask"]["objects"],
-        serde_json::json!([0]),
-        "the anchor represents the fully probed class: {report_after}"
+    assert!(
+        report_after.get("ask").is_none(),
+        "a fully probed conflict has no question left: {report_after}"
     );
     let pairs = report_after["colliding_pairs"]
         .as_array()

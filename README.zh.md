@@ -76,11 +76,12 @@ metaform ops                                       # 五类算子调度对照：
 `suggest` 是 `INSUFFICIENT` 状态下只读的证明步骤。它对当前词汇枚举所有 `all_of`（元数 1 到
 `--max-arity`）与所有 `any_of`（元数 `--max-arity`），逐个对撞车对打分，并报告 `tried` 了多少个
 候选。每个撞车对的两个对象签名相同，任何布尔重组在它上面都是常数（定理 11）：所以 `suggestions`
-为空，`reason` 说明原因。`next` 指出真正能改变状态的下一步：撞车对不超过两对时再问一个问题
-（`ask`），否则需要一个当前原子之外的谓词（`new_atom`）。`next` 为 `ask` 时，JSON 还带有
-`ask`：对每个尚未被直接回答定下的撞车等价类各给一个确定性的代表对象（`objects`），`why`
-说明原因（`unlabelled_class`、`unprobed_member` 或 `conflicting_labels`）。`new_atom` 则完全
-省略该字段，因为再问也不能修复状态。
+为空，`reason` 说明原因。`next` 指出真正能改变状态的下一步：只要还有撞车等价类包含从未被直接问过
+的成员，就再问一个问题（`ask`），验证该成员继承来的标签；否则需要一个当前原子之外的谓词
+（`new_atom`）。提问只追加证据，不能移除撞车对（定理 5），所以成员都已被直接问过的类——即使直接
+标签互相矛盾——也不再可问。`next` 为 `ask` 时，JSON 还带有 `ask`：对每个仍有未直接提问成员的
+撞车等价类各给一个确定性的代表对象（`objects`），`why` 说明原因（`unlabelled_class` 或
+`unprobed_member`）。`new_atom` 则完全省略该字段，因为再问也不能修复状态。
 
 ## LLM 适配器
 
@@ -145,7 +146,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 113）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 115）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接

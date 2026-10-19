@@ -5,14 +5,15 @@
 //! is a function of the current signature. A colliding pair is two objects with the same signature
 //! (Theorem 11; `README.md`: "Boolean recombination inside the vocabulary cannot break a collision").
 //! The enumeration still runs and counts every candidate it `tried`, because the empty result is the
-//! evidence: the next move must be a new atom, not another recombination. `reason` states that
-//! structural fact, and `next` names the action that can actually change the state.
+//! evidence: the next move must be outside Boolean recombination. `reason` states that structural
+//! fact, and `next` names the action that can actually change the state.
 //!
 //! When `next` is `ask`, the report also names the question: one representative per colliding
-//! equivalence class whose label is not settled by direct answers. `why` distinguishes a class with
-//! no direct answer (`unlabelled_class`), a member whose label is inherited from a probed sibling
-//! (`unprobed_member`), and a class whose direct labels disagree (`conflicting_labels`). The `ask`
-//! field is omitted for `new_atom`, where no question can repair the state.
+//! equivalence class that still has a member never asked directly. `why` distinguishes a class with
+//! no direct answer (`unlabelled_class`) from one whose unasked member inherits a label from an
+//! asked sibling (`unprobed_member`). The `ask` field is omitted for `new_atom`, where no question
+//! can repair the state -- including a class whose members were all asked and whose direct labels
+//! disagree, which no further vote can settle.
 //!
 //! The command is read-only: it loads the project state through the same path as `state need`, never
 //! saves it, and never creates a file. Output is one line of JSON, built by hand so the field order,
@@ -57,8 +58,10 @@ impl Reason {
     }
 }
 
-/// What can actually reduce the collision. `ask` is the cheap option while there are at most two
-/// colliding pairs; above that, the state needs a predicate outside the current atoms.
+/// What can actually reduce the collision. `ask` is possible only while some colliding class still
+/// has a member that was never asked directly: probing that member verifies a label it inherited.
+/// Once every member of every colliding class has been asked, no question can change the state, so
+/// it needs a predicate outside the current atoms.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Next {
     Ask,
@@ -81,8 +84,6 @@ pub enum Why {
     UnlabelledClass,
     /// The class label is carried by a probed sibling; the representative's label is inherited.
     UnprobedMember,
-    /// Members of the class were asked and their direct labels disagree.
-    ConflictingLabels,
 }
 
 impl Why {
@@ -90,13 +91,12 @@ impl Why {
         match self {
             Why::UnlabelledClass => "unlabelled_class",
             Why::UnprobedMember => "unprobed_member",
-            Why::ConflictingLabels => "conflicting_labels",
         }
     }
 }
 
-/// The questions an `ask` state still deserves: one representative per colliding class that direct
-/// answers have not settled.
+/// The questions an `ask` state still deserves: one representative per colliding class that still
+/// has a member never asked directly.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ask {
     /// One id per class, in ascending class order (lowest member first). `questions()` is its length.
@@ -139,10 +139,11 @@ pub struct Report {
 /// runs over size `max_arity` exactly. At arity 1 the `any_of` form is the predicate itself, already
 /// emitted as an `all_of` singleton, so it is skipped. `max` truncates the ranked suggestions.
 ///
-/// The `next` rule is deliberately simple: with at most two colliding pairs, one more oracle answer
-/// (`ask`) is the cheap next move; above that, a new atom (`new_atom`) is required. Asking cannot
-/// repair a collision (Theorem 5); it adds evidence that may show the collision was inherited or
-/// noisy, which is why an `ask` report names the representative objects worth asking.
+/// The `next` rule follows what an answer can do. Asking appends evidence and cannot remove a
+/// colliding pair (Theorem 5), so `ask` is the next move only while some colliding class still has a
+/// member that was never asked directly: probing that member verifies the label it inherited.
+/// Otherwise `new_atom` is required -- including for a class whose members were all asked, even when
+/// their direct labels conflict, because that class is a fixed point for questions.
 pub fn suggest(e: &Explorer, max_arity: usize, max: usize) -> Report {
     let theta = e.recommended_theta();
     let status = e.status_with(theta);
@@ -176,16 +177,17 @@ pub fn suggest(e: &Explorer, max_arity: usize, max: usize) -> Report {
     } else {
         Some(Reason::CandidatesFound)
     };
-    let next = Some(if suggestions.is_empty() && pairs.len() <= 2 {
+    // `ask_plan` returns exactly the classes that still have an unasked member, so its presence is
+    // the dispatch condition: a question is worth asking only while one is left. The empty-search
+    // guard is defensive -- Theorem 11 means no candidate is ever found -- and keeps a hypothetical
+    // separating candidate ahead of a question, as before.
+    let ask = ask_plan(e, &pairs);
+    let next = Some(if suggestions.is_empty() && ask.is_some() {
         Next::Ask
     } else {
         Next::NewAtom
     });
-    let ask = if next == Some(Next::Ask) {
-        ask_plan(e, sp, sn, &pairs)
-    } else {
-        None
-    };
+    let ask = if next == Some(Next::Ask) { ask } else { None };
 
     Report {
         status,
@@ -257,27 +259,24 @@ fn colliding_pairs(e: &Explorer, sp: Mask, sn: Mask) -> Vec<(usize, usize)> {
     out
 }
 
-/// Name one question per colliding class that direct answers have not settled.
+/// Name one question per colliding class that still has a member never asked directly.
 ///
-/// `sp`/`sn` are the strong labels that produced `pairs`; they decide whether a class carries
-/// opposite labels. `e.asked` (written by `Explorer::answer_votes`) decides which members were
-/// asked directly, so `e.unprobed()`-style inheritance is visible here too. A class whose members
-/// were all asked and whose labels agree is settled and contributes 0. Otherwise the class
-/// contributes one representative:
+/// `e.asked` (written by `Explorer::answer_votes`) records which members were asked directly, so
+/// inheritance is visible here: a class whose label comes from an asked sibling can still be probed.
+/// Asking only appends evidence, so a class with no unasked member contributes 0 -- no answer can
+/// change its labels. Otherwise the class contributes one representative:
 ///
 /// - `unlabelled_class`: no member was ever asked, so the lowest member is asked;
 /// - `unprobed_member`: an asked sibling carries the class label and the lowest unasked member is
-///   asked instead (its label is inherited and may be wrong);
-/// - `conflicting_labels`: every member was asked and the direct labels disagree, so the lowest
-///   member gets one more vote.
+///   asked instead (its label is inherited and may be wrong).
 ///
 /// Classes are ordered by their lowest member (a `HashMap` order would not be deterministic) and
 /// `why` describes the first class, matching the first entry of `objects`.
 ///
-/// A genuine colliding pair is a strong positive and a strong negative in one class, so its class
-/// always carries a direct conflict. `unlabelled_class` is therefore only reachable when callers
-/// pass a synthetic pair (the unit tests do, as in `rank`); keeping the branch makes the rule total.
-fn ask_plan(e: &Explorer, sp: Mask, sn: Mask, pairs: &[(usize, usize)]) -> Option<Ask> {
+/// A genuine colliding pair is a strong positive and a strong negative in one class, so at least one
+/// member of its class was asked. `unlabelled_class` is therefore only reachable when callers pass a
+/// synthetic pair (the unit tests do, as in `rank`); keeping the branch makes the rule total.
+fn ask_plan(e: &Explorer, pairs: &[(usize, usize)]) -> Option<Ask> {
     let mut classes = e.classes();
     classes.sort_unstable();
 
@@ -293,18 +292,15 @@ fn ask_plan(e: &Explorer, sp: Mask, sn: Mask, pairs: &[(usize, usize)]) -> Optio
             }
             let members: Vec<usize> = (0..e.n).filter(|&m| class & bit(m) != 0).collect();
             let unprobed = members.iter().copied().find(|&m| e.asked & bit(m) == 0);
-            let conflict = class & sp != 0 && class & sn != 0;
             let entry = if class & e.asked == 0 {
                 // No member was ever asked: the class has no direct answer at all.
                 (anchor, Why::UnlabelledClass)
             } else if let Some(member) = unprobed {
                 // An asked sibling carries the label; this member's label is inherited.
                 (member, Why::UnprobedMember)
-            } else if conflict {
-                // Every member was asked and the direct labels disagree.
-                (anchor, Why::ConflictingLabels)
             } else {
-                // Direct answers agree, so another question cannot change this class.
+                // Every member was asked directly, so no probe is left. A conflict in such a class
+                // is a fixed point for questions: only a new atom can change it.
                 continue;
             };
             chosen.insert(anchor, entry);
@@ -550,6 +546,10 @@ mod tests {
         e
     }
 
+    /// A fully probed collision is a fixed point for questions: both members were asked and their
+    /// direct labels disagree, so no further vote can remove the pair. The report must say
+    /// `new_atom` and omit `ask`. (Changed under the new dispatch rule: this used to assert `ask`
+    /// with `why: conflicting_labels`, because the rule counted colliding pairs.)
     #[test]
     fn one_collision_reports_the_impossibility_and_is_deterministic() {
         let e = explorer(2, &[("a", bit(0) | bit(1))], &[(0, 3, 0), (1, 0, 3)]);
@@ -561,16 +561,12 @@ mod tests {
             report.reason,
             Some(Reason::BooleanRecombinationCannotSeparate)
         );
-        assert_eq!(report.next, Some(Next::Ask));
+        assert_eq!(report.next, Some(Next::NewAtom));
         assert_eq!(report.tried, 1);
         assert!(report.suggestions.is_empty());
-        assert_eq!(
-            report.ask,
-            Some(Ask {
-                objects: vec![0],
-                why: Why::ConflictingLabels
-            }),
-            "both members were asked and disagree"
+        assert!(
+            report.ask.is_none(),
+            "every member was asked, so no probe is left"
         );
 
         let json = to_json(&report);
@@ -579,8 +575,7 @@ mod tests {
             concat!(
                 r#"{"status":"INSUFFICIENT","colliding":1,"#,
                 r#""reason":"boolean_recombination_cannot_separate","#,
-                r#""colliding_pairs":[[0,1]],"next":"ask","tried":1,"suggestions":[],"#,
-                r#""ask":{"questions":1,"objects":[0],"why":"conflicting_labels"}}"#
+                r#""colliding_pairs":[[0,1]],"next":"new_atom","tried":1,"suggestions":[]}"#
             )
         );
         assert_eq!(
@@ -596,14 +591,14 @@ mod tests {
     #[test]
     fn ask_names_a_representative_of_an_unlabelled_class() {
         let e = explorer(2, &[("a", 0)], &[]);
-        let ask = ask_plan(&e, 0, 0, &[(0, 1)]).expect("an unlabelled class is still worth asking");
+        let ask = ask_plan(&e, &[(0, 1)]).expect("an unlabelled class is still worth asking");
         assert_eq!(ask.questions(), 1);
         assert_eq!(ask.objects, vec![0]);
         assert_eq!(ask.why, Why::UnlabelledClass);
     }
 
     /// The class label comes from object 0; object 2's label is inherited and has never been
-    /// tested, so it is the question even though 0 and 1 conflict.
+    /// tested, so it is the question even though 0 and 1 conflict. The dispatch still says `ask`.
     #[test]
     fn ask_prefers_the_inherited_member_of_a_probed_class() {
         let e = explorer(
@@ -613,46 +608,36 @@ mod tests {
         );
         let report = suggest(&e, 2, 20);
         assert_eq!(report.colliding_pairs, vec![(0, 1)]);
-        let ask = report.ask.as_ref().expect("ask is the cheap next move");
+        assert_eq!(report.next, Some(Next::Ask), "a probe is still available");
+        let ask = report.ask.as_ref().expect("ask is still the next move");
         assert_eq!(ask.questions(), 1);
         assert_eq!(ask.objects, vec![2], "the unprobed member is preferred");
         assert_eq!(ask.why, Why::UnprobedMember);
     }
 
-    /// Every member was asked and the labels disagree; one more vote on the lowest member is the
-    /// only question left.
+    /// Every member was asked, so no probe is left even though the direct labels disagree. The
+    /// class contributes no question; the report recommends `new_atom` instead. (Changed under the
+    /// new dispatch rule: this test used to assert `why: conflicting_labels` and object 0.)
     #[test]
-    fn ask_reports_conflicting_labels_when_every_member_was_asked() {
-        let e = explorer(
-            2,
-            &[("a", bit(0) | bit(1))],
-            &[(0, 3, 0), (1, 0, 3)],
-        );
-        let ask = ask_plan(&e, bit(0), bit(1), &[(0, 1)]).expect("a conflict is still unsettled");
-        assert_eq!(ask.questions(), 1);
-        assert_eq!(ask.objects, vec![0], "the lowest member represents the class");
-        assert_eq!(ask.why, Why::ConflictingLabels);
+    fn ask_plan_skips_a_fully_probed_conflicting_class() {
+        let e = explorer(2, &[("a", bit(0) | bit(1))], &[(0, 3, 0), (1, 0, 3)]);
+        assert_eq!(ask_plan(&e, &[(0, 1)]), None);
     }
 
-    /// One question per class, not per pair: three pairs in two classes produce two questions, in
-    /// ascending class order, and `why` follows the first class.
+    /// One question per class, not per pair: two pairs in one class and a pair in another produce
+    /// two questions, in ascending class order, and `why` follows the first class. Both classes
+    /// must still have an unasked member, because asking a fully probed class changes nothing.
     #[test]
     fn ask_counts_one_question_per_class_and_dedups_repeated_pairs() {
         let e = explorer(
             5,
-            &[("a", bit(0) | bit(1) | bit(2))],
-            &[(0, 3, 0), (1, 0, 3), (2, 0, 3), (3, 3, 0)],
+            &[("a", bit(0) | bit(1) | bit(2)), ("b", bit(3) | bit(4))],
+            &[(0, 3, 0), (1, 0, 3), (3, 3, 0)],
         );
-        let ask = ask_plan(
-            &e,
-            bit(0) | bit(3),
-            bit(1) | bit(2),
-            &[(0, 1), (0, 2), (3, 4)],
-        )
-        .expect("two unsettled classes");
+        let ask = ask_plan(&e, &[(0, 1), (0, 2), (3, 4)]).expect("two classes still have a probe");
         assert_eq!(ask.questions(), 2, "one per class, not one per pair");
-        assert_eq!(ask.objects, vec![0, 4]);
-        assert_eq!(ask.why, Why::ConflictingLabels, "the first class by anchor");
+        assert_eq!(ask.objects, vec![2, 4]);
+        assert_eq!(ask.why, Why::UnprobedMember, "the first class by anchor");
         assert_eq!(ask.questions(), ask.objects.len());
     }
 
@@ -661,11 +646,12 @@ mod tests {
     #[test]
     fn ask_skips_a_class_settled_by_agreeing_answers() {
         let e = explorer(2, &[("a", 0)], &[(0, 3, 0), (1, 3, 0)]);
-        assert_eq!(ask_plan(&e, bit(0), 0, &[(0, 1)]), None);
+        assert_eq!(ask_plan(&e, &[(0, 1)]), None);
     }
 
-    /// Above two colliding pairs the next move is a new atom, and no question can repair the state,
-    /// so the `ask` field is omitted rather than emitted as `null`.
+    /// Every member of the class was asked, so no question can repair the state; the `ask` field is
+    /// omitted rather than emitted as `null`. The many-pair case and the fully probed
+    /// conflicting class agree under the new rule.
     #[test]
     fn new_atom_omits_the_ask_field() {
         let e = explorer(
