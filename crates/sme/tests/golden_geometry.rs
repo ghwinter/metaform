@@ -173,6 +173,53 @@ fn corpus_best_mapping_is_reproduced() {
     );
 }
 
+/// The second-best mapping pairs the three edges rotated: Edge-22 -> Edge-27, Edge-20 -> Edge-29,
+/// Edge-21 -> Edge-28.  Its three binary matches are twin matches, so the target arguments are
+/// reversed relative to the base's; entity evidence must follow the correspondences and credit
+/// them anyway.  The mapping matches 17 of the 20 base expressions (the three `above` statements
+/// stay out), so its entity scores are 7/7/6 matched expressions x 8 x 5e-4 =
+/// 0.028/0.028/0.024 and its total is 17 x 5e-4 expressions + 0.080 entity evidence = 0.0885.
+#[test]
+fn corpus_second_mapping_credits_twin_matched_entities() {
+    let base = base_system();
+    let target = target_system();
+    let mappings = map(&base, &target, 3);
+    let m = mappings.get(1).expect("the geometry run reports a second mapping");
+
+    assert_eq!(m.statements.len(), 17, "second mapping matches 17 base expressions");
+    assert_eq!(m.score.matched, 17);
+    assert_eq!(m.target_of(EDGE_22), Some(EDGE_27), "Edge-22 -> Edge-27");
+    assert_eq!(m.target_of(EDGE_20), Some(EDGE_29), "Edge-20 -> Edge-29");
+    assert_eq!(m.target_of(EDGE_21), Some(EDGE_28), "Edge-21 -> Edge-28");
+
+    let e = evidence(&base, &target, m);
+    assert!(
+        (e.expressions - 0.0085).abs() < 1e-9,
+        "17 matched expressions x 5e-4 = 0.0085, got {}",
+        e.expressions
+    );
+    assert!(
+        (e.entities[&EDGE_22] - 0.028).abs() < 1e-9,
+        "Edge-22 evidence: expected 0.028, measured {}",
+        e.entities[&EDGE_22]
+    );
+    assert!(
+        (e.entities[&EDGE_20] - 0.028).abs() < 1e-9,
+        "Edge-20 evidence: expected 0.028, measured {}",
+        e.entities[&EDGE_20]
+    );
+    assert!(
+        (e.entities[&EDGE_21] - 0.024).abs() < 1e-9,
+        "Edge-21 evidence: expected 0.024, measured {}",
+        e.entities[&EDGE_21]
+    );
+    assert!(
+        (e.total - 0.0885).abs() < 1e-9,
+        "total evidence: expected 0.0885, measured {}",
+        e.total
+    );
+}
+
 /// The three entity scores named in the task brief.  Edge-20 and Edge-21 pass; Edge-22 does not:
 /// the matcher measures 0.036 (0.008 above the requested 0.028), and 0.036 is what the corpus's
 /// best mapping reports for `Edge-22 -> Edge-29` (`(:match Edge-22 Edge-29 0.036000002)`, line 90).

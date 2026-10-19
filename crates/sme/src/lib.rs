@@ -328,6 +328,11 @@ pub struct Evidence {
 
 /// Computes SME4's evidence over an alignment. Statements are defined bottom-up, so one ascending
 /// sweep computes every expression's evidence before the entities that use it.
+///
+/// Entity evidence follows the mapping's correspondences, not argument position: a match produced
+/// by a symmetric twin has its target arguments reversed, so a positional zip would pair the wrong
+/// entities and credit neither. An entity argument counts when its mapped target entity appears
+/// anywhere in the matched target statement's arguments.
 pub fn evidence(base: &System, target: &System, m: &Mapping) -> Evidence {
     let lookup: std::collections::BTreeMap<StatementId, StatementId> =
         m.statements.iter().cloned().collect();
@@ -349,10 +354,12 @@ pub fn evidence(base: &System, target: &System, m: &Mapping) -> Evidence {
     for (&b, &t) in &lookup {
         let bs = base.statement(b);
         let ts = target.statement(t);
-        for (ba, ta) in bs.args.iter().zip(ts.args.iter()) {
-            if let (Term::Entity(be), Term::Entity(te)) = (ba, ta) {
-                if m.entities.contains(&(*be, *te)) {
-                    *entities.entry(*be).or_default() += TRICKLE_DOWN * ev[&b];
+        for ba in &bs.args {
+            if let Term::Entity(be) = ba {
+                if let Some(te) = m.target_of(*be) {
+                    if ts.args.iter().any(|arg| *arg == Term::Entity(te)) {
+                        *entities.entry(*be).or_default() += TRICKLE_DOWN * ev[&b];
+                    }
                 }
             }
         }
