@@ -1032,3 +1032,22 @@ grandparent(V0,V1) :- parent(V0,V2), parent(V2,V1).
 Projected onto the 36 ordered pairs, that extension is accepted by `metaform propose` with `splits:
 2`, and `scripts/check-components.ps1` re-runs the whole path and fails if the clause or the verdict
 changes.
+
+### 7.3 The controller, and a record of what it did
+
+`metaform-runtime run` is the loop the paper's alternation corollary prescribes: while the state is
+insufficient, ask every applicable operator for a predicate, validate the proposals, adopt the one
+that separates the most colliding pairs (cheapest on a tie), and stop when nothing separates anything
+or the state is no longer insufficient. It never invents a proposal and never adopts one the validator
+rejected.
+
+Each step appends a line to the record file:
+
+```
+state_fingerprint  step  operator  proposal  splits  colliding_before  adopted  cost  status_before  status_after
+```
+
+On the fixture state the run takes one step: retrieval proposes `a&b`, it separates both colliding
+pairs, and the state goes from `INSUFFICIENT` to `IDENTIFIED`. On a state that is already decided the
+run takes no step at all, which is the property worth having: the controller does not act when there
+is nothing to act on. `scripts/check-components.ps1` asserts both.

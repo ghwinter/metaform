@@ -106,6 +106,18 @@ Check 'the CLI path: component proposes, engine validates' {
     }
 }
 
+Check 'the controller: adopt the best proposal, then stop' {
+    $fixtures = Join-Path $root 'crates\runtime\fixtures'
+    $runtime = Join-Path $root 'crates\runtime\target\debug\metaform-runtime.exe'
+    $out = & $runtime run --state (Join-Path $fixtures 'state.txt') 2>&1
+    $out | Out-Host
+    Require ([bool]($out | Select-String 'INSUFFICIENT -> IDENTIFIED')) 'no adopted step'
+    Require ([bool]($out | Select-String 'final: 2 predicates, status IDENTIFIED')) 'the run did not settle'
+    $out = & $runtime run --state (Join-Path $fixtures 'decided_state.txt') 2>&1
+    $out | Out-Host
+    Require ([bool]($out | Select-String 'final: 2 predicates, status IDENTIFIED')) 'a decided state changed'
+    Require (-not ($out | Select-String 'step 0')) 'a decided state should take no step'
+}
 Check 'the ILP component: a learned clause goes through the kernel' {
     $fixtures = Join-Path $root 'crates\ilp\fixtures'
     $engine = Join-Path $root 'engine\target\debug\metaform.exe'

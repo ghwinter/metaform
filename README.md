@@ -106,7 +106,18 @@ crates\runtime\target\debug\metaform-runtime.exe analogize --state crates/runtim
 engine\target\debug\metaform.exe propose --request crates/runtime/fixtures/request.json --response response.json
 ```
 
-The third line is the only one that can accept anything, and accepting is still not adopting:
+The controller does the adopting, and records what it did:
+
+```powershell
+crates\runtime\target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt --record runs.tsv
+```
+
+It asks every applicable operator, keeps what the validator accepts, adopts the proposal that
+separates the most colliding pairs (cheapest on a tie), stops when nothing separates anything, and
+appends one line per step — state fingerprint, operator, proposal, pairs separated, adopted, cost,
+status before and after — so a sequence of runs can be read afterwards.
+
+The third line above is the only one that can accept anything, and accepting is still not adopting:
 `research/exp/proposer_arms.py` gives one state to three proposers (random, retrieval, and the
 proposals a language model wrote) and reports what each found, judged by the same kernel.
 

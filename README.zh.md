@@ -97,6 +97,16 @@ crates\runtime\target\debug\metaform-runtime.exe analogize --state crates/runtim
 engine\target\debug\metaform.exe propose --request crates/runtime/fixtures/request.json --response response.json
 ```
 
+采纳由控制器完成，而且会留下记录：
+
+```powershell
+crates\runtime\target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt --record runs.tsv
+```
+
+它依次询问每个适用的算子，只保留校验器接受的候选，采纳"分开撞车对最多"的那一个（并列时取代价最低），
+没有任何候选能分开时停止，并把每一步追加一行——状态指纹、算子、提议、分开对数、是否采纳、代价、
+前后状态——所以一串运行事后可以回看。
+
 只有第三行能"接受"，而接受仍不等于采纳：`research/exp/proposer_arms.py` 把同一个状态交给三个提议者
 （随机、向量检索、语言模型写的候选），由同一个内核裁决并报告结果。
 

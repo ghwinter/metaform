@@ -455,6 +455,7 @@ mod tests {
 }
 
 /// Small relational systems used by the demo and the tests.
+pub mod run;
 pub mod state;
 
 pub mod scenarios {
