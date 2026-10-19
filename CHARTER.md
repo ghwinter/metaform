@@ -733,7 +733,62 @@ Every other output — explanation, analogy, insight — stays out of the evalua
 | 样本 | sample | the examples the asker gives; not the object he wants |
 | 可判定 | decidable | a program returns 0/1 in finitely many steps |
 
-## 10. Sources and change
+## 11. The three tools, and a self-check
+
+**VSA recalls, structure mapping aligns, rule induction states a rule, and the kernel alone can say
+"the vocabulary is insufficient".** This is not a pipeline: the loop is kernel-judges → ILP/SME
+propose → the controller allocates by pairs separated per cost, and VSA only narrows the candidates.
+
+**VSA.** Objects, roles, and fillers become bipolar vectors; binding composes, bundling superposes, and
+a query is a contrast between two objects, not one vector. The output is a ranked shortlist — the table
+is the whole promise (top-1, D = 4096, 64 probes):
+
+| pairs | clean | 10% noise |
+|---|---|---|
+| 64 | 1.000 | 1.000 |
+| 256 | 0.906 | 0.625 |
+| 1024 | 0.094 | 0.047 |
+
+Guarantees noisy recall, deduplication, and fast screening of a pool too large to enumerate — never
+logic or equivalence: a cosine orders candidates, it never judges them.
+
+**SME.** Structure mapping aligns two relational systems by their largest consistent match.
+Correspondences are proposed expression by expression, only between same-functor expressions; entity
+correspondences arise only from matched argument positions — never entity-to-entity proposals.
+Guarantees structural correspondences and transferable candidate inferences; not that either is true.
+
+**ILP.** Rule induction searches clauses in a fixed signature; every result has the shape of
+`grandparent(X,Z) :- parent(X,Y), parent(Y,Z).` — positive coverage, no negative. The relational
+criterion: two red objects, one linking to green, one to blue, are separated by `link(X,Y), green(Y)`;
+two linking to green are bisimilar, and no tree-shaped pattern separates them. Guarantees an explicit,
+executable, checkable rule; not truth — coverage is consistency; held-out data is the guard.
+
+| remaining part | status today, not the plan |
+|---|---|
+| kernel (Φ, collision test, `INSUFFICIENT`) | exists; Theorems 1–11 compile in Lean |
+| controller | exists; adopts by pairs separated per cost, cheapest on a tie |
+| record and experience | exists; consulted through the experience hint, which changes ask order only |
+| predicate layer | accepts `define: {all_of\|any_of}` over existing predicates; a definition is constant on the request vocabulary's equivalence classes |
+| FCA / attribute exploration | decides which predicate to add; not wired |
+| LLM adapter | the protocol is pure; no real model in the loop |
+| CEGAR, MDL | motivation, and a criterion stated but not wired |
+
+**Four confusions.**
+
+1. **More operators is not more intelligence.** Closure is idempotent, generation is monotone, and only
+   evidence strictly lowers Φ.
+2. **Similar vectors is not the same meaning.** Retrieval orders candidates; it fixes no denotation.
+3. **Gluing libraries is not a system.** Coordination is the object of study; all three feed candidate
+   intensions, and one measure scores them.
+4. **A rule that covers the examples is not a true rule.** Coverage is consistency with samples that
+   were not chosen to refute it.
+
+**Self-check.** Three questions before any step: does it need truth or only resemblance; is there an
+oracle that can judge it; must it scale to 10³–10⁵ items? The three answers choose the tool —
+resemblance at that scale is VSA, correspondences between two structures are alignment, and a rule that
+must hold beyond its samples needs an oracle to check it.
+
+## 12. Sources and change
 
 - Sources: three research conversations — the first on code aesthetics and parallel elements, the second
   on A and S and the structure of thought, the third on an external tool and computability — followed by
