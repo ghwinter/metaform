@@ -220,6 +220,59 @@ fn corpus_second_mapping_credits_twin_matched_entities() {
     );
 }
 
+/// The property SME's nogood table exists to enforce, checked on the corpus pair: a mapping is a
+/// partial bijection between entities, records each statement correspondence once, and cannot carry
+/// a duplicate descendant pair.  `compatible_with` rejects any candidate whose entity or statement
+/// closure overlaps the alignment under construction, and a `Match` carries its whole descendant
+/// closure, so the closure itself is the nogood.  `map(base, target, 3)` returns both reported
+/// mappings for this pair (20 and 17 statements), and the property holds for both.
+#[test]
+fn every_mapping_is_one_to_one_and_duplicate_free() {
+    let base = base_system();
+    let target = target_system();
+    let mappings = map(&base, &target, 3);
+    assert!(!mappings.is_empty(), "the geometry pair must produce alignments");
+
+    for (i, m) in mappings.iter().enumerate() {
+        let base_entities: BTreeSet<u32> = m.entities.iter().map(|(b, _)| *b).collect();
+        assert_eq!(
+            base_entities.len(),
+            m.entities.len(),
+            "mapping {i}: a base entity appears twice in {:?}",
+            m.entities
+        );
+        let target_entities: BTreeSet<u32> = m.entities.iter().map(|(_, t)| *t).collect();
+        assert_eq!(
+            target_entities.len(),
+            m.entities.len(),
+            "mapping {i}: a target entity appears twice in {:?}",
+            m.entities
+        );
+
+        let pairs: BTreeSet<(u32, u32)> = m.statements.iter().copied().collect();
+        assert_eq!(
+            pairs.len(),
+            m.statements.len(),
+            "mapping {i}: a statement pair is duplicated in {:?}",
+            m.statements
+        );
+        let base_statements: BTreeSet<u32> = m.statements.iter().map(|(b, _)| *b).collect();
+        assert_eq!(
+            base_statements.len(),
+            m.statements.len(),
+            "mapping {i}: a base statement appears twice in {:?}",
+            m.statements
+        );
+        let target_statements: BTreeSet<u32> = m.statements.iter().map(|(_, t)| *t).collect();
+        assert_eq!(
+            target_statements.len(),
+            m.statements.len(),
+            "mapping {i}: a target statement appears twice in {:?}",
+            m.statements
+        );
+    }
+}
+
 /// The three entity scores named in the task brief.  Edge-20 and Edge-21 pass; Edge-22 does not:
 /// the matcher measures 0.036 (0.008 above the requested 0.028), and 0.036 is what the corpus's
 /// best mapping reports for `Edge-22 -> Edge-29` (`(:match Edge-22 Edge-29 0.036000002)`, line 90).

@@ -42,11 +42,20 @@ pub struct System {
     /// arguments reversed; the flag lives on the system because the relation name alone cannot say
     /// whether `parallel(a, b)` and `parallel(b, a)` are the same fact.
     pub symmetric: BTreeSet<String>,
+    /// Relations whose arguments are unordered at any arity. The matcher tries every permutation of
+    /// a target statement's arguments, not just the reversal; `between(a, b, c)` and
+    /// `between(c, a, b)` are the same fact.
+    pub commutative: BTreeSet<String>,
 }
 
 impl System {
     pub fn new(entities: usize) -> Self {
-        System { entities, statements: Vec::new(), symmetric: BTreeSet::new() }
+        System {
+            entities,
+            statements: Vec::new(),
+            symmetric: BTreeSet::new(),
+            commutative: BTreeSet::new(),
+        }
     }
 
     /// Adds a statement and returns its id. Args may only name earlier statements.
@@ -56,8 +65,19 @@ impl System {
     }
 
     /// Adds a statement of a symmetric relation, so the matcher also tries the reversed alignment.
+    /// This is the binary rule; for an unordered relation of any arity use
+    /// [`System::push_commutative`].
     pub fn push_symmetric(&mut self, relation: &str, args: Vec<Term>) -> StatementId {
         self.symmetric.insert(relation.to_string());
+        self.push(relation, args)
+    }
+
+    /// Adds a statement of a commutative relation: the arguments are unordered, so the matcher
+    /// tries every permutation of a target statement's arguments, deduplicated. Past
+    /// [`MAX_COMMUTATIVE_ARITY`] it falls back to the binary rule (identity and reversal), because
+    /// enumerating n! stops being worthwhile.
+    pub fn push_commutative(&mut self, relation: &str, args: Vec<Term>) -> StatementId {
+        self.commutative.insert(relation.to_string());
         self.push(relation, args)
     }
 
@@ -109,14 +129,45 @@ impl Mapping {
     }
 }
 
+/// Commutative relations try every permutation of a target statement's arguments. `n!` grows too
+/// fast to be worth enumerating beyond this: a commutative relation of higher arity falls back to
+/// the binary rule, so only the identity and the reversal are tried. The cap keeps a local match
+/// sweep bounded at 5! = 120 alignments per statement pair.
+pub const MAX_COMMUTATIVE_ARITY: usize = 5;
+
+/// Every permutation of `0..n`, in lexicographic order with the identity first. This is the
+/// classic next-permutation walk (rightmost ascent, smallest larger successor, reverse the suffix),
+/// so it needs no dependency and no recursion. `n` is bounded by [`MAX_COMMUTATIVE_ARITY`].
+fn permutations(n: usize) -> Vec<Vec<usize>> {
+    let mut current: Vec<usize> = (0..n).collect();
+    let mut out = vec![current.clone()];
+    loop {
+        let ascent =
+            (0..current.len().saturating_sub(1)).rev().find(|&i| current[i] < current[i + 1]);
+        let Some(i) = ascent else { break };
+        let j = (i + 1..current.len())
+            .rev()
+            .find(|&j| current[i] < current[j])
+            .expect("a suffix entry larger than current[i] exists");
+        current.swap(i, j);
+        current[i + 1..].reverse();
+        out.push(current.clone());
+    }
+    out
+}
+
 /// Matches one base statement against one target statement, recursively. Returns `None` when the
 /// two cannot be aligned, in which case nothing is added to the enclosing match.
+///
+/// `permutation[i]` names the target argument aligned with base argument `i`; `None` is the
+/// identity, which is what nested statements are matched with (a twin lives at the level of the
+/// statement that owns it).
 fn match_statements(
     base: &System,
     target: &System,
     b: StatementId,
     t: StatementId,
-    flip: bool,
+    permutation: Option<&[usize]>,
 ) -> Option<Match> {
     let bs = base.statement(b);
     let ts = target.statement(t);
@@ -127,10 +178,8 @@ fn match_statements(
     let mut statements: Vec<(StatementId, StatementId)> = vec![(b, t)];
     let mut entities: Vec<(EntityId, EntityId)> = Vec::new();
 
-    let target_args: Vec<Term> =
-        if flip { ts.args.iter().rev().cloned().collect() } else { ts.args.clone() };
-
-    for (ba, ta) in bs.args.iter().zip(target_args.iter()) {
+    for (i, ba) in bs.args.iter().enumerate() {
+        let ta = &ts.args[permutation.map_or(i, |p| p[i])];
         match (ba, ta) {
             (Term::Entity(be), Term::Entity(te)) => {
                 if let Some((_, mapped)) = entities.iter().find(|(x, _)| x == be) {
@@ -148,9 +197,9 @@ fn match_statements(
                 }
             }
             (Term::Statement(bx), Term::Statement(tx)) => {
-                // The twin of a symmetric statement is at this level only; nested statements are
-                // matched by their own flags.
-                let nested = match_statements(base, target, *bx, *tx, false)?;
+                // The twin of a symmetric or commutative statement is at this level only; nested
+                // statements are matched by their own flags.
+                let nested = match_statements(base, target, *bx, *tx, None)?;
                 for pair in nested.entities {
                     if let Some((_, mapped)) = entities.iter().find(|(x, _)| *x == pair.0) {
                         if *mapped != pair.1 {
@@ -184,12 +233,26 @@ pub fn local_matches(base: &System, target: &System) -> Vec<Match> {
     let mut out = Vec::new();
     for b in 0..base.statements.len() as StatementId {
         let bs = base.statement(b);
+        // The argument orders to try beyond the identity: every permutation of the target's
+        // arguments for a commutative relation, only the reversal for a symmetric one. The arity
+        // cap falls back to the reversal, so the cost of a sweep stays bounded. Like the symmetric
+        // flag, this is read from the base: the base says how its own relation is to be read.
+        let n = bs.args.len();
+        let argument_orders: Vec<Vec<usize>> = if n <= 1 {
+            Vec::new()
+        } else if base.commutative.contains(&bs.relation) && n <= MAX_COMMUTATIVE_ARITY {
+            permutations(n)
+        } else if base.commutative.contains(&bs.relation) || base.symmetric.contains(&bs.relation) {
+            vec![(0..n).rev().collect()]
+        } else {
+            Vec::new()
+        };
         for t in 0..target.statements.len() as StatementId {
-            if let Some(m) = match_statements(base, target, b, t, false) {
+            if let Some(m) = match_statements(base, target, b, t, None) {
                 out.push(m);
             }
-            if bs.args.len() > 1 && base.symmetric.contains(&bs.relation) {
-                if let Some(twin) = match_statements(base, target, b, t, true) {
+            for order in &argument_orders {
+                if let Some(twin) = match_statements(base, target, b, t, Some(order)) {
                     if !out.contains(&twin) {
                         out.push(twin);
                     }
@@ -208,6 +271,13 @@ pub fn local_matches(base: &System, target: &System) -> Vec<Match> {
 
 /// True when a correspondence set and a candidate match can belong to the same alignment: the
 /// correspondences must be one-to-one and must agree wherever they overlap.
+///
+/// SME keeps a nogood table and shares each match's nogoods through its descendants, so a later
+/// merge cannot reuse a base or target expression. Here the descendant closure is the match itself:
+/// `Match::statements` and `Match::entities` already contain every nested pair a match implies, so
+/// checking the candidate's closure against the alignment is equivalent, and the nogood bookkeeping
+/// is subsumed rather than omitted. `every_mapping_is_one_to_one_and_duplicate_free` in the golden
+/// geometry tests pins the resulting property on the corpus pair.
 fn compatible_with(
     statements: &[(StatementId, StatementId)],
     entities: &[(EntityId, EntityId)],
@@ -689,6 +759,76 @@ mod tests {
             local_matches(&base, &target).iter().map(|m| m.entities.clone()).collect();
         assert!(pairs.iter().any(|p| p.contains(&(0, 0))));
         assert!(!pairs.iter().any(|p| p.contains(&(0, 1))));
+    }
+
+    #[test]
+    fn commutative_relations_try_every_permutation() {
+        // between(a, b, c) is unordered. The target states the same fact with its arguments in a
+        // different order (c, a, b), so the identity alignment alone would pair the wrong
+        // entities and miss it.
+        let mut base = System::new(3); // 0 a, 1 b, 2 c
+        let b_between = base.push_commutative(
+            "between",
+            vec![Term::Entity(0), Term::Entity(1), Term::Entity(2)],
+        );
+        let mut target = System::new(3); // target order c, a, b
+        let t_between = target.push_commutative(
+            "between",
+            vec![Term::Entity(2), Term::Entity(0), Term::Entity(1)],
+        );
+
+        let matches = local_matches(&base, &target);
+        let for_pair: Vec<&Match> = matches
+            .iter()
+            .filter(|m| m.base == b_between && m.target == t_between)
+            .collect();
+        assert_eq!(
+            for_pair.len(),
+            6,
+            "arity 3 has 3! distinct permutations, got {:?}",
+            for_pair
+        );
+
+        // Permutation (1, 2, 0) of the target's arguments is the one that yields a->a, b->b, c->c.
+        let identity = for_pair
+            .iter()
+            .find(|m| {
+                m.entities.contains(&(0, 0))
+                    && m.entities.contains(&(1, 1))
+                    && m.entities.contains(&(2, 2))
+            })
+            .expect("the identity correspondence must be reachable through some permutation");
+        assert_eq!(identity.entities.len(), 3);
+
+        // Each permutation is a bijection, and no two permutations collapse to the same match.
+        for m in &for_pair {
+            let base_entities: BTreeSet<EntityId> = m.entities.iter().map(|(b, _)| *b).collect();
+            let target_entities: BTreeSet<EntityId> = m.entities.iter().map(|(_, t)| *t).collect();
+            assert_eq!(
+                (base_entities.len(), target_entities.len()),
+                (3, 3),
+                "a permutation must stay one-to-one: {:?}",
+                m.entities
+            );
+        }
+        let distinct: BTreeSet<Vec<(EntityId, EntityId)>> =
+            for_pair.iter().map(|m| m.entities.clone()).collect();
+        assert_eq!(distinct.len(), 6, "permutations must deduplicate: {:?}", distinct);
+    }
+
+    #[test]
+    fn commutative_relation_above_the_arity_cap_falls_back_to_the_reversal() {
+        // Past MAX_COMMUTATIVE_ARITY only the identity and the reversal are tried, so a pair of
+        // six-argument statements yields two matches rather than 6! = 720.
+        let mut base = System::new(6);
+        let b_rel = base.push_commutative("six", (0..6).map(Term::Entity).collect());
+        let mut target = System::new(6);
+        let t_rel = target.push_commutative("six", (0..6).map(Term::Entity).collect());
+        let count = local_matches(&base, &target)
+            .iter()
+            .filter(|m| m.base == b_rel && m.target == t_rel)
+            .count();
+        assert_eq!(count, 2, "identity and reversal only above the cap");
     }
 
     #[test]
