@@ -85,6 +85,12 @@ state, so adding a predicate remains a separate step and a proposal cannot overw
 Under the cheap-proposal assumption this is the division that matters: the model supplies many
 candidates per call, the engine pays for the queries.
 
+## Commits
+
+Messages follow Conventional Commits: a type (`feat`, `fix`, `docs`, `test`, `refactor`, `chore`), an
+optional scope, and an imperative summary. The body says what changed and why, in the same voice as the
+code comments: no machine paths, no names of untracked material.
+
 ## Reproducing the three-part setup
 
 ```powershell
