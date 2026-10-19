@@ -405,6 +405,73 @@ pub fn map(base: &System, target: &System, max_mappings: usize) -> Vec<Mapping> 
     mappings
 }
 
+/// A candidate inference that may stand on entities the target does not have.
+///
+/// SME4 writes such entities as skolems: fresh individuals that the inference is about, not ones
+/// the target is known to contain. The ids here start at `target.entities`, so a caller can tell a
+/// skolem from a real entity by the bound, and `skolems` says which base entity each one stands for.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CandidateInference {
+    pub statement: Statement,
+    pub skolems: Vec<(EntityId, EntityId)>,
+}
+
+/// Candidate inferences that keep unmapped base entities as skolems instead of dropping the
+/// statement. This is the SME4 behaviour: the projection is proposed, and what it is about is
+/// marked, not silently discarded.
+pub fn candidate_inferences_with_skolems(
+    base: &System,
+    target: &System,
+    m: &Mapping,
+) -> Vec<CandidateInference> {
+    let matched: BTreeSet<StatementId> = m.statements.iter().map(|(b, _)| *b).collect();
+    let mut out: Vec<CandidateInference> = Vec::new();
+    let mut skolems: Vec<(EntityId, EntityId)> = Vec::new();
+    let mut next_skolem = target.entities as EntityId;
+
+    for (b, st) in base.statements.iter().enumerate() {
+        let b = b as StatementId;
+        if matched.contains(&b) {
+            continue;
+        }
+        let mut args = Vec::with_capacity(st.args.len());
+        let mut complete = true;
+        for arg in &st.args {
+            match arg {
+                Term::Entity(e) => {
+                    if let Some(t) = m.target_of(*e) {
+                        args.push(Term::Entity(t));
+                    } else if let Some((_, s)) = skolems.iter().find(|(be, _)| be == e) {
+                        args.push(Term::Entity(*s));
+                    } else {
+                        let s = next_skolem;
+                        next_skolem += 1;
+                        skolems.push((*e, s));
+                        args.push(Term::Entity(s));
+                    }
+                }
+                Term::Statement(s) => match m.statements.iter().find(|(bs, _)| bs == s) {
+                    Some((_, ts)) => args.push(Term::Statement(*ts)),
+                    None => {
+                        complete = false;
+                        break;
+                    }
+                },
+            }
+        }
+        if !complete {
+            continue;
+        }
+        let projected = Statement { relation: st.relation.clone(), args };
+        if !target.statements.contains(&projected)
+            && !out.iter().any(|c| c.statement == projected)
+        {
+            out.push(CandidateInference { statement: projected, skolems: skolems.clone() });
+        }
+    }
+    out
+}
+
 /// The statements of the base that the mapping does not match but whose arguments are all mapped:
 /// the base's unmatched structure, projected onto the target. These are candidate inferences, not
 /// conclusions; a caller must check them.
@@ -568,6 +635,29 @@ mod tests {
         assert_eq!(separate.score.components, 2);
         assert_eq!(separate.score.systematicity, 2);
         assert!(nested.score.systematicity > separate.score.systematicity);
+    }
+
+    #[test]
+    fn unmapped_entities_become_skolems_in_candidate_inferences() {
+        let mut base = System::new(2);
+        base.push("matchme", vec![Term::Entity(0)]);
+        base.push("infer", vec![Term::Entity(1)]);
+        let mut target = System::new(1);
+        target.push("matchme", vec![Term::Entity(0)]);
+        let m = Mapping {
+            statements: vec![(0, 0)],
+            entities: vec![(0, 0)],
+            score: Score { matched: 1, systematicity: 1, components: 1 },
+        };
+        let cis = candidate_inferences_with_skolems(&base, &target, &m);
+        assert_eq!(cis.len(), 1, "one unmatched statement is projected");
+        assert_eq!(cis[0].statement.relation, "infer");
+        assert_eq!(cis[0].statement.args, vec![Term::Entity(1)], "1 is the first skolem id");
+        assert_eq!(cis[0].skolems, vec![(1, 1)]);
+        assert!(
+            candidate_inferences(&base, &target, &m).is_empty(),
+            "the old path drops the statement rather than marking it"
+        );
     }
 
     #[test]

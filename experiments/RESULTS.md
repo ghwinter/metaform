@@ -1288,3 +1288,12 @@ cutoff SME4 uses. Two tests pin the twin: present for `parallel`, absent for `ab
 Two limits are stated rather than hidden: the twin is generated at the level of the symmetric
 statement itself (nested statements are matched by their own flags), and commutative n-ary order is
 still not modelled. Open: nogood propagation inside the merge, skolem-marked candidate inferences.
+
+### 10.2 Skolem-marked candidate inferences (same day)
+
+SME4 projects an unmatched source expression even when it mentions an entity the target does not
+have, writing that entity as a skolem. The new `candidate_inferences_with_skolems` does the same:
+skolem ids start at `target.entities`, so a caller can tell one from a real entity by the bound, and
+`skolems` records which base entity each one stands for. The old function stays, and a test shows the
+difference: it drops the statement, the new one marks it. Still open from SME4: nogood propagation
+inside the merge, commutative n-ary order, and a golden comparison against a dehydrated `.sme` pair.
