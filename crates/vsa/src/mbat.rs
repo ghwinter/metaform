@@ -77,6 +77,22 @@ impl VSA for MBAT {
 }
 
 impl MBAT {
+    /// Cyclic shift by `k` positions, the standard permutation for order (Plate 1995).
+    ///
+    /// `permute(permute(v, k), dim - k)` is the identity, so a shifted vector can be brought back
+    /// without a search.
+    pub fn permute(&self, k: usize) -> MBAT {
+        let n = self.data.len();
+        if n == 0 || k % n == 0 {
+            return self.clone();
+        }
+        let k = k % n;
+        let mut data = Vec::with_capacity(n);
+        data.extend_from_slice(&self.data[k..]);
+        data.extend_from_slice(&self.data[..k]);
+        MBAT { data }
+    }
+
     /// Bundles many vectors by summing them first and taking the sign once.
     ///
     /// The upstream code folds pairwise, which forces every intermediate result back to +-1 and

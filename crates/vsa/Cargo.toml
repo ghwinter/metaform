@@ -3,7 +3,7 @@ name = "metaform-vsa"
 version.workspace = true
 edition = "2021"
 license = "MIT OR Apache-2.0"
-description = "Vector symbolic architecture for metaform: MBAT hypervectors, binding, bundling, retrieval"
+description = "Vector symbolic architecture for metaform: MBAT hypervectors, role-filler encoding, item and associative memory, retrieval"
 
 [dependencies]
 rand = "0.8"

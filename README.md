@@ -158,7 +158,7 @@ code comments: no machine paths, no names of untracked material.
 ## Reproducing the three-part setup
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # eight gates (Lean/Rust/references/claims/components/falsification/bilingual/numbers), about 40 s
+pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
 pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 71)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once

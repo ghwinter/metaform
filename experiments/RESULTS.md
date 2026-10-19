@@ -1180,3 +1180,45 @@ both in the same module; dropping the asked-mask update failed one. In all three
 inside a single module, so a one-feature vocabulary decides it and the kernel reports `IDENTIFIED`
 without proposing anything. The loop's case is a change whose failures cross modules, where the static
 vocabulary collides and a question buys the missing distinction.
+
+## 8. Component library survey and the capacity of an HDC memory (2026-10-20)
+
+Four clones were read before writing the vector component, so the port copies what exists instead of
+re-deriving it: the TorchHD core, Popper, the Cognitive Rule Engine, and the `hypervector` crate this
+component was originally adapted from.
+
+What the reading changed:
+
+1. **`hypervector` cannot be the base.** Its FHRR stores phase angles, so every cleanup pays one `cos`
+    per element: measured 3.9 s for a 10^5-item query at d = 10^4, against 0.2 s for bipolar vectors.
+    It has no unbind, no permute, no item or associative memory, and its global `Mutex<StdRng>` defeats
+    per-session determinism; it also pulls 74 transitive crates through an unused plotting dependency.
+    The fork therefore keeps the bipolar core only, and the missing layer was written here.
+2. **TorchHD has no capacity formula anywhere in the source.** Its memory is a linear cosine scan with
+    a threshold; role-filler is `multiset(bind(role, filler))`; order is `sum Pi^(n-1-i)(x_i)`. Those
+    three constructions are what the Rust encoding implements.
+3. **Popper has no general theta-subsumption.** Clause subsumption is a Prolog `subsumes/2` used only
+    to delete redundant literals; the workhorse redundancy test is *coverage* subsumption on bitsets,
+    and refinement is compiled into ASP rather than applied as a literal-addition operator. A Rust
+    learner should copy the coverage bitsets and the canonical program identity, not the search.
+4. **The Cognitive Rule Engine has no SMTB.** Its `antiunify` is a masked copy of the left condition:
+    literals are bucketed by key, variables aligned greedily with an upper-bound DFS, and literals with
+    differing constants are dropped rather than generalised. That is the algorithm worth porting for
+    structure mapping, and it is smaller than the textbook LGG it replaces.
+
+The measured capacity of the component (`cargo run --release -p metaform-vsa --bin hdc_bench`,
+top-1 over 64 probes, D = 4096, raw-trace recall):
+
+| pairs | clean | 5% flips | 10% flips | 20% flips |
+|---|---|---|---|---|
+| 16 | 1.000 | 1.000 | 1.000 | 1.000 |
+| 64 | 1.000 | 1.000 | 1.000 | 0.984 |
+| 256 | 0.906 | 0.797 | 0.625 | 0.312 |
+| 1024 | 0.094 | 0.078 | 0.047 | 0.000 |
+
+Quantising the trace before cleanup costs about a third of the capacity at 256 pairs (0.672 against
+0.906); keeping the integer accumulator is not an optimisation but a correctness decision. The numbers
+follow the `1/sqrt(N)` signal law and fail where a top-1 decision over N candidates needs a margin
+larger than the noise maximum. At D = 4096 the usable point is about 128-256 pairs, not 10^5: a claim
+of 10^5-item recall needs a larger dimension, sharded traces, or a different addressing scheme, and
+until one of those is measured the library promises only the table above.

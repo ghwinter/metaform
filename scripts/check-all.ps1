@@ -5,6 +5,7 @@
 .DESCRIPTION
     - check-lean: fail on any warning
     - check-rust: the pass count must equal the expected value, and ignored must be 0
+    - check-rust (VSA manifest): the same, for the hyperdimensional component's own tests
     - check-components.ps1: the proposal components build, and three proposers are judged by one validator
     - check-references.py: no path, file name or link that the repository does not contain
     - check-claims.py: every claim about the repository still has a command that supports it
@@ -32,6 +33,7 @@ param(
     [switch]$SkipAlign,
     [switch]$SkipTheory,
     [int]$RustExpected = 71,
+    [int]$VsaExpected = 19,
     [string]$Python = $env:METAFORM_PYTHON
 )
 
@@ -73,6 +75,9 @@ if (-not $SkipLean) {
 
 & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'check-rust.ps1') -Expected $RustExpected | Out-Host
 $results += [pscustomobject]@{ Check = 'rust'; Exit = $LASTEXITCODE }
+
+& pwsh -NoProfile -File (Join-Path $PSScriptRoot 'check-rust.ps1') -Manifest (Join-Path $root 'crates\vsa\Cargo.toml') -Expected $VsaExpected | Out-Host
+$results += [pscustomobject]@{ Check = 'vsa'; Exit = $LASTEXITCODE }
 
 if (-not $SkipAlign) {
     & $Python (Join-Path $PSScriptRoot 'align-papers.py') | Out-Host

@@ -128,7 +128,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ## 三件套复现
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # 八道门（Lean/Rust/引用/claim/组件/证伪/双语/数字），约 40 s
+pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
 pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 71）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次

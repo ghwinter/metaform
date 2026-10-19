@@ -54,6 +54,7 @@ experiments/lean_oracle/
 *.toc
 *.png
 engine/last-test.log
+crates/*/last-test.log
 proofs/last-check.log
 scripts/local.ps1
 

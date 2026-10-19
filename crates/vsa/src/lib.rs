@@ -183,7 +183,9 @@ impl Hypervector<MBAT> {
     }
 }
 
+pub mod encode;
 pub mod mbat;
+pub mod memory;
 pub mod retrieval;
 
 #[cfg(test)]
