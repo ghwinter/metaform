@@ -1526,3 +1526,32 @@ project built from a written specification rather than from the post-adoption st
 emitted before any proposal exists, no ledger or transcript in the tree the proposer can reach, and
 a grep that excludes the evidence directory. Only then is the turn count and the hit rate a
 measurement rather than a demonstration.
+
+## 13. The request publishes the answer (2026-10-20)
+
+Before running a truly blind arm, the environment was rebuilt outside the repository and checked
+for leaks. The leak that mattered was not in the directory: it was in the protocol. A proposal
+request carries `evidence.pos` and `evidence.neg`, and those ids are the extension of the target
+concept. A proposer that reads no file at all can answer `ids = 同 evidence.pos` and be accepted with
+two pairs split. Verified: such a candidate is accepted, and it is exactly the shape of the first
+arm's successful proposal.
+
+So a request-based experiment measures copying, not discovery. The hidden part is only the intension
+-- the name and the warrant that explain why those files and no others -- and the current protocol
+scores the extension, not the intension. Two consequences:
+
+1. Any "blind arm" built on this request shape is invalid, however clean the directory. The previous
+   section's arm was contaminated by artifacts; a clean arm would still carry this.
+2. The measurement needs a held-out design: label a subset of objects, withhold the rest, and score
+   whether the proposed predicate classifies the withheld ones. Then echoing the evidence fails,
+   because the withheld labels are not in the request.
+
+What the environment preparation did establish, and can be reused: the experiment runs outside the
+repository, the request is emitted before any proposal exists, the object-to-file mapping is given
+to the proposer instead of guessed, the state holds only the three insufficient predicates, and the
+smoke test (a deliberately wrong candidate) shows the engine accepting a candidate that splits one
+pair -- evidence that validation checks consistency, never meaning.
+
+One further leak is worth recording because it is easy to miss: the answer is in the tracked history.
+Hiding the working-tree directories does not hide it, since the ledger is tracked and `git show HEAD`
+returns it.
