@@ -3,7 +3,7 @@
 论文中哪条陈述由哪一条 Lean 声明承载。论文只陈述结果并引用证明器；这张表是让两者保持同步的
 维护记录。
 
-开发文件是 `research/lean/QueryDriven.lean`。它在不接受任何未证目标、不产生警告的前提下编译；
+开发文件是 `proofs/QueryDriven.lean`。它在不接受任何未证目标、不产生警告的前提下编译；
 `scripts/check-lean.ps1` 在出现任何警告时失败。
 
 | 结果 | Lean 声明 | 说明 |

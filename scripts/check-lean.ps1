@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
-    Compile the Lean formalization under research/lean and keep the output as evidence.
+    Compile the Lean formalization under proofs and keep the output as evidence.
 
 .DESCRIPTION
-    The Lean sources stay in research/lean (part of the paper repository) and are compiled by
+    The Lean sources stay in proofs (part of the paper repository) and are compiled by
     borrowing the environment of an existing Lake project that can already load Mathlib. Point
     METAFORM_LEAN_PROJECT (or the -Project parameter) at such a project; a fresh project inside
     this repository would have to re-materialize Mathlib and its dependencies.
 
-    This script writes all of stdout+stderr to `research/lean/last-check.log` and counts warnings.
+    This script writes all of stdout+stderr to `proofs/last-check.log` and counts warnings.
     The paper appendix claims "no sorry and no warnings"; that is now reproducible:
     **any warning returns non-zero**. Do not rely on memory.
 
@@ -18,7 +18,7 @@
       2  compilation passes with warnings
 
 .PARAMETER File
-    Source file name (under research/lean).
+    Source file name (under proofs).
 
 .PARAMETER Project
     Lake project whose environment is borrowed (defaults to $env:METAFORM_LEAN_PROJECT).
@@ -26,7 +26,7 @@
 [CmdletBinding()]
 param(
     [string]$File = 'QueryDriven.lean',
-    [string]$SourceDir = (Join-Path $PSScriptRoot '..\research\lean'),
+    [string]$SourceDir = (Join-Path $PSScriptRoot '..\proofs'),
     [string]$Project = $env:METAFORM_LEAN_PROJECT,
     [string]$LogPath
 )

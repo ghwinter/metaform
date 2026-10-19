@@ -18,7 +18,7 @@ negative and collides with positive 0; without it the boundary has no colliding 
 Deterministic: fixed ids, no timestamps, and order-insensitive facts are sorted (`explain` prints its
 equivalence classes in hash order, so classes are compared as sets).
 
-Run: python research/exp/propose_loop.py [--engine ...] [--no-build]
+Run: python experiments/propose_loop.py [--engine ...] [--no-build]
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent.parent
+ROOT = HERE.parent
 DEFAULT_ENGINE = ROOT / "target" / "debug" / "metaform.exe"
 MANIFEST = ROOT / "engine" / "Cargo.toml"
 MOCK = HERE / "llm_mock.py"

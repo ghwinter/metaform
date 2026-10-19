@@ -1,6 +1,6 @@
 //! Query-driven representation change: the core state machine.
 //!
-//! This is the executable counterpart of `research/01-formal-core.md` and `research/lean/QueryDriven.lean`.
+//! This is the executable counterpart of `proofs/QueryDriven.lean`.
 //! Three concepts correspond one-to-one:
 //!
 //! | Paper | Here |
@@ -12,7 +12,7 @@
 //!
 //! The design is deliberately 'dumb': no built-in search, no built-in scoring. The controller has a single rule —
 //! if the candidate set is empty, change the vocabulary, then ask again. The cost experiments on domain A show that a smarter scheduler is worth only a few percentage points
-//! (`research/exp/RESULTS.md` §3.6).
+//! (`experiments/RESULTS.md` §3.6).
 
 use std::collections::HashMap;
 
@@ -124,7 +124,7 @@ impl Explorer {
     /// and `no - yes >= theta` as strong negatives. The more noise, the larger `theta` should be (see RESULTS §3.11:
     /// in the full loop, at ε=0.1 the θ=1 setting succeeds only 25% of the time, while θ=3 reaches 98%).
     ///
-    /// Three rules (aligned with `research/exp/noisy_loop.py`):
+    /// Three rules (aligned with `experiments/noisy_loop.py`):
     /// 1. Collision first: a class has both a strong positive and a strong negative → `Insufficient`.
     /// 2. Weak votes block: a class still holds a member that 'voted but did not reach θ' → not decided, return `Undetermined`.
     ///    Otherwise 'one strong label + one weak objection' would be silently accepted, yielding a wrong extension.

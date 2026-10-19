@@ -47,7 +47,7 @@ if (-not $ok) {
 $results = @()
 
 # --- 1. Lean: force a warning ---
-$warnFile = Join-Path $root 'research\lean\_warncheck.lean'
+$warnFile = Join-Path $root 'proofs\_warncheck.lean'
 'def unused (x : Nat) : Nat := 1' | Set-Content -Path $warnFile -Encoding utf8
 try {
     & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'check-lean.ps1') -File '_warncheck.lean' | Out-Null
@@ -92,7 +92,7 @@ finally {
 $results += [pscustomobject]@{ Gate = 'refs / undeclared file'; Got = $code; Want = 1 }
 
 # --- 3. Number regression: tamper with an expected value ---
-Push-Location (Join-Path $root 'research\exp')
+Push-Location (Join-Path $root 'experiments')
 try {
     & $Python verify_claims.py --tamper gain=2.5 | Out-Null
     $code = $LASTEXITCODE
@@ -101,7 +101,7 @@ finally { Pop-Location }
 $results += [pscustomobject]@{ Gate = 'claims / tampered gain'; Got = $code; Want = 1 }
 
 # --- 3b. Cost law: deliberately break one measured point ---
-Push-Location (Join-Path $root 'research\exp')
+Push-Location (Join-Path $root 'experiments')
 try {
     & $Python verify_claims.py --tamper-cost | Out-Null
     $code = $LASTEXITCODE
@@ -110,7 +110,7 @@ finally { Pop-Location }
 $results += [pscustomobject]@{ Gate = 'claims / tampered cost law'; Got = $code; Want = 1 }
 
 # --- 3c. ops numbers: deliberately use a wrong expected value ---
-Push-Location (Join-Path $root 'research\exp')
+Push-Location (Join-Path $root 'experiments')
 try {
     & $Python verify_claims.py --tamper-ops | Out-Null
     $code = $LASTEXITCODE
@@ -119,7 +119,7 @@ finally { Pop-Location }
 $results += [pscustomobject]@{ Gate = 'claims / tampered ops number'; Got = $code; Want = 1 }
 
 # --- 3d. Portfolio numbers: deliberately use a wrong expected value ---
-Push-Location (Join-Path $root 'research\exp')
+Push-Location (Join-Path $root 'experiments')
 try {
     & $Python verify_claims.py --tamper-portfolio | Out-Null
     $code = $LASTEXITCODE
@@ -145,7 +145,7 @@ $fake = Join-Path $env:TEMP "fake_ops_$PID.cmd"
 @echo off
 echo {"claim":"x","audit":{"trials":200,"violations":0},"probe":{"early_phi":1,"early_queries":1,"early_correct":true,"verified_queries":5,"verified_cost":14,"verified_correct":true},"scenarios":[]}
 '@ | Set-Content -Path $fake -Encoding ASCII
-Push-Location (Join-Path $root 'research\exp')
+Push-Location (Join-Path $root 'experiments')
 try {
     & $Python -c "import theory_audit, sys; sys.exit(0 if theory_audit.ops_audit(r'$fake') == 0 else 1)" | Out-Null
     $code = $LASTEXITCODE

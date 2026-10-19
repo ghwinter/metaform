@@ -14,7 +14,7 @@ Arms:
   random  draws an attribute;
   vsa     ranks conjunctions of up to the family's arity by vector similarity (crates/vsa, through
           crates/runtime's CLI);
-  llm     the proposals written by the model driving the session, in research/exp/llm_proposals.json.
+  llm     the proposals written by the model driving the session, in experiments/llm_proposals.json.
 
 Run: python proposer_arms.py --family k2 [--instances 5] [--write-requests]
 """
@@ -28,7 +28,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent.parent
+ROOT = HERE.parent
 DEFAULT_ENGINE = ROOT / "target" / "debug" / "metaform.exe"
 DEFAULT_RUNTIME = ROOT / "target" / "debug" / "metaform-runtime.exe"
 

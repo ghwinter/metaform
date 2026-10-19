@@ -17,7 +17,7 @@ from pathlib import Path
 import proposer_arms as pa
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent.parent
+ROOT = HERE.parent
 RUNTIME = ROOT / "target" / "debug" / "metaform-runtime.exe"
 
 

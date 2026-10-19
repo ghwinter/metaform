@@ -25,8 +25,8 @@ N = 150
 COST_R = 20.0
 COST_ROUNDS = 7.6
 COST_POINTS = [(1.0, 27.6), (0.5, 49.4), (0.25, 88.9), (0.125, 162.7)]
-PAPER_EN = Path(__file__).resolve().parents[2] / "paper" / "en" / "main.tex"
-ROOT = Path(__file__).resolve().parents[2]
+PAPER_EN = Path(__file__).resolve().parents[1] / "paper" / "en" / "main.tex"
+ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ENGINE = ROOT / "target" / "debug" / "metaform.exe"
 
 # the three groups of numbers from `metaform ops` (cited by the paper and the README)

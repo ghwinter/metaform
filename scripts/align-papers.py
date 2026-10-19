@@ -51,8 +51,8 @@ def cites(t: str) -> set[str]:
     return out
 
 
-LEAN = ROOT / "research" / "lean" / "QueryDriven.lean"
-MECH = ROOT / "research" / "lean" / "mechanization.md"
+LEAN = ROOT / "proofs" / "QueryDriven.lean"
+MECH = ROOT / "proofs" / "mechanization.md"
 
 
 def mechanization_names() -> list[str]:

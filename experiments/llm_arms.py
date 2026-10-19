@@ -34,7 +34,7 @@ from itertools import combinations
 from pathlib import Path
 
 ATTRS = "abcdefgh"
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ENGINE = ROOT / "target" / "debug" / "metaform.exe"
 
 

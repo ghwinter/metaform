@@ -22,7 +22,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent.parent
+ROOT = HERE.parent
 DEMO = ROOT / "engine" / "scenarios" / "verify.demo"
 DEFAULT_ENGINE = ROOT / "target" / "debug" / "metaform.exe"
 MANIFEST = ROOT / "engine" / "Cargo.toml"

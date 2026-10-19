@@ -95,7 +95,7 @@ if (-not $SkipClaims) {
 }
 
 if (-not $SkipTheory) {
-    Push-Location (Join-Path $root 'research\exp')
+    Push-Location (Join-Path $root 'experiments')
     try {
         $qde = Join-Path $root 'target\debug\metaform.exe'
         if (Test-Path $qde) {
@@ -115,7 +115,7 @@ if (-not $SkipExperiments) {
         $results += [pscustomobject]@{ Check = 'experiments'; Exit = 1 }
     }
     else {
-        Push-Location (Join-Path $root 'research\exp')
+        Push-Location (Join-Path $root 'experiments')
         try {
             & $Python verify_claims.py | Out-Host
             $claims = $LASTEXITCODE

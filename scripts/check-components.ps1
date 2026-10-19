@@ -10,8 +10,8 @@
       crates/sme      structure mapping         (cargo test, then the demo)
       crates/runtime  protocol and validation   (cargo test, then the smoke run)
 
-    It then runs research/exp/proposer_arms.py for the k2, k3 and noisy families: the same state to three proposers --
-    random, vector retrieval, and the proposals in research/exp/llm_proposals.json -- and has the
+    It then runs experiments/proposer_arms.py for the k2, k3 and noisy families: the same state to three proposers --
+    random, vector retrieval, and the proposals in experiments/llm_proposals.json -- and has the
     kernel judge all of them. The experiment is deterministic, so a regression in the protocol or in
     a component turns this gate red.
 
@@ -38,7 +38,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $local = Join-Path $PSScriptRoot 'local.ps1'
 if (Test-Path $local) { . $local }
 if (-not $Python) { $Python = $env:METAFORM_PYTHON }
-if (-not $LlmProposals) { $LlmProposals = Join-Path $root 'research\exp\llm_proposals.json' }
+if (-not $LlmProposals) { $LlmProposals = Join-Path $root 'experiments\llm_proposals.json' }
 
 # The script runs binaries, not just tests; build them first so it cannot pick up an old artifact
 # from a directory that a previous layout left behind.
@@ -189,7 +189,7 @@ Check 'the ILP component: a learned clause goes through the kernel' {
 }
 foreach ($family in @(@('k2', 10, 0.9), @('k3', 5, 0.8), @('noisy', 5, 0.9))) {
     Check "three proposers, one validator ($($family[0]))" {
-        Push-Location (Join-Path $root 'research\exp')
+        Push-Location (Join-Path $root 'experiments')
         try {
             $out = & $Python proposer_arms.py --family $family[0] --instances $family[1] --llm $LlmProposals 2>&1
             $out | Out-Host

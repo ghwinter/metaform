@@ -1,0 +1,18 @@
+{
+  "_note": "The model arm on the real repository files (experiments/*.py and engine/scenarios/*.demo). The concept is 'this file drives the tool by running a process'. Files are named by path so the proposal survives unrelated additions to the tree.",
+  "real": [
+    {
+      "name": "runs_a_process",
+      "files": [
+        "experiments/domain_b.py",
+        "experiments/e2e_verify.py",
+        "experiments/llm_e2e.py",
+        "experiments/propose_loop.py",
+        "experiments/proposer_arms.py",
+        "experiments/real_domain.py",
+        "experiments/theory_audit.py",
+        "experiments/verify_claims.py"
+      ]
+    }
+  ]
+}

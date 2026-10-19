@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check the repository's claims about itself.
 
-`research/exp/claims.tsv` holds sentences the repository asks a reader to believe, each with a
+`experiments/claims.tsv` holds sentences the repository asks a reader to believe, each with a
 command whose output would refute it. This script runs the commands and reports:
 
   PASS  the check still supports the claim
@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CLAIMS = ROOT / "research" / "exp" / "claims.tsv"
+CLAIMS = ROOT / "experiments" / "claims.tsv"
 
 
 def rows(path: Path = CLAIMS) -> list[dict]:
@@ -76,7 +76,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--need", action="store_true", help="only print the claims without a check")
     ap.add_argument("--json", action="store_true")
-    ap.add_argument("--claims", default=str(CLAIMS), help="claim file to check (default: research/exp/claims.tsv)")
+    ap.add_argument("--claims", default=str(CLAIMS), help="claim file to check (default: experiments/claims.tsv)")
     args = ap.parse_args()
 
     report = []

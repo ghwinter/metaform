@@ -14,7 +14,7 @@ reference.
 | Mark | Meaning | How it is judged |
 |---|---|---|
 | **[theorem]** | proved, compiled with the repository | Lean 4 + Mathlib, 13 declarations carrying Theorems 1–11 |
-| **[evidence]** | this repository has run it and has numbers | scripts under `research/exp/` reproduce them |
+| **[evidence]** | this repository has run it and has numbers | scripts under `experiments/` reproduce them |
 | **[wager]** | belief without evidence | can only be cashed in or abandoned by later experiments |
 
 Authority: **code and the eight gates > this file > any note**. The charter obeys its own L9: every
@@ -739,7 +739,7 @@ Every other output — explanation, analogy, insight — stays out of the evalua
   on A and S and the structure of thought, the third on an external tool and computability — followed by
   the discussion of trade-offs, absorption, and route. The conversations are input, not deliverables, and
   are not tracked here.
-- Division of labour with `research/00-thesis.md`: this file states stances and prohibitions; that one
-  states falsifiable research questions and three competing routes.
+- Division of labour with the thesis notes (kept outside the history for now): this file states stances
+  and prohibitions; those state the falsifiable research questions and the three competing routes.
 - Change rules: changing a claim changes its falsifier in the same commit; deleting a law requires a commit
   message that says why it no longer holds.

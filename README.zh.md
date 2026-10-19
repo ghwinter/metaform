@@ -11,13 +11,12 @@
 | 目录 | 内容 |
 |---|---|
 | `paper/en/`, `paper/zh/` | 双语正文。en 用 `pdflatex` 两遍，zh 用 `xelatex` 两遍（ctex） |
-| `research/` | 总纲与命题（00）、形式核心（01）、论文骨架（02）、文献综合（03）、引擎设计（04）、可借机制（05）、AI 原生假设（06）、JEV 决策层（07）、断言审计（08）、长文摘记（09）、工具架构（10）、统一算子（11）、算子定型（12）、六种读法（13） |
-| `research/lean/` | Lean 4 形式化：13 条声明承载定理 1–11，不接受未证目标、无警告；`research/lean/mechanization.md` 把定理映射到声明 |
-| `research/exp/` | Python 实验：合成域、Lean 域、代码域、成本分解、数据总账 `RESULTS.md` |
+| `proofs/` | Lean 4 形式化：13 条声明承载定理 1–11，不接受未证目标、无警告；`proofs/mechanization.md` 把定理映射到声明 |
+| `experiments/` | Python 实验：合成域、Lean 域、代码域、成本分解、数据总账 `RESULTS.md` |
 | `engine/` | Rust 内核 + `metaform` 命令行（`engine/scenarios/` 里有示例脚本） |
 | `scripts/` | 断言门、对齐与引用检查、Lean/Rust 封装、打包 |
 
-总纲 `research/00-charter.zh.md`（英文版 `research/00-charter.md`）写清问题、十三条带证伪条件的命题、
+总纲 `CHARTER.zh.md`（英文版 `CHARTER.md`）写清问题、十三条带证伪条件的命题、
 运行时的六个位置、十条定律与路线。若本 README 与总纲在设计原则上冲突，以总纲为准；若两者与代码或门禁冲突，
 以代码与门禁为准。
 
@@ -27,7 +26,7 @@
 git 未跟踪的反引号路径或 markdown 链接（生成的产物与 `local.ps1` 引导副本除外）；对未跟踪语料或
 对话的裸提及；以及两篇论文里出现的代码标识符、文件名、URL，或没有对应文献条目的引用。论文只通过
 文末参考文献接触外部工作，这是常规做法；把定理映射到 Lean 声明的那张表放在
-`research/lean/mechanization.md`，不再放进论文。
+`proofs/mechanization.md`，不再放进论文。
 
 仓库默认拒绝：`.gitignore` 以 `*` 开头，然后放行整个目录（`!/engine/**`）以及少数属于仓库的根文件。
 允许目录里新增源文件不需要改规则，新增顶层目录才需要。同一道门会在"受跟踪文件落在所有放行规则之外"
@@ -112,12 +111,12 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 没有任何候选能分开时停止，并把每一步追加一行——状态指纹、算子、提议、分开对数、是否采纳、代价、
 前后状态——所以一串运行事后可以回看。
 
-只有第三行能"接受"，而接受仍不等于采纳：`research/exp/proposer_arms.py` 把同一个状态交给三个提议者
+只有第三行能"接受"，而接受仍不等于采纳：`experiments/proposer_arms.py` 把同一个状态交给三个提议者
 （随机、向量检索、语言模型写的候选），由同一个内核裁决并报告结果。
 
 ## 仓库对自身的断言
 
-`research/exp/claims.tsv` 列出仓库要求读者相信的句子，每条都带一个能否证它的命令。
+`experiments/claims.tsv` 列出仓库要求读者相信的句子，每条都带一个能否证它的命令。
 `scripts/check-claims.py` 负责执行：`PASS` 表示文字仍然成立，`FAIL` 是门禁失败，`NEED` 是还没有
 可执行检查的断言——也就是"说了但没验证"的诚实清单。新增一条断言，就在同一个 commit 里补上它的命令。
 
@@ -136,23 +135,23 @@ pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套�
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接
 pwsh -File scripts/check-components.ps1                   # 组件、CLI 路径与三提议者实验
-python research/exp/ledger.py list --all             # 反例台账（可增删改、挂起、带证据与历史）
-python research/exp/ledger.py show L2               # 看单条：来源、答案、票数、变更轨迹
-python research/exp/ledger.py corroborate --apply    # 同一对象的弱证据按 noisy-OR 合并
-python research/exp/ledger.py conflicts              # 方向冲突 + 重问队列（按差距排序，含 json）
+python experiments/ledger.py list --all             # 反例台账（可增删改、挂起、带证据与历史）
+python experiments/ledger.py show L2               # 看单条：来源、答案、票数、变更轨迹
+python experiments/ledger.py corroborate --apply    # 同一对象的弱证据按 noisy-OR 合并
+python experiments/ledger.py conflicts              # 方向冲突 + 重问队列（按差距排序，含 json）
 pwsh -File scripts/make-bundle.ps1                   # 打提交包（回读核对每个条目）→ dist/submission-<日期>.zip
-python research/exp/verify_claims.py                 # 论文数字回归（容差 0.06）
-python research/exp/theory_audit.py --engine target/debug/metaform.exe   # 定理证伪 + 引擎一致性
-python research/exp/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
-python research/exp/domain_b.py                      # Lean 当 oracle，约 3 s
-python research/exp/domain_c.py                      # 真实代码不变量
-python research/exp/domain_cost.py                   # 成本分解
-python research/exp/domain_more_data.py              # 定理 5 的经验版
-python research/exp/greedy_cover.py                  # 贪心覆盖 vs 最优 vs 随机
+python experiments/verify_claims.py                 # 论文数字回归（容差 0.06）
+python experiments/theory_audit.py --engine target/debug/metaform.exe   # 定理证伪 + 引擎一致性
+python experiments/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
+python experiments/domain_b.py                      # Lean 当 oracle，约 3 s
+python experiments/domain_c.py                      # 真实代码不变量
+python experiments/domain_cost.py                   # 成本分解
+python experiments/domain_more_data.py              # 定理 5 的经验版
+python experiments/greedy_cover.py                  # 贪心覆盖 vs 最优 vs 随机
 target\debug\metaform.exe ops                 # 五类算子的调度对照 + 200 次随机自检
-python research/exp/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # 噪声 oracle
-python research/exp/proposer.py --case domain_c --emit                    # 看发给模型的请求
-python research/exp/proposer.py --case domain_c --responses research/exp/responses_domain_c.json \
+python experiments/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # 噪声 oracle
+python experiments/proposer.py --case domain_c --emit                    # 看发给模型的请求
+python experiments/proposer.py --case domain_c --responses experiments/responses_domain_c.json \
     --pool-out pool.txt --scenario-out case.demo                          # 生成 metaform 场景与候选池
 ```
 
@@ -161,7 +160,7 @@ python research/exp/proposer.py --case domain_c --responses research/exp/respons
 
 ```powershell
 $env:METAFORM_PYTHON = '<python.exe 的完整路径>'
-& $env:METAFORM_PYTHON research\exp\domain_a.py
+& $env:METAFORM_PYTHON experiments\domain_a.py
 ```
 
 新克隆的仓库没有本机路径，所以仓库声明它需要什么，而不是带上某一台机器的答案：`environment.json`
@@ -262,7 +261,8 @@ pwsh -File scripts/bootstrap.ps1 -Write   # 用观测到的值写出 scripts/loc
 ## 出处
 
 - 问题来自一次很长的研究对话。那份对话是输入而不是交付物，因此不在本仓库跟踪。
-- `research/03-synthesis.md`：36 篇逐篇对照，确认"查询失败 → 改写语言"的空位。
+- `CHARTER.zh.md`：从那次对话里提炼的立场与禁令；支撑它们的更长的笔记不入库，等引擎稳定后再考虑。
+- 36 篇逐篇对照（确认"查询失败 → 改写语言"的空位）也属于那些笔记；论文写出结论与引用。
 
 
 

@@ -1,6 +1,6 @@
 """Does the loop close on real files from this repository?
 
-The objects are the Python experiments under research/exp and the scenarios under engine/scenarios.
+The objects are the Python experiments under experiments and the scenarios under engine/scenarios.
 The attributes are read off the file contents. The question is a real one for this repository: which
 files drive the tool -- that is, which ones run the binary or cargo -- and the vocabulary in force
 deliberately does not contain the attributes that answer it directly.
@@ -27,31 +27,31 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent.parent
+ROOT = HERE.parent
 ENGINE = ROOT / "target" / "debug" / "metaform.exe"
 RUNTIME = ROOT / "target" / "debug" / "metaform-runtime.exe"
 
 # Files that drive the tool: they start a process (the kernel binary or cargo).
 DRIVERS = {
-    "research/exp/e2e_verify.py",
-    "research/exp/llm_e2e.py",
-    "research/exp/propose_loop.py",
-    "research/exp/proposer_arms.py",
-    "research/exp/domain_b.py",
-    "research/exp/theory_audit.py",
+    "experiments/e2e_verify.py",
+    "experiments/llm_e2e.py",
+    "experiments/propose_loop.py",
+    "experiments/proposer_arms.py",
+    "experiments/domain_b.py",
+    "experiments/theory_audit.py",
 }
 
 # Hand labels: what the model running the session says about these files.
 LABELS = {
-    "research/exp/e2e_verify.py": True,
-    "research/exp/llm_e2e.py": True,
-    "research/exp/propose_loop.py": True,
-    "research/exp/proposer_arms.py": True,
-    "research/exp/domain_b.py": True,
-    "research/exp/greedy_cover.py": False,
-    "research/exp/ledger.py": False,
-    "research/exp/llm_mock.py": False,
-    "research/exp/domain_a.py": False,
+    "experiments/e2e_verify.py": True,
+    "experiments/llm_e2e.py": True,
+    "experiments/propose_loop.py": True,
+    "experiments/proposer_arms.py": True,
+    "experiments/domain_b.py": True,
+    "experiments/greedy_cover.py": False,
+    "experiments/ledger.py": False,
+    "experiments/llm_mock.py": False,
+    "experiments/domain_a.py": False,
     "engine/scenarios/review.demo": False,
 }
 
@@ -61,7 +61,7 @@ BASE = ["a_json", "a_assert", "a_small"]
 
 def load() -> list[tuple[str, str]]:
     out = []
-    for path in sorted(list((ROOT / "research" / "exp").glob("*.py")) + list((ROOT / "engine" / "scenarios").glob("*.demo"))):
+    for path in sorted(list((ROOT / "experiments").glob("*.py")) + list((ROOT / "engine" / "scenarios").glob("*.demo"))):
         rel = path.relative_to(ROOT).as_posix()
         out.append((rel, path.read_text(encoding="utf-8", errors="replace")))
     return out

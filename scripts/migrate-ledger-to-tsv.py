@@ -14,7 +14,7 @@ import json
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SRC = ROOT / "research" / "exp" / "probe_ledger.json"
+SRC = ROOT / "experiments" / "probe_ledger.json"
 DST = ROOT / ".metaform" / "ledger.tsv"
 
 HEADER = "# metaform ledger v1\nid\tcase\tstatus\tby\tround\treliability\tanswer\treason\n"

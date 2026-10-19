@@ -13,7 +13,7 @@ engine must handle:
 The mock never reads the engine and never touches state: it is the "external model" side of the
 boundary.
 
-Run: python research/exp/llm_mock.py --request req.json --response resp.json --case good
+Run: python experiments/llm_mock.py --request req.json --response resp.json --case good
 """
 from __future__ import annotations
 

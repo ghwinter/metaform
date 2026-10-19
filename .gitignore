@@ -6,6 +6,9 @@
 
 # ---------------------------------------------------------------------------
 # Allow list: the directories and files that make up the repository.
+# Only what is executable or checkable is tracked: the kernel and the
+# components, the gates and their inputs, the proofs, the evidence, the paper,
+# the charter. Notes live outside the history until the engine is stable.
 # ---------------------------------------------------------------------------
 !/.gitattributes
 !/Cargo.lock
@@ -15,11 +18,14 @@
 !/LICENSE-MIT
 !/README.md
 !/README.zh.md
+!/CHARTER.md
+!/CHARTER.zh.md
 !/environment.json
 !/crates/**
 !/engine/**
+!/experiments/**
 !/paper/**
-!/research/**
+!/proofs/**
 !/scripts/**
 !/skills/**
 
@@ -36,8 +42,9 @@ dist/
 engine/target/
 /target/
 crates/*/target/
-research/lean/.lake/
-research/exp/lean_oracle/
+research/
+proofs/.lake/
+experiments/lean_oracle/
 **/__pycache__/
 *.pyc
 *.pdf
@@ -47,7 +54,7 @@ research/exp/lean_oracle/
 *.toc
 *.png
 engine/last-test.log
-research/lean/last-check.log
+proofs/last-check.log
 scripts/local.ps1
 
 # Served the local corpus, which is not tracked.
@@ -57,24 +64,19 @@ scripts/extract-pdf-text.ps1
 scripts/verify-library.ps1
 scripts/library-manifest.json
 
-# Written line by line against untracked inputs.
-research/10-tool-architecture.md
-research/10-tool-architecture.zh.md
-research/13-six-readings.md
-research/13-six-readings.zh.md
-
 # Lake scaffolding for the borrowed project: regenerated, never tracked.
-research/lean/lakefile.toml
-research/lean/lake-manifest.json
-research/lean/lean-toolchain
+proofs/lakefile.toml
+proofs/lake-manifest.json
+proofs/lean-toolchain
 
 # Run output of the experiments: state files, responses, working directories.
-research/exp/tmp/
+experiments/tmp/
 crates/*/Cargo.lock
 
 # Conversation dumps and internal notes.
 1.md
 1-digest.md
 2.md
+3.md
 reasoning_engine_research_map.md
 HANDOFF.md

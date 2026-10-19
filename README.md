@@ -10,13 +10,12 @@ From now on, edit only `paper/en/main.tex`, then sync `paper/zh/main.tex`.
 | Directory | Contents |
 |---|---|
 | `paper/en/`, `paper/zh/` | Bilingual body text. en uses `pdflatex` twice; zh uses `xelatex` twice (ctex) |
-| `research/` | Design charter and propositions (00), formal core (01), paper outline (02), literature synthesis (03), engine design (04), borrowable mechanisms (05), AI-native hypotheses (06), JEV decision layer (07), claim audit (08), long-form notes (09), unified operators (11), operator typing (12) |
-| `research/lean/` | Lean 4 formalization: 13 declarations carrying Theorems 1–11, no admitted goal and no warnings; `research/lean/mechanization.md` maps theorem to declaration |
-| `research/exp/` | Python experiments: synthetic domains, Lean domain, code domain, cost breakdown, data ledger `RESULTS.md` |
+| `proofs/` | Lean 4 formalization: 13 declarations carrying Theorems 1–11, no admitted goal and no warnings; `proofs/mechanization.md` maps theorem to declaration |
+| `experiments/` | Python experiments: synthetic domains, Lean domain, code domain, cost breakdown, data ledger `RESULTS.md` |
 | `engine/` | Rust kernel + `metaform` command line (`engine/scenarios/` holds example scripts) |
 | `scripts/` | Assertion gates, alignment and reference checks, Lean/Rust wrappers, bundle builder |
 
-The charter, `research/00-charter.md` (Chinese copy `research/00-charter.zh.md`), states the problem, the
+The charter, `CHARTER.md` (Chinese copy `CHARTER.zh.md`), states the problem, the
 thirteen claims each with a falsifier, the six positions of the runtime, the ten laws, and the route. If
 this README and the charter disagree on a design principle, the charter wins; if either disagrees with the
 code or the gates, the code and the gates win.
@@ -28,7 +27,7 @@ artifacts and the `local.ps1` bootstrap copy excepted), on a bare mention of the
 conversation, and, inside either paper, on a code identifier, a file name, a URL, or a citation
 without a bibliography entry. The paper reaches external work only through the bibliography at the
 end, which is the usual convention; the table that maps theorems to Lean declarations lives in
-`research/lean/mechanization.md` instead of the paper.
+`proofs/mechanization.md` instead of the paper.
 
 The tree is default-deny: `.gitignore` starts with `*` and then allows whole directories (`!/engine/**`)
 and the few root files that belong to the repository. A new source file inside an allowed directory
@@ -140,12 +139,12 @@ k2_0      a4        0 5 10 11
 ```
 
 The third line above is the only one that can accept anything, and accepting is still not adopting:
-`research/exp/proposer_arms.py` gives one state to three proposers (random, retrieval, and the
+`experiments/proposer_arms.py` gives one state to three proposers (random, retrieval, and the
 proposals a language model wrote) and reports what each found, judged by the same kernel.
 
 ## Claims about the repository
 
-`research/exp/claims.tsv` lists sentences the repository asks a reader to believe, each with a command
+`experiments/claims.tsv` lists sentences the repository asks a reader to believe, each with a command
 whose output would refute it. `scripts/check-claims.py` runs them: `PASS` means the prose still holds,
 `FAIL` is a gate failure, and `NEED` lists the claims that have no executable check — the honest list
 of what is asserted but not verified. Adding a claim means adding its command in the same commit.
@@ -165,24 +164,24 @@ pwsh -File scripts/check-rust.ps1                    # Rust only (pass count mus
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain
-python research/exp/ledger.py list --all             # counterexample ledger (add/amend/retract, suspend, with evidence and history)
-python research/exp/ledger.py show L2               # inspect one entry: source, answer, votes, change history
-python research/exp/ledger.py corroborate --apply    # merge weak evidence for the same object via noisy-OR
-python research/exp/ledger.py conflicts              # direction conflicts + re-ask queue (sorted by gap, includes json)
+python experiments/ledger.py list --all             # counterexample ledger (add/amend/retract, suspend, with evidence and history)
+python experiments/ledger.py show L2               # inspect one entry: source, answer, votes, change history
+python experiments/ledger.py corroborate --apply    # merge weak evidence for the same object via noisy-OR
+python experiments/ledger.py conflicts              # direction conflicts + re-ask queue (sorted by gap, includes json)
 pwsh -File scripts/make-bundle.ps1                   # build the submission bundle (read back and verify every entry) → dist/submission-<date>.zip
-python research/exp/verify_claims.py                 # paper-number regression (tolerance 0.06)
-python research/exp/theory_audit.py --engine target/debug/metaform.exe   # theorem falsification + engine consistency
-python research/exp/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
-python research/exp/domain_b.py                      # Lean as oracle, about 3 s
-python research/exp/domain_c.py                      # real code invariants
-python research/exp/domain_cost.py                   # cost breakdown
-python research/exp/domain_more_data.py              # empirical version of Theorem 5
-python research/exp/greedy_cover.py                  # greedy cover vs optimal vs random
+python experiments/verify_claims.py                 # paper-number regression (tolerance 0.06)
+python experiments/theory_audit.py --engine target/debug/metaform.exe   # theorem falsification + engine consistency
+python experiments/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
+python experiments/domain_b.py                      # Lean as oracle, about 3 s
+python experiments/domain_c.py                      # real code invariants
+python experiments/domain_cost.py                   # cost breakdown
+python experiments/domain_more_data.py              # empirical version of Theorem 5
+python experiments/greedy_cover.py                  # greedy cover vs optimal vs random
 target\debug\metaform.exe ops                 # five operators' schedule comparison + 200 random self-checks
 target\debug\metaform.exe scenarios\review.demo   # the necessity criterion applied to a review policy
-python research/exp/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # noisy oracle
-python research/exp/proposer.py --case domain_c --emit                    # see the request sent to the model
-python research/exp/proposer.py --case domain_c --responses research/exp/responses_domain_c.json \
+python experiments/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # noisy oracle
+python experiments/proposer.py --case domain_c --emit                    # see the request sent to the model
+python experiments/proposer.py --case domain_c --responses experiments/responses_domain_c.json \
     --pool-out pool.txt --scenario-out case.demo                          # generate a metaform scenario and candidate pool
 ```
 
@@ -191,7 +190,7 @@ PATH is a Store stub rather than a working interpreter, set the variable once pe
 
 ```powershell
 $env:METAFORM_PYTHON = '<full path to python.exe>'
-& $env:METAFORM_PYTHON research\exp\domain_a.py
+& $env:METAFORM_PYTHON experiments\domain_a.py
 ```
 
 A fresh clone has no machine paths, so the repository declares what it needs instead of shipping one
@@ -300,6 +299,8 @@ Attribution 4.0 International license (CC BY 4.0).
 
 - The problem was posed in one long research conversation. That conversation is an input, not a
   deliverable, so it is not tracked here.
-- `research/03-synthesis.md`: paper-by-paper comparison of 36 works, confirming the gap of
-  "query failure -> rewrite the language".
+- `CHARTER.md`: the stances and prohibitions distilled from that conversation; the longer notes behind
+  them are kept outside the history until the engine is stable.
+- The paper-by-paper comparison of 36 works that confirmed the gap of "query failure -> rewrite the
+  language" is one of those notes; the paper states the conclusion and its citations.
 

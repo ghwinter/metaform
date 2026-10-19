@@ -9,7 +9,7 @@ Three cases:
 The engine is read-only by contract, so the request and response files must be byte-identical after
 every run.
 
-Run: python research/exp/llm_e2e.py [--engine ...] [--no-build]
+Run: python experiments/llm_e2e.py [--engine ...] [--no-build]
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent.parent
+ROOT = HERE.parent
 DEFAULT_ENGINE = ROOT / "target" / "debug" / "metaform.exe"
 MANIFEST = ROOT / "engine" / "Cargo.toml"
 MOCK = HERE / "llm_mock.py"

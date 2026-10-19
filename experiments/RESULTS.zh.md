@@ -369,7 +369,7 @@ cover: overlap_or_touch 劈开 1/1 对
 
 ## 3.19 提议评分升级：覆盖 + 精确率/召回率 + 预测命中
 
-借自 Cammara 的"盲极大"协议（`research/09-essay-cammarata.md`）：光看"劈开几对"分不出
+借自 Cammara 的"盲极大"协议：光看"劈开几对"分不出
 "**sound but narrow**"和"错"。加上与隐藏目标的 P/R，以及候选自己报的"我预测为正"的命中率。
 
 域 C（4 对撞车；目标 = 输出比输入短）：
@@ -945,7 +945,7 @@ Rust 测试 26 → **29**（新增 3 条：完美候选、窄候选、台账违�
 
 ```powershell
 $py = $env:METAFORM_PYTHON
-cd research/exp
+cd experiments
 & $py domain_a.py --n 300 --objects 12 --attrs 8 --k 2   # E1–E4，约 4 s
 & $py domain_prior.py                                     # E5，约 6 s
 ```

@@ -3,7 +3,7 @@
 Which Lean declaration carries which statement of the paper. The paper states the results and
 cites the prover; this table is the maintenance record that keeps the two in step.
 
-The development is `research/lean/QueryDriven.lean`. It compiles with no admitted goal and no
+The development is `proofs/QueryDriven.lean`. It compiles with no admitted goal and no
 warnings; `scripts/check-lean.ps1` fails on any warning.
 
 | Result | Lean declaration | Note |

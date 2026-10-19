@@ -6,7 +6,7 @@
       "env": "METAFORM_PYTHON",
       "required": true,
       "minVersion": "3.11",
-      "use": "runs scripts/*.py and research/exp/*.py; standard library only",
+      "use": "runs scripts/*.py and experiments/*.py; standard library only",
       "versionArgs": ["-c", "import sys; print('.'.join(map(str, sys.version_info[:3])))"],
       "hint": "set METAFORM_PYTHON to the full path of a python.exe, or put python on PATH"
     },
@@ -14,7 +14,7 @@
       "env": "METAFORM_LEAN_PROJECT",
       "required": true,
       "kind": "directory",
-      "use": "a Lake project whose environment can import Mathlib; research/lean/QueryDriven.lean is compiled inside it",
+      "use": "a Lake project whose environment can import Mathlib; proofs/QueryDriven.lean is compiled inside it",
       "minVersion": "4.35.0",
       "versionExe": "lake",
       "versionArgs": ["env", "lean", "--version"],

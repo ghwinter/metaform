@@ -368,7 +368,7 @@ Both conclusions hold, and are stronger:
 
 ## 3.19 Proposal scoring upgrade: coverage + precision/recall + prediction hit rate
 
-Borrowed from Cammarata's "blind maximization" protocol (`research/09-essay-cammarata.md`): looking only at "how many pairs it splits" cannot distinguish
+Borrowed from Cammarata's "blind maximization" protocol: looking only at "how many pairs it splits" cannot distinguish
 "**sound but narrow**" from "wrong". We add P/R against the hidden target, plus the hit rate of the candidate's own "I predict positive" claims.
 
 Domain C (4 colliding pairs; target = output shorter than input):
@@ -943,7 +943,7 @@ Rust tests 26 → **29** (3 new: perfect candidate, narrow candidate, ledger vio
 
 ```powershell
 $py = $env:METAFORM_PYTHON
-cd research/exp
+cd experiments
 & $py domain_a.py --n 300 --objects 12 --attrs 8 --k 2   # E1–E4, about 4 s
 & $py domain_prior.py                                     # E5, about 6 s
 ```
@@ -991,7 +991,7 @@ What the families show:
 0.9 / 0.8 / 0.9, or stops beating retrieval.
 ### 7.1 The same loop on real files from this repository
 
-`research/exp/real_domain.py` replaces the synthetic objects with the repository's own files: thirty
+`experiments/real_domain.py` replaces the synthetic objects with the repository's own files: thirty
 Python experiments and scenario files, nine attributes read off their contents, and ten hand labels
 for one real distinction -- which files drive the tool by running a process. Five are labelled
 positive, five negative, and the labels match the mechanical truth with no disagreement.
@@ -1074,7 +1074,7 @@ The first version of the record wrote one line per *step*, so only the winning o
 made the experience table vacuous: every operator it had ever seen had adopted 100% of the time. The
 record now writes one line per **offer**, adopted or not.
 
-`research/exp/controller_runs.py` then runs the controller over the three families with both the
+`experiments/controller_runs.py` then runs the controller over the three families with both the
 retrieval component and a file-backed proposer holding the model's proposals, and the aggregated
 record looks like this:
 
