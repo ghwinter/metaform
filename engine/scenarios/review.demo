@@ -1,52 +1,61 @@
-# A review policy tested with the necessity criterion.
+# Does a review policy fit the taxonomy it was written in?
 #
-# Sixteen review findings about one paper, labelled by the decision they received:
-#   objects 0-9  adopted   (a gap sentence in the abstract, an error base, a claim tightened
-#                          from "proved" to "shown", a theorem reference instead of a literal
-#                          range, two cross-reference fixes, cost units, a percentage corrected
-#                          from "a few" to 15%, a section title, a figure caption)
-#   objects 10-15 rejected (a wholesale tense rewrite, a section reorder, a voice rewrite,
-#                          seeds without data, percentage bases without data, timings without
-#                          a machine)
+# Protocol: the manuscript before the style revision was given to two independent reviewers, together
+# with the same style checklist and nothing else; neither saw the author's decisions, the repository,
+# or the other reviewer. They agreed on 14 of 16 findings (Cohen's kappa 0.67). The author's own
+# decisions, recorded when the revision was made, agree with them on 11 and 9 of the 16 (kappa below
+# zero): the author's labels are the outlier, so they are not treated as a policy here.
 #
-# The first vocabulary is the audit's own taxonomy: which part of the paper a finding touches.
-# It cannot express the policy. Objects 1 and 13 share every category predicate (both touch a
-# number) but received opposite decisions, and so do 2 and 10 (both touch wording), and 2 and 12.
-# The state is therefore exhausted, exactly as Theorem 2 says: no consistent rule over these
-# predicates exists, and no re-reading of the same categories will produce one.
+# This scenario uses the 14 findings the two reviewers agreed on. Five of them were adopted and nine
+# rejected; the identifiers below are the order of the consensus list, not the original numbering:
+#   0  reject  abstract: states a gap?            (both reviewers: the 'yet' clause already does)
+#   1  adopt   percentage without a base
+#   2  adopt   citations use an ordinary space
+#   3  adopt   section references mix two forms
+#   4  adopt   "within a few percent" against 2.10/1.85
+#   5  reject  section title "Experiments"
+#   6  adopt   concept-lattice caption silent about the lattice
+#   7  adopt   "exhausted" vs "insufficient" for the same state
+#   8  adopt   hyphens used as parenthetical dashes
+#   9  adopt   acronyms never expanded
+#  10  adopt   r used for two quantities
+#  11  adopt   measured runs retold in the present tense
+#  12  adopt   voice splits inside the experiments section
+#  13  reject  "proved incomplete" reports a probe as a proof
+#
+# The predicates are the taxonomy the findings came from: which part of the paper each one touches.
 
-objects 16
+objects 14
 add f_abstract 0
-add f_titles 8
-add f_captions 9
-add f_structure 11
-add f_numbers 1 6 7 13 14 15
-add f_voice 2 10 12
-add f_xref 3 4 5
+add f_numbers 1 4
+add f_xref 2 3
+add f_titles 5
+add f_captions 6
+add f_terminology 7
+add f_typography 8 9
+add f_notation 10
+add f_voice 11 12 13
 
-vote 0 3 0
+vote 0 0 3
 vote 1 3 0
 vote 2 3 0
 vote 3 3 0
 vote 4 3 0
-vote 5 3 0
+vote 5 0 3
 vote 6 3 0
 vote 7 3 0
 vote 8 3 0
 vote 9 3 0
-vote 10 0 3
-vote 11 0 3
-vote 12 0 3
+vote 10 3 0
+vote 11 3 0
+vote 12 3 0
 vote 13 0 3
-vote 14 0 3
-vote 15 0 3
 
-need            # expect INSUFFICIENT / PROPOSE, colliding pairs (1,13) (6,14) (7,15) (2,10) (2,12)
+need            # expect INSUFFICIENT / PROPOSE, colliding pairs (11,13) and (12,13)
 
-# The missing predicates are not categories but costs: whether the fix needs a measurement the
-# paper does not have, whether it disturbs the layout, whether it is a matter of taste.
-add needs_data 13 14 15
-add layout_risk 11
-add taste 10 12
+# The taxonomy has one hole: it cannot tell a claim-about-wording from a claim-about-strength.
+# The two reviewers rejected "proved incomplete" because a probe refutes deductively, and adopted
+# the tense and voice findings because they are register; both sit in f_voice.
+add claim_strength 13
 
 need            # expect IDENTIFIED / STOP, colliding pairs none
