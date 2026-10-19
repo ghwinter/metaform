@@ -1,7 +1,7 @@
 //! Operator experience, read off the run record.
 //!
-//! Every controller step appends a line to a record file. This module turns that file into a table
-//! keyed by a coarse description of the state -- object count, vocabulary size, labelled examples,
+//! Every controller step appends one line per offer to a record file. This module turns that file
+//! into a table keyed by the state class -- object count, vocabulary size, labelled examples,
 //! colliding pairs -- so the runtime can answer one question: for states like this one, which
 //! operator has actually been adopting proposals, and at what cost?
 //!
@@ -9,17 +9,9 @@
 //! what the record says. If a class has never been seen, it says so and the controller keeps its
 //! default order.
 
+use crate::record::{Class, Record};
 use std::collections::BTreeMap;
 use std::path::Path;
-
-/// A coarse class of states.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Class {
-    pub objects: usize,
-    pub vocabulary: usize,
-    pub labelled: usize,
-    pub colliding: usize,
-}
 
 /// What the record says about one operator in one class.
 #[derive(Clone, Debug, Default)]
@@ -55,105 +47,65 @@ pub struct Experience {
     pub conflicts: BTreeMap<Class, usize>,
 }
 
-/// One record line. The last three fields are optional so that records written before they existed
-/// still load.
-struct Line<'a> {
-    operator: &'a str,
-    adopted: bool,
-    cost: f64,
-    colliding: usize,
-    objects: usize,
-    vocabulary: usize,
-    labelled: usize,
-    conflict: bool,
-    fingerprint: &'a str,
-    step: &'a str,
-}
-
-fn parse(line: &str) -> Option<Line<'_>> {
-    let f: Vec<&str> = line.split('\t').collect();
-    if f.len() < 10 {
-        return None;
-    }
-    Some(Line {
-        operator: f[2],
-        adopted: f[6] == "1",
-        cost: f[7].parse().ok()?,
-        colliding: f[5].parse().ok()?,
-        objects: f.get(10).and_then(|v| v.parse().ok()).unwrap_or(0),
-        vocabulary: f.get(11).and_then(|v| v.parse().ok()).unwrap_or(0),
-        labelled: f.get(12).and_then(|v| v.parse().ok()).unwrap_or(0),
-        conflict: f.get(13).map(|v| *v == "1").unwrap_or(false),
-        fingerprint: f[0],
-        step: f[1],
-    })
-}
-
 impl Experience {
     /// Reads a record file. A missing file is an empty record, not an error: the runtime has to work
-    /// before it has ever run.
+    /// before it has ever run. A file whose header is not `record::VERSION` is also empty, with a
+    /// warning on stderr, because guessing at another version's columns is how a table goes wrong.
     pub fn load(path: &Path) -> std::io::Result<Experience> {
-        let mut experience = Experience::default();
         let text = match std::fs::read_to_string(path) {
             Ok(t) => t,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(experience),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Experience::default()),
             Err(e) => return Err(e),
         };
-        // A step's conflict flag is repeated on every offer line of that step; count the step once.
-        let mut counted: std::collections::BTreeSet<(String, String)> =
-            std::collections::BTreeSet::new();
-        for line in text.lines() {
-            let Some(parsed) = parse(line) else { continue };
-            let class = Class {
-                objects: parsed.objects,
-                vocabulary: parsed.vocabulary,
-                labelled: parsed.labelled,
-                colliding: parsed.colliding,
-            };
-            let tally = experience
-                .table
-                .entry((class, parsed.operator.to_string()))
-                .or_default();
-            tally.attempts += 1;
-            if parsed.adopted {
-                tally.adoptions += 1;
-            }
-            tally.cost_sum += parsed.cost;
-            if parsed.conflict
-                && counted.insert((parsed.fingerprint.to_string(), parsed.step.to_string()))
-            {
-                *experience.conflicts.entry(class).or_insert(0) += 1;
+        let mut lines = text.lines();
+        match lines.next() {
+            Some(first) if first.trim_end_matches(['\r', '\n']) == crate::record::VERSION => {}
+            _ => {
+                eprintln!(
+                    "! {} does not start with {}; treating it as empty",
+                    path.display(),
+                    crate::record::VERSION
+                );
+                return Ok(Experience::default());
             }
         }
-        Ok(experience)
+        Ok(Experience::from_records(lines.filter_map(Record::parse)))
+    }
+
+    fn from_records(records: impl Iterator<Item = Record>) -> Experience {
+        let mut experience = Experience::default();
+        // A step's conflict flag is repeated on every offer line of that step; count it once.
+        let mut counted: std::collections::BTreeSet<(u64, usize)> = std::collections::BTreeSet::new();
+        for record in records {
+            let tally = experience
+                .table
+                .entry((record.class, record.operator.clone()))
+                .or_default();
+            tally.attempts += 1;
+            if record.adopted {
+                tally.adoptions += 1;
+            }
+            tally.cost_sum += record.cost;
+            if record.conflict && counted.insert((record.fingerprint, record.step)) {
+                *experience.conflicts.entry(record.class).or_insert(0) += 1;
+            }
+        }
+        experience
     }
 
     /// The operator that has adopted most often in this class, cheapest on a tie. `None` when the
     /// class has never been seen.
     pub fn suggest(&self, class: &Class) -> Option<String> {
-        let mut best: Option<(&String, &Tally)> = None;
-        for ((c, operator), tally) in &self.table {
-            if c != class {
-                continue;
-            }
-            best = match best {
-                None => Some((operator, tally)),
-                Some((best_op, best_tally)) => {
-                    let better = tally.adoptions > best_tally.adoptions
-                        || (tally.adoptions == best_tally.adoptions
-                            && tally.mean_cost() < best_tally.mean_cost())
-                        || (tally.adoptions == best_tally.adoptions
-                            && tally.mean_cost() == best_tally.mean_cost()
-                            && operator < best_op);
-                    if better {
-                        Some((operator, tally))
-                    } else {
-                        Some((best_op, best_tally))
-                    }
-                }
-            };
-        }
-        best.map(|(operator, _)| operator.clone())
+        self.table
+            .iter()
+            .filter(|((c, _), _)| c == class)
+            .min_by(|((_, a), ta), ((_, b), tb)| {
+                tb.adoptions
+                    .cmp(&ta.adoptions)
+                    .then(ta.mean_cost().total_cmp(&tb.mean_cost()))
+                    .then(a.cmp(b))
+            })
+            .map(|((_, operator), _)| operator.clone())
     }
 
     /// The table, sorted for printing.
@@ -165,36 +117,72 @@ impl Experience {
     }
 }
 
+/// The class of a state, as the record stores it.
+pub fn class_of(ctx: &crate::Context) -> Class {
+    Class {
+        objects: ctx.objects,
+        vocabulary: ctx.vocabulary.len(),
+        labelled: (ctx.pos.count_ones() + ctx.neg.count_ones()) as usize,
+        colliding: crate::colliding_pairs(ctx).len(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn record() -> String {
-        // Two classes; in class A the retriever adopts, in class B the analogizer does.
-        [
-            "00aa\t0\tvsa-retriever\ta&b\t2\t2\t1\t0.010\tINSUFFICIENT\tIDENTIFIED\t4\t1\t4",
-            "00aa\t0\tvsa-retriever\ta&b\t2\t2\t0\t0.010\tINSUFFICIENT\tIDENTIFIED\t4\t1\t4",
-            "00bb\t0\tsme-analogizer\tliquid\t2\t2\t1\t49.000\tINSUFFICIENT\tIDENTIFIED\t6\t1\t4",
-            "00bb\t0\tvsa-retriever\tc\t0\t2\t0\t0.010\tINSUFFICIENT\tINSUFFICIENT\t6\t1\t4",
-        ]
-        .join("\n")
+    fn record(class: Class, operator: &str, adopted: bool, cost: f64, colliding: usize) -> Record {
+        Record {
+            fingerprint: 0x00aa,
+            step: 0,
+            operator: operator.to_string(),
+            name: "a&b".to_string(),
+            splits: 2,
+            colliding,
+            adopted,
+            cost,
+            status_before: "INSUFFICIENT".to_string(),
+            status_after: "IDENTIFIED".to_string(),
+            class,
+            conflict: false,
+        }
     }
 
-    fn load(text: &str) -> Experience {
+    fn write(records: &[Record]) -> std::path::PathBuf {
         use std::sync::atomic::{AtomicUsize, Ordering};
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
         let dir = std::env::temp_dir().join(format!("metaform-exp-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(format!("runs-{}.tsv", COUNTER.fetch_add(1, Ordering::Relaxed)));
+        let mut text = String::from(crate::record::VERSION);
+        text.push('\n');
+        for r in records {
+            text.push_str(&r.to_line());
+            text.push('\n');
+        }
         std::fs::write(&path, text).unwrap();
-        Experience::load(&path).expect("load")
+        path
+    }
+
+    fn class_a() -> Class {
+        Class { objects: 4, vocabulary: 1, labelled: 4, colliding: 2 }
+    }
+
+    fn class_b() -> Class {
+        Class { objects: 6, vocabulary: 1, labelled: 4, colliding: 2 }
     }
 
     #[test]
     fn tallies_are_counted_per_class_and_operator() {
-        let e = load(&record());
-        let class_a = Class { objects: 4, vocabulary: 1, labelled: 4, colliding: 2 };
-        let tally = e.table.get(&(class_a, "vsa-retriever".to_string())).expect("row");
+        let path = write(&[
+            record(class_a(), "vsa-retriever", true, 0.01, 2),
+            record(class_a(), "vsa-retriever", false, 0.01, 2),
+        ]);
+        let e = Experience::load(&path).expect("load");
+        let tally = e
+            .table
+            .get(&(class_a(), "vsa-retriever".to_string()))
+            .expect("row");
         assert_eq!(tally.attempts, 2);
         assert_eq!(tally.adoptions, 1);
         assert!((tally.adoption_rate() - 0.5).abs() < 1e-9);
@@ -202,17 +190,20 @@ mod tests {
 
     #[test]
     fn the_suggestion_is_the_operator_that_adopted_most() {
-        let e = load(&record());
-        let class_a = Class { objects: 4, vocabulary: 1, labelled: 4, colliding: 2 };
-        assert_eq!(e.suggest(&class_a), Some("vsa-retriever".to_string()));
-        let class_b = Class { objects: 6, vocabulary: 1, labelled: 4, colliding: 2 };
-        // In the other class the analogizer is the one that adopted.
-        assert_eq!(e.suggest(&class_b), Some("sme-analogizer".to_string()));
+        let path = write(&[
+            record(class_a(), "vsa-retriever", true, 0.01, 2),
+            record(class_b(), "sme-analogizer", true, 49.0, 2),
+            record(class_b(), "vsa-retriever", false, 0.01, 2),
+        ]);
+        let e = Experience::load(&path).expect("load");
+        assert_eq!(e.suggest(&class_a()), Some("vsa-retriever".to_string()));
+        assert_eq!(e.suggest(&class_b()), Some("sme-analogizer".to_string()));
     }
 
     #[test]
     fn an_unseen_class_has_no_suggestion() {
-        let e = load(&record());
+        let path = write(&[record(class_a(), "vsa-retriever", true, 0.01, 2)]);
+        let e = Experience::load(&path).expect("load");
         let unseen = Class { objects: 12, vocabulary: 3, labelled: 6, colliding: 7 };
         assert_eq!(e.suggest(&unseen), None);
     }
@@ -226,20 +217,12 @@ mod tests {
     }
 
     #[test]
-    fn old_lines_without_the_class_columns_still_load() {
-        let e = load("00cc\t0\tvsa-retriever\ta\t1\t1\t1\t0.500\tINSUFFICIENT\tIDENTIFIED");
-        let class = Class { objects: 0, vocabulary: 0, labelled: 0, colliding: 1 };
-        assert_eq!(e.suggest(&class), Some("vsa-retriever".to_string()));
-    }
-}
-
-/// The class of a state, as the record stores it.
-pub fn class_of(ctx: &crate::Context) -> Class {
-    let labelled = (ctx.pos.count_ones() + ctx.neg.count_ones()) as usize;
-    Class {
-        objects: ctx.objects,
-        vocabulary: ctx.vocabulary.len(),
-        labelled,
-        colliding: crate::colliding_pairs(ctx).len(),
+    fn a_file_without_the_header_is_ignored_rather_than_misread() {
+        let dir = std::env::temp_dir().join(format!("metaform-exp-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("no-header.tsv");
+        std::fs::write(&path, "00aa\t0\tvsa-retriever\ta\t1\t1\t1\t0.5\tA\tB\t4\t1\t4\t0\n").unwrap();
+        let e = Experience::load(&path).expect("load");
+        assert!(e.table.is_empty());
     }
 }

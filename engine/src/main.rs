@@ -26,7 +26,6 @@ use std::io::{self, BufRead, Write};
 mod ledger;
 mod mcp;
 mod plan;
-mod propose;
 mod report;
 mod score;
 mod state;
@@ -431,7 +430,7 @@ fn main() {
         }
         Some("propose") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
-            std::process::exit(propose::cmd(&v));
+            std::process::exit(metaform::propose::cmd(&v));
         }
         Some("ops") => {
             println!("{}", metaform::operators::demo_json());

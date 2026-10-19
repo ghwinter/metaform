@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "engine",
+    "crates/runtime",
+    "crates/vsa",
+    "crates/sme",
+    "crates/ilp",
+]
+
+[workspace.package]
+version = "0.5.3"
+edition = "2021"
+license = "MIT OR Apache-2.0"

@@ -22,10 +22,48 @@
 
 use std::collections::HashSet;
 
-use metaform::{bit, Explorer, Mask, Predicate, Vocabulary};
+use crate::{bit, Explorer, Mask, Predicate, Vocabulary};
 
 /// The protocol string that identifies this boundary.
 const PROTOCOL: &str = "metaform.propose/1";
+
+/// A proposal as a component supplies it: the ids it covers, with optional provenance.
+pub struct Proposal<'a> {
+    pub name: &'a str,
+    pub ids: &'a [usize],
+    pub warrant: Option<&'a str>,
+    pub falsifier: Option<&'a str>,
+}
+
+/// The ids a mask covers, for a state with `objects` objects.
+pub fn ids_of(mask: Mask, objects: usize) -> Vec<usize> {
+    (0..objects).filter(|o| (mask >> o) & 1 == 1).collect()
+}
+
+/// Writes the response file a component hands to `metaform propose`. One writer for the format,
+/// so a component cannot invent a slightly different shape.
+pub fn response_file(request_id: &str, proposals: &[Proposal<'_>]) -> String {
+    let entries: Vec<String> = proposals
+        .iter()
+        .map(|p| {
+            let ids: Vec<String> = p.ids.iter().map(|i| i.to_string()).collect();
+            let mut entry = format!("{{\"name\":{},\"ids\":[{}]", json_string(p.name), ids.join(","));
+            if let Some(w) = p.warrant {
+                entry.push_str(&format!(",\"warrant\":{}", json_string(w)));
+            }
+            if let Some(f) = p.falsifier {
+                entry.push_str(&format!(",\"falsifier\":{}", json_string(f)));
+            }
+            entry.push('}');
+            entry
+        })
+        .collect();
+    format!(
+        "{{\"protocol\":\"{PROTOCOL}\",\"request_id\":{},\"candidates\":[{}],\"refused\":null}}",
+        json_string(request_id),
+        entries.join(",")
+    )
+}
 
 /// Default cap on accepted candidates when the request has no `limit`.
 const DEFAULT_LIMIT: usize = 8;

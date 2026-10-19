@@ -63,6 +63,7 @@ impl FileProposer {
                     detail: "supplied in a proposals file".to_string(),
                     warrant: vec!["declared by the file's author".to_string()],
                     falsifier: vec!["a labelled object that contradicts the extension".to_string()],
+                    adoptable: true,
                 });
             proposer.lines += 1;
         }

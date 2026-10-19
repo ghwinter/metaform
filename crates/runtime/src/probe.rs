@@ -164,6 +164,7 @@ impl Operator for ProbeLabels {
                 ),
                 warrant: vec![format!("flipping object {} admits this concept", suspect)],
                 falsifier: vec![format!("object {} is labelled correctly", suspect)],
+                adoptable: true,
             });
             unresolved.push(format!(
                 "label of object {}: flipping it admits a concept that separates everything",

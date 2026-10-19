@@ -8,6 +8,8 @@
 # Allow list: the directories and files that make up the repository.
 # ---------------------------------------------------------------------------
 !/.gitattributes
+!/Cargo.lock
+!/Cargo.toml
 !/.gitignore
 !/LICENSE-APACHE
 !/LICENSE-MIT
@@ -32,6 +34,7 @@
 .metaform/
 dist/
 engine/target/
+/target/
 crates/*/target/
 research/lean/.lake/
 research/exp/lean_oracle/

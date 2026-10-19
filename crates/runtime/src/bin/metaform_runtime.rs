@@ -73,27 +73,32 @@ fn print_step(step: &Step) {
 }
 
 /// One record line per offer: what the operator proposed, whether it won, and the state class.
+/// One record line per offer: what the operator proposed, whether it won, and the state class.
 fn record_lines(state_hash: u64, step: &Step, ctx: &metaform_runtime::Context) -> Vec<String> {
+    let class = metaform_runtime::record::Class {
+        objects: ctx.objects,
+        vocabulary: step.vocabulary_before,
+        labelled: (ctx.pos.count_ones() + ctx.neg.count_ones()) as usize,
+        colliding: step.colliding_before,
+    };
     step.offers
         .iter()
         .map(|offer| {
-            format!(
-                "{:016x}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.3}\t{}\t{}\t{}\t{}\t{}\t{}",
-                state_hash,
-                step.index,
-                offer.operator,
-                offer.name,
-                offer.splits,
-                step.colliding_before,
-                offer.adopted as u8,
-                offer.cost,
-                status_name(step.status_before),
-                status_name(step.status_after),
-                ctx.objects,
-                step.vocabulary_before,
-                (ctx.pos.count_ones() + ctx.neg.count_ones()) as usize,
-                if step.conflict.is_some() { 1 } else { 0 }
-            )
+            metaform_runtime::record::Record {
+                fingerprint: state_hash,
+                step: step.index,
+                operator: offer.operator.clone(),
+                name: offer.name.clone(),
+                splits: offer.splits,
+                colliding: step.colliding_before,
+                adopted: offer.adopted,
+                cost: offer.cost as f64,
+                status_before: status_name(step.status_before).to_string(),
+                status_after: status_name(step.status_after).to_string(),
+                class,
+                conflict: step.conflict.is_some(),
+            }
+            .to_line()
         })
         .collect()
 }
@@ -104,54 +109,30 @@ fn usage() -> ! {
     std::process::exit(2);
 }
 
-/// Escapes a string for a JSON field.
-fn json(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 2);
-    out.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
-}
-
 fn write_response(
     path: &str,
     request_id: &str,
+    objects: usize,
     candidates: &[metaform_runtime::Candidate],
 ) -> std::io::Result<()> {
-    let mut body = String::new();
-    body.push_str("{\"protocol\":\"metaform.propose/1\",\"request_id\":");
-    body.push_str(&json(request_id));
-    body.push_str(",\"candidates\":[");
-    for (i, c) in candidates.iter().enumerate() {
-        if i > 0 {
-            body.push(',');
-        }
-        let ids: Vec<String> = (0..64)
-            .filter(|o| (c.extension >> o) & 1 == 1)
-            .map(|o| o.to_string())
-            .collect();
-        body.push_str(&format!(
-            "{{\"name\":{},\"ids\":[{}],\"warrant\":{},\"falsifier\":{}}}",
-            json(&c.name),
-            ids.join(","),
-            json(&c.warrant.join("; ")),
-            json(&c.falsifier.join("; "))
-        ));
-    }
-    body.push_str("],\"refused\":null}\n");
-    std::fs::write(path, body)
+    let ids: Vec<Vec<usize>> = candidates
+        .iter()
+        .map(|c| metaform::propose::ids_of(c.extension, objects))
+        .collect();
+    let warrants: Vec<String> = candidates.iter().map(|c| c.warrant.join("; ")).collect();
+    let falsifiers: Vec<String> = candidates.iter().map(|c| c.falsifier.join("; ")).collect();
+    let proposals: Vec<metaform::propose::Proposal<'_>> = candidates
+        .iter()
+        .enumerate()
+        .map(|(i, c)| metaform::propose::Proposal {
+            name: &c.name,
+            ids: &ids[i],
+            warrant: Some(warrants[i].as_str()),
+            falsifier: Some(falsifiers[i].as_str()),
+        })
+        .collect();
+    std::fs::write(path, metaform::propose::response_file(request_id, &proposals))
 }
-
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let Some(command) = args.get(1).map(|s| s.as_str()) else { usage() };
@@ -335,8 +316,9 @@ fn main() {
             }
 
             let max_steps: usize = arg(rest, "--max-steps").and_then(|v| v.parse().ok()).unwrap_or(8);
+            let budget: usize = arg(rest, "--budget").and_then(|v| v.parse().ok()).unwrap_or(4);
             let state_hash = fingerprint(&ctx);
-            let steps = run(&mut ctx, &operators, max_steps);
+            let steps = run(&mut ctx, &operators, max_steps, budget);
 
             println!("run {} (state {:016x})", command, state_hash);
             for step in &steps {
@@ -350,7 +332,13 @@ fn main() {
             );
 
             if let Some(path) = arg(rest, "--record") {
+                // A new file starts with the format version; an existing one already has it.
+                let fresh = !std::path::Path::new(&path).exists();
                 let mut body = String::new();
+                if fresh {
+                    body.push_str(metaform_runtime::record::VERSION);
+                    body.push('\n');
+                }
                 for step in &steps {
                     for line in record_lines(state_hash, step, &ctx) {
                         body.push_str(&line);
@@ -378,7 +366,7 @@ fn main() {
     };
 
     let out = out.expect("checked above");
-    if let Err(e) = write_response(&out, &state.as_ref().map(|s| s.request_id.clone()).unwrap_or_default(), &result.candidates) {
+    if let Err(e) = write_response(&out, &state.as_ref().map(|s| s.request_id.clone()).unwrap_or_default(), state.as_ref().map(|s| s.objects).unwrap_or(0), &result.candidates) {
         eprintln!("cannot write {}: {}", out, e);
         std::process::exit(2);
     }

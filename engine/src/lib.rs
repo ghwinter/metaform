@@ -18,6 +18,7 @@ use std::collections::HashMap;
 
 /// Multi-operator typing (paper §4): five classes of steps share one measure `Φ`, and each class is checked for what it can change.
 pub mod operators;
+pub mod propose;
 
 /// Portfolio identification: several vocabularies, exactly one of which is sufficient (paper Theorem 2).
 pub mod portfolio;

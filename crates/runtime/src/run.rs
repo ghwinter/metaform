@@ -21,6 +21,8 @@ pub struct Offer {
     pub splits: usize,
     pub cost: f32,
     pub adopted: bool,
+    /// False for reports that must not enter the vocabulary, such as a conflict against a label.
+    pub adoptable: bool,
     /// The operator's own words about this offer, carried through for the report.
     pub note: String,
 }
@@ -44,7 +46,7 @@ impl Step {
     }
 }
 /// Runs the loop. Returns one record per step, including the final step that stopped it.
-pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize) -> Vec<Step> {
+pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize, budget: usize) -> Vec<Step> {
     let mut steps = Vec::new();
 
     for index in 0..max_steps {
@@ -64,7 +66,7 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
             if !op.applicable(ctx) {
                 continue;
             }
-            let result = op.execute(ctx, 4);
+            let result = op.execute(ctx, budget);
             let verdict = validate(ctx, &result.candidates);
             for candidate in verdict.accepted {
                 let splits = crate::splits(ctx, candidate.extension);
@@ -75,6 +77,7 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
                         splits,
                         cost: result.cost,
                         adopted: false,
+                        adoptable: candidate.adoptable,
                         note: candidate.warrant.first().cloned().unwrap_or_default(),
                     };
                     offers.push(offer.clone());
@@ -84,74 +87,74 @@ pub fn run(ctx: &mut Context, operators: &[Box<dyn Operator>], max_steps: usize)
         }
 
         // Deterministic choice: most pairs separated, then cheapest, then name.
+        // Deterministic choice: adoptable offers first, then most pairs separated, then cheapest,
+        // then name. A report is never adopted, whatever it separates.
         offers.sort_by(|a, b| {
-            b.splits
-                .cmp(&a.splits)
-                .then(a.cost.partial_cmp(&b.cost).unwrap_or(std::cmp::Ordering::Equal))
+            b.adoptable
+                .cmp(&a.adoptable)
+                .then(b.splits.cmp(&a.splits))
+                .then(a.cost.total_cmp(&b.cost))
                 .then(a.name.cmp(&b.name))
         });
 
-        if let Some(best) = offers.first().cloned() {
-            if let Some((_, candidate)) =
-                seen.iter().find(|(o, _)| o.name == best.name && o.operator == best.operator)
-            {
-                adopt(ctx, candidate);
-            }
-            let status_after = status_with(ctx, &[]);
-            let mut recorded = offers.clone();
-            for offer in recorded.iter_mut() {
-                offer.adopted = offer.name == best.name && offer.operator == best.operator;
-            }
-            // If the best offer still leaves pairs unexplained, anything the probe said about a
-            // doubtful label belongs in the report: the state is not merely undecided, it is
-            // contradictory under the labels as given.
-            let conflict = if best.splits < pairs.len() {
-                let notes: Vec<String> = recorded
-                    .iter()
-                    .filter(|o| o.operator == "probe-labels" && !o.note.is_empty())
-                    .map(|o| format!("{} {}", o.name, o.note))
-                    .collect();
-                if notes.is_empty() {
-                    None
-                } else {
-                    Some(notes.join("; "))
-                }
-            } else {
-                None
-            };
-            steps.push(Step {
-                index,
-                status_before,
-                status_after,
-                colliding_before: pairs.len(),
-                vocabulary_before,
-                offers: recorded,
-                conflict,
-            });
-        } else {
-            // Nothing on the table separates a pair: record what was seen and stop rather than loop.
-            let conflict = offers
+        let conflict_notes = |offers: &[Offer]| -> Option<String> {
+            let notes: Vec<String> = offers
                 .iter()
-                .any(|o| o.operator == "probe-labels")
-                .then(|| {
-                    offers
-                        .iter()
-                        .filter(|o| o.operator == "probe-labels" && !o.note.is_empty())
-                        .map(|o| format!("{} {}", o.name, o.note))
-                        .collect::<Vec<_>>()
-                        .join("; ")
-                })
-                .filter(|s| !s.is_empty());
-            steps.push(Step {
-                index,
-                status_before,
-                status_after: status_before,
-                colliding_before: pairs.len(),
-                vocabulary_before,
-                offers,
-                conflict,
-            });
-            break;
+                .filter(|o| !o.adoptable && !o.note.is_empty())
+                .map(|o| format!("{} {}", o.name, o.note))
+                .collect();
+            if notes.is_empty() {
+                None
+            } else {
+                Some(notes.join("; "))
+            }
+        };
+
+        match offers.first().filter(|best| best.adoptable).cloned() {
+            Some(best) => {
+                if let Some((_, candidate)) = seen
+                    .iter()
+                    .find(|(o, _)| o.name == best.name && o.operator == best.operator)
+                {
+                    adopt(ctx, candidate);
+                }
+                let status_after = status_with(ctx, &[]);
+                let mut recorded = offers.clone();
+                for offer in recorded.iter_mut() {
+                    offer.adopted = offer.name == best.name && offer.operator == best.operator;
+                }
+                // A proposal that cannot separate every pair leaves the state contradictory rather
+                // than merely undecided, so anything the probe said about a doubtful label belongs
+                // in the record.
+                let conflict = if best.splits < pairs.len() {
+                    conflict_notes(&recorded)
+                } else {
+                    None
+                };
+                steps.push(Step {
+                    index,
+                    status_before,
+                    status_after,
+                    colliding_before: pairs.len(),
+                    vocabulary_before,
+                    offers: recorded,
+                    conflict,
+                });
+            }
+            None => {
+                // Only reports, or nothing that separates a pair: record and stop rather than loop.
+                let conflict = conflict_notes(&offers);
+                steps.push(Step {
+                    index,
+                    status_before,
+                    status_after: status_before,
+                    colliding_before: pairs.len(),
+                    vocabulary_before,
+                    offers,
+                    conflict,
+                });
+                break;
+            }
         }
     }
 
@@ -164,9 +167,13 @@ pub fn fingerprint(ctx: &Context) -> u64 {
         hash ^= byte as u64;
         hash = hash.wrapping_mul(0x0100_0000_01b3);
     };
-    eat(ctx.objects as u8);
-    eat(ctx.pos as u8);
-    eat(ctx.neg as u8);
+    // Every byte of every field: hashing only the low byte would make two states with more than
+    // eight labelled objects share a fingerprint.
+    for word in [ctx.objects as u64, ctx.pos, ctx.neg] {
+        for k in 0..8 {
+            eat((word >> (k * 8)) as u8);
+        }
+    }
     for p in &ctx.vocabulary.preds {
         for b in p.name.bytes() {
             eat(b);
@@ -175,6 +182,7 @@ pub fn fingerprint(ctx: &Context) -> u64 {
             eat((p.ext >> (k * 8)) as u8);
         }
     }
+    eat(0xff);
     hash
 }
 
@@ -220,7 +228,7 @@ mod tests {
             }),
             Box::new(VsaRetriever { dim: 2048, seed: 7, max_arity: 2 }),
         ];
-        let steps = run(&mut ctx, &operators, 4);
+        let steps = run(&mut ctx, &operators, 4, 4);
         assert!(!steps.is_empty());
         assert!(steps[0].adopted().is_some(), "the first step should adopt something");
         assert!(steps[0].adopted().unwrap().splits > 0);
@@ -250,6 +258,7 @@ mod tests {
                         detail: String::new(),
                         warrant: Vec::new(),
                         falsifier: Vec::new(),
+                        adoptable: true,
                     }],
                     evidence: Vec::new(),
                     assumptions: Vec::new(),
@@ -261,7 +270,7 @@ mod tests {
         }
         let mut ctx = collision();
         let operators: Vec<Box<dyn Operator>> = vec![Box::new(Useless)];
-        let steps = run(&mut ctx, &operators, 4);
+        let steps = run(&mut ctx, &operators, 4, 4);
         assert_eq!(steps.len(), 1);
         assert!(steps[0].adopted().is_none());
         assert!(steps[0].offers.is_empty(), "nothing separated, so nothing was offered");

@@ -33,6 +33,10 @@ pub struct Candidate {
     pub detail: String,
     pub warrant: Vec<String>,
     pub falsifier: Vec<String>,
+    /// False when the proposal is a report rather than something the state should adopt: a
+    /// conflict against a doubted label, for instance, is information for the caller, not a
+    /// predicate to add.
+    pub adoptable: bool,
 }
 
 /// What an operator returns. The fields are deliberately not collapsed into a single number.
@@ -241,6 +245,7 @@ impl Operator for VsaRetriever {
                 detail: format!("cosine {:.3} to the contrast of {} and {}", r.similarity, pos, neg),
                 warrant: vec![format!("declared similar to the contrast between {} and {}", pos, neg)],
                 falsifier: vec!["a labelled object that contradicts the extension".to_string()],
+                adoptable: true,
             })
             .collect();
         OperatorResult {
@@ -304,6 +309,7 @@ impl Operator for SmeAnalogizer {
                     ),
                     warrant: vec![format!("unmatched structure of the base, systematicity {}", best.score.systematicity)],
                     falsifier: vec!["an object that satisfies the source relation but not the mapped one".to_string()],
+                    adoptable: true,
                 }),
                 None => unresolved.push(format!("no extensional reading for inferred relation {}", name)),
             }
@@ -382,6 +388,7 @@ mod tests {
             detail: String::new(),
             warrant: Vec::new(),
             falsifier: Vec::new(),
+            adoptable: true,
         };
         let verdict = validate(
             &ctx,
@@ -418,6 +425,7 @@ mod tests {
             detail: String::new(),
             warrant: Vec::new(),
             falsifier: Vec::new(),
+            adoptable: true,
         };
         let verdict = validate(&ctx, std::slice::from_ref(&proposal));
         assert_eq!(verdict.accepted.len(), 1);
@@ -460,6 +468,7 @@ mod tests {
 /// Small relational systems used by the demo and the tests.
 pub mod experience;
 pub mod file_proposer;
+pub mod record;
 pub mod probe;
 pub mod run;
 pub mod state;
