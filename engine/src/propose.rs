@@ -31,7 +31,7 @@
 
 use std::collections::HashSet;
 
-use crate::{bit, Explorer, Mask, Predicate, Vocabulary};
+use crate::{bit, DefOp, Definition, Explorer, Mask, Predicate, Vocabulary};
 
 /// The protocol string that identifies this boundary.
 const PROTOCOL: &str = "metaform.propose/1";
@@ -525,19 +525,6 @@ fn object_mask(n: usize) -> Mask {
     } else {
         Mask::MAX >> (64 - n)
     }
-}
-
-/// The operator of a `define` clause.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum DefOp {
-    AllOf,
-    AnyOf,
-}
-
-/// A parsed `define` clause: one operator over names that already exist in the request vocabulary.
-struct Definition {
-    op: DefOp,
-    operands: Vec<String>,
 }
 
 /// Parse a `define` value. A malformed clause is a candidate-level `wrong_protocol` rejection.

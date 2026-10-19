@@ -33,7 +33,7 @@ fn meta_dir(args: &Value) -> PathBuf {
 
 fn tool_state_need(args: &Value) -> Result<String, String> {
     let dir = meta_dir(args);
-    let st = state::State::load(&dir.join("state.json"));
+    let st = state::State::load(&dir.join("state.json"))?;
     let theta = args.get("theta").and_then(|v| v.as_u64()).map(|x| x as u8);
     Ok(state::need_json(&st.explorer(), theta))
 }
@@ -41,7 +41,7 @@ fn tool_state_need(args: &Value) -> Result<String, String> {
 fn tool_state_vote(args: &Value) -> Result<String, String> {
     let dir = meta_dir(args);
     let path = dir.join("state.json");
-    let mut st = state::State::load(&path);
+    let mut st = state::State::load(&path)?;
     let id = args.get("id").and_then(|v| v.as_u64()).ok_or("missing id")? as usize;
     let yes = args.get("yes").and_then(|v| v.as_u64()).unwrap_or(0) as u8;
     let no = args.get("no").and_then(|v| v.as_u64()).unwrap_or(0) as u8;
@@ -67,7 +67,7 @@ fn tool_ledger_conflicts(args: &Value) -> Result<String, String> {
 
 fn tool_plan(args: &Value) -> Result<String, String> {
     let dir = meta_dir(args);
-    let st = state::State::load(&dir.join("state.json"));
+    let st = state::State::load(&dir.join("state.json"))?;
     let rows = ledger::read_all(&dir.join("ledger.tsv"));
     let e = st.explorer();
     let theta = args

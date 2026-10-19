@@ -59,6 +59,7 @@ metaform ledger retract --project . --id L2 --reason "oracle 答错"
 metaform ledger cases   --project .              # 已确认且无冲突的对象
 metaform ledger conflicts --project .            # 方向冲突：{"conflicts":[...]}
 metaform state init  --project . --n 4            # 场景持久化到 .metaform/state.json
+metaform state add   --project . --name p --define all-of:a,b  # 存 p = a AND b 的定义
 metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # 一步式：直接给状态与建议
 metaform plan   --project . --pool .metaform/out/pool.txt # 覆盖 + 纯度 + 重问预算
@@ -78,6 +79,10 @@ metaform ops                                       # 五类算子调度对照：
 （对词汇中已有名字做 `all_of` / `any_of`）。校验会拒绝超出对象范围的 id、常量或空扩展、与词汇或先前
 候选重名的名字、重复 id，以及协议或请求 id 不符的整份响应；模型也可以拒答，这被记为 `refused` 而不是
 重试。校验是纯的：不写文件、不改状态，所以"加入谓词"仍是独立一步，提议无法覆盖证据。
+要把被接受的定义持久化下来，用 `metaform state add --project . --name p --define all-of:a,b`
+（或 `any-of:a,b`）；`--ids` 仍保持外延式。状态文件会把定义和扩展一起存下，每次加载都按操作数与当前
+对象数重算扩展，因此对象集变大后谓词仍然正确。操作数缺失或定义成环都会给出明确错误，而不是静默丢掉
+谓词；定义出现之前写下的状态文件照常加载，保持外延式。
 
 在廉价提议的假设下，这个分工才是重点：模型每次给很多候选，引擎支付提问。
 

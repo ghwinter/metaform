@@ -63,6 +63,7 @@ metaform ledger retract --project . --id L2 --reason "oracle answered wrong"
 metaform ledger cases   --project .              # confirmed objects with no conflicts
 metaform ledger conflicts --project .            # direction conflicts: {"conflicts":[...]}
 metaform state init  --project . --n 4            # persist the scenario to .metaform/state.json
+metaform state add   --project . --name p --define all-of:a,b  # store p = a AND b as a definition
 metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # one-shot: status and recommendations directly
 metaform plan   --project . --pool .metaform/out/pool.txt # coverage + purity + re-ask budget
@@ -86,6 +87,12 @@ or empty extensions, names that repeat the vocabulary or an earlier candidate, d
 arriving under the wrong protocol or request id; a model may also decline,
 which is recorded as `refused` rather than retried. Validation is pure: it writes no file and changes no
 state, so adding a predicate remains a separate step and a proposal cannot overwrite evidence.
+Adopting an accepted definition persistently uses `metaform state add --project . --name p --define
+all-of:a,b` (or `any-of:a,b`); `--ids` keeps the extensional form. The state file stores the definition
+next to its extension, and every load recomputes that extension from the operands and the current object
+count, so a project that grows past the object set it was saved with keeps a correct predicate. A missing
+operand or a definition cycle is a clear error rather than a silently dropped predicate; files written
+before definitions existed load unchanged and stay extensional.
 
 Under the cheap-proposal assumption this is the division that matters: the model supplies many
 candidates per call, the engine pays for the queries.

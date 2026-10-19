@@ -29,7 +29,7 @@ mod plan;
 mod report;
 mod score;
 mod state;
-use metaform::{bit, Explorer, Predicate, Status, Vocabulary};
+use metaform::{bit, Definition, DefOp, Explorer, Predicate, Status, Vocabulary};
 
 fn ids_to_mask(ids: &[String], n: usize) -> Result<u64, String> {
     let mut m = 0u64;
@@ -165,6 +165,50 @@ fn project_root(args: &[String]) -> std::path::PathBuf {
     std::path::PathBuf::from(kv(args, "--project").unwrap_or_else(|| ".".into()))
 }
 
+/// Load the project state, reporting an unresolvable definition (missing operand, cycle, bad file)
+/// on stderr and returning `None` so the caller can exit with status 2.
+fn load_state(path: &std::path::Path, command: &str) -> Option<state::State> {
+    match state::State::load(path) {
+        Ok(st) => Some(st),
+        Err(e) => {
+            eprintln!("metaform {command}: {e}");
+            None
+        }
+    }
+}
+
+/// Parse the `--define` spelling: `all-of:a,b` or `any-of:a,b`.
+///
+/// The operator uses the same hyphenated style as the CLI's other flags; the protocol keeps its
+/// `all_of` / `any_of` names. Underscore spellings are accepted too, so a name copied from a
+/// `metaform.propose/1` response is not rejected.
+fn parse_define(raw: &str) -> Result<Definition, String> {
+    let (op, operand_list) = raw.split_once(':').ok_or_else(|| {
+        format!("--define expects `all-of:<name,...>` or `any-of:<name,...>`, got `{raw}`")
+    })?;
+    let op = match op.trim() {
+        "all-of" | "all_of" => DefOp::AllOf,
+        "any-of" | "any_of" => DefOp::AnyOf,
+        other => {
+            return Err(format!(
+                "unknown definition operator `{other}` (expected all-of or any-of)"
+            ))
+        }
+    };
+    let mut operands: Vec<String> = Vec::new();
+    for part in operand_list.split(',') {
+        let name = part.trim();
+        if name.is_empty() {
+            return Err(format!("--define has an empty operand in `{raw}`"));
+        }
+        if operands.iter().any(|seen| seen == name) {
+            return Err(format!("--define repeats operand `{name}`"));
+        }
+        operands.push(name.to_string());
+    }
+    Ok(Definition { op, operands })
+}
+
 fn cmd_init(args: &[String]) -> i32 {
     let root = project_root(args).join(".metaform");
     for sub in ["logs", "out", "cache"] {
@@ -282,20 +326,57 @@ fn cmd_state(args: &[String]) -> i32 {
             0
         }
         "add" => {
-            let mut st = state::State::load(&path);
+            let Some(mut st) = load_state(&path, "state add") else {
+                return 2;
+            };
             let name = kv(args, "--name").unwrap_or_else(|| "p".into());
-            let ids: Vec<usize> = kv(args, "--ids")
-                .unwrap_or_default()
-                .split(',')
-                .filter_map(|s| s.trim().parse().ok())
-                .collect();
-            st.predicates.push(state::PredSpec { name: name.clone(), ids: ids.clone() });
-            let _ = st.save(&path);
-            println!("{{\"ok\":true,\"name\":\"{name}\",\"ids\":{}}}", state::ids_json(&ids));
+            let define = match kv(args, "--define") {
+                Some(raw) => match parse_define(&raw) {
+                    Ok(def) => Some(def),
+                    Err(e) => {
+                        eprintln!("metaform state add: {e}");
+                        return 2;
+                    }
+                },
+                None => None,
+            };
+            if define.is_some() && args.iter().any(|a| a == "--ids") {
+                eprintln!("metaform state add: use either --ids or --define, not both");
+                return 2;
+            }
+            if let Some(def) = define {
+                st.predicates.push(state::PredSpec {
+                    name: name.clone(),
+                    ids: Vec::new(),
+                    definition: Some(def),
+                });
+                if let Err(e) = st.resolve() {
+                    eprintln!("metaform state add: {e}");
+                    return 2;
+                }
+                let ids = st.predicates.last().map(|p| p.ids.clone()).unwrap_or_default();
+                let _ = st.save(&path);
+                println!("{{\"ok\":true,\"name\":\"{name}\",\"ids\":{}}}", state::ids_json(&ids));
+            } else {
+                let ids: Vec<usize> = kv(args, "--ids")
+                    .unwrap_or_default()
+                    .split(',')
+                    .filter_map(|s| s.trim().parse().ok())
+                    .collect();
+                st.predicates.push(state::PredSpec {
+                    name: name.clone(),
+                    ids: ids.clone(),
+                    definition: None,
+                });
+                let _ = st.save(&path);
+                println!("{{\"ok\":true,\"name\":\"{name}\",\"ids\":{}}}", state::ids_json(&ids));
+            }
             0
         }
         "vote" => {
-            let mut st = state::State::load(&path);
+            let Some(mut st) = load_state(&path, "state vote") else {
+                return 2;
+            };
             let id: usize = kv(args, "--id").and_then(|s| s.parse().ok()).unwrap_or(0);
             let yes: u8 = kv(args, "--yes").and_then(|s| s.parse().ok()).unwrap_or(0);
             let no: u8 = kv(args, "--no").and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -323,13 +404,17 @@ fn cmd_state(args: &[String]) -> i32 {
             0
         }
         "need" => {
-            let st = state::State::load(&path);
+            let Some(st) = load_state(&path, "state need") else {
+                return 2;
+            };
             let theta: Option<u8> = kv(args, "--theta").and_then(|s| s.parse().ok());
             println!("{}", state::need_json(&st.explorer(), theta));
             0
         }
         "show" => {
-            let st = state::State::load(&path);
+            let Some(st) = load_state(&path, "state show") else {
+                return 2;
+            };
             println!("{}", serde_json::to_string_pretty(&st).unwrap_or_default());
             0
         }
@@ -342,7 +427,9 @@ fn cmd_state(args: &[String]) -> i32 {
 
 fn cmd_plan(args: &[String]) -> i32 {
     let root = project_root(args).join(".metaform");
-    let st = state::State::load(&root.join("state.json"));
+    let Some(st) = load_state(&root.join("state.json"), "plan") else {
+        return 2;
+    };
     let rows = ledger::read_all(&root.join("ledger.tsv"));
     let e = st.explorer();
     let theta: u8 = kv(args, "--theta")
@@ -358,7 +445,13 @@ fn cmd_plan(args: &[String]) -> i32 {
 
 fn cmd_report(args: &[String]) -> i32 {
     let root = project_root(args);
-    let md = report::render(&root);
+    let md = match report::render(&root) {
+        Ok(md) => md,
+        Err(e) => {
+            eprintln!("metaform report: {e}");
+            return 2;
+        }
+    };
     let out = root.join(".metaform").join("out");
     let _ = std::fs::create_dir_all(&out);
     let path = out.join("report.md");
@@ -377,7 +470,9 @@ fn cmd_report(args: &[String]) -> i32 {
 fn cmd_score(args: &[String]) -> i32 {
     let root = project_root(args);
     let dir = root.join(".metaform");
-    let st = state::State::load(&dir.join("state.json"));
+    let Some(st) = load_state(&dir.join("state.json"), "score") else {
+        return 2;
+    };
     let rows_ledger = ledger::read_all(&dir.join("ledger.tsv"));
     let e = st.explorer();
     let theta = e.recommended_theta();

@@ -546,7 +546,7 @@ change itself.
 | | Milestone | Criterion | Now |
 |---|---|---|---|
 | M0 | a runtime exists | state, operators, controller, record — all four, running one scenario | done |
-| M1 | a representation change can be triggered | the engine decides "vocabulary insufficient", gives a coverage target, accepts an external predicate | partial: judgement and coverage target work, and the protocol now accepts a defined predicate (`define: {all_of\|any_of}` over existing predicates); what is still missing is that the definition is not stored for re-computation when the object set changes |
+| M1 | a representation change can be triggered | the engine decides "vocabulary insufficient", gives a coverage target, accepts an external predicate | done: judgement and coverage target work; the protocol accepts a defined predicate (`define: {all_of\|any_of}` over existing predicates), and `state add --define` stores the definition so the extension is recomputed on load when the object set changes |
 | M2 | real use at equal budget | a fixed model and budget, three arms, conclusions from unseen tasks | pilot: two arms, four cases each, budget not strictly accounted |
 | M3 | accumulation across tasks | the experience table drives selection, proposals per task family fall, every policy comes from a verified entry | skeleton: the table exists, and the controller consults it through the experience hint, which changes ask order only and never the adopted proposal |
 | M4 | bootstrapping | metaform iterates metaform, and every deliverable carries an executable claim | embryonic: the claims register and the gates |
@@ -568,7 +568,7 @@ or traded other abilities for one metric.
 
 ### 6.3 Where we are
 
-Honest position: **M0 done, M1 half, M2 pilot only, M3 a skeleton, M4 embryonic.**
+Honest position: **M0 and M1 done, M2 pilot only, M3 a skeleton, M4 embryonic.**
 
 What can be said now:
 

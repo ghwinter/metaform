@@ -16,6 +16,8 @@
 
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+
 /// Multi-operator typing (paper §4): five classes of steps share one measure `Φ`, and each class is checked for what it can change.
 pub mod operators;
 pub mod propose;
@@ -31,16 +33,43 @@ pub fn bit(i: usize) -> Mask {
     1 << i
 }
 
+/// The Boolean operator of a stored definition. A definition is a combination of predicates that
+/// already exist in the vocabulary, not a new atom.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DefOp {
+    AllOf,
+    AnyOf,
+}
+
+/// A stored predicate definition: `all_of` is intersection, `any_of` is union of its operands.
+///
+/// The definition is kept next to the extension so the extension can be recomputed when the object
+/// set changes; the persistence layer in the binary keeps it in `.metaform/state.json`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Definition {
+    pub op: DefOp,
+    pub operands: Vec<String>,
+}
+
 /// A predicate: name + extension.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Predicate {
     pub name: String,
     pub ext: Mask,
+    /// How the extension was defined, when it was adopted from a definition rather than listed.
+    /// The extension is still the authoritative value inside one fixed object set.
+    pub definition: Option<Definition>,
 }
 
 impl Predicate {
     pub fn new(name: impl Into<String>, ext: Mask) -> Self {
-        Self { name: name.into(), ext }
+        Self { name: name.into(), ext, definition: None }
+    }
+
+    /// A predicate adopted from a definition over existing predicates.
+    pub fn defined(name: impl Into<String>, ext: Mask, definition: Definition) -> Self {
+        Self { name: name.into(), ext, definition: Some(definition) }
     }
 }
 

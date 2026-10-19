@@ -21,7 +21,7 @@
 #>
 [CmdletBinding()]
 param(
-    [int]$Expected = 82,
+    [int]$Expected = 91,
     [string]$Manifest = (Join-Path $PSScriptRoot '..\engine\Cargo.toml')
 )
 
