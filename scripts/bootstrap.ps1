@@ -87,6 +87,25 @@ foreach ($name in $declaration.requirements.PSObject.Properties.Name) {
             if ($value -and (Test-Path $value)) {
                 $location = $value
                 $detail = $value
+                if ($req.versionExe) {
+                    Push-Location $value
+                    try {
+                        $line = (& $req.versionExe @($req.versionArgs) 2>$null | Select-Object -First 1)
+                    }
+                    catch { $line = $null }
+                    finally { Pop-Location }
+                    $m = [regex]::Match([string]$line, '\d+\.\d+(?:\.\d+)?')
+                    if ($m.Success) {
+                        $detail = "$value (Lean $($m.Value))"
+                        if ($req.minVersion -and -not (Test-VersionAtLeast $m.Value $req.minVersion)) {
+                            $note = "below $($req.minVersion)"
+                            $location = $null
+                        }
+                    }
+                    else {
+                        $note = "cannot read the version"
+                    }
+                }
             }
         }
     }

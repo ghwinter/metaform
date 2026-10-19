@@ -15,7 +15,10 @@
       "required": true,
       "kind": "directory",
       "use": "a Lake project whose environment can import Mathlib; research/lean/QueryDriven.lean is compiled inside it",
-      "hint": "set METAFORM_LEAN_PROJECT to the full path of an existing Lake project with Mathlib built"
+      "minVersion": "4.35.0",
+      "versionExe": "lake",
+      "versionArgs": ["env", "lean", "--version"],
+      "hint": "set METAFORM_LEAN_PROJECT to the full path of an existing Lake project with Mathlib built, on Lean 4.35"
     },
     "mathlibCache": {
       "env": "MATHLIB_CACHE_DIR",
