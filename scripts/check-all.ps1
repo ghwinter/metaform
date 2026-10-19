@@ -6,6 +6,7 @@
     - check-lean: fail on any warning
     - check-rust: the pass count must equal the expected value, and ignored must be 0
     - check-references.py: no path, file name or link that the repository does not contain
+    - llm_e2e.py: the propose protocol accepts valid candidates and refuses malformed ones
     - verify_claims.py: key numbers in the paper must match measured values within tolerance
 
     If any check fails, the whole run fails.
@@ -28,7 +29,7 @@ param(
     [switch]$SkipExperiments,
     [switch]$SkipAlign,
     [switch]$SkipTheory,
-    [int]$RustExpected = 67,
+    [int]$RustExpected = 71,
     [string]$Python = $env:METAFORM_PYTHON
 )
 
@@ -99,7 +100,9 @@ if (-not $SkipExperiments) {
             $selection = $LASTEXITCODE
             & $Python e2e_verify.py | Out-Host
             $e2e = $LASTEXITCODE
-            $results += [pscustomobject]@{ Check = 'experiments'; Exit = [Math]::Max([Math]::Max($claims, $selection), $e2e) }
+            & $Python llm_e2e.py | Out-Host
+            $adapter = $LASTEXITCODE
+            $results += [pscustomobject]@{ Check = 'experiments'; Exit = [Math]::Max([Math]::Max([Math]::Max($claims, $selection), $e2e), $adapter) }
         }
         finally { Pop-Location }
     }

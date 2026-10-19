@@ -178,6 +178,9 @@ def main() -> int:
                 target = m.group(1).strip().strip("<>")
                 if target.startswith(("http://", "https://", "#", "mailto:")):
                     continue
+                # Only path-shaped targets are links for this gate; `f()[i](x)` in code is not.
+                if "/" not in target and not target.endswith(tuple("." + e for e in FILE_EXT.split("|"))):
+                    continue
                 norm = target.replace("\\", "/").lstrip("./")
                 if norm.rsplit("/", 1)[-1] in BOOTSTRAP_NAMES or is_generated(norm):
                     continue

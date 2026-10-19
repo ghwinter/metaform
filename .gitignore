@@ -56,6 +56,7 @@ HANDOFF.md
 !/engine/src/mcp.rs
 !/engine/src/operators.rs
 !/engine/src/portfolio.rs
+!/engine/src/propose.rs
 !/engine/src/plan.rs
 !/engine/src/report.rs
 !/engine/src/score.rs
@@ -112,6 +113,8 @@ HANDOFF.md
 !/research/exp/engine.py
 !/research/exp/greedy_cover.py
 !/research/exp/ledger.py
+!/research/exp/llm_e2e.py
+!/research/exp/llm_mock.py
 !/research/exp/multi_seed.py
 !/research/exp/noisy_loop.py
 !/research/exp/noisy_oracle.py

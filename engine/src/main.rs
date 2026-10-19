@@ -16,12 +16,17 @@
 //! capacity                       # 2^(number of classes)
 //! ```
 //! Text after `#` on a line is a comment.
+//!
+//! Protocol boundary: `metaform propose --request <request.json> --response <response.json>` validates
+//! the predicates an external model proposed under `metaform.propose/1` and prints one line of JSON
+//! without writing any file or touching the project state.
 
 use std::io::{self, BufRead, Write};
 
 mod ledger;
 mod mcp;
 mod plan;
+mod propose;
 mod report;
 mod score;
 mod state;
@@ -423,6 +428,10 @@ fn main() {
         Some("plan") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
             std::process::exit(cmd_plan(&v));
+        }
+        Some("propose") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            std::process::exit(propose::cmd(&v));
         }
         Some("ops") => {
             println!("{}", metaform::operators::demo_json());
