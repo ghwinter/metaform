@@ -279,6 +279,419 @@ pub fn ground(pred: &str, args: &[u32]) -> Atom {
     Atom { pred: pred.to_string(), args: args.iter().map(|&c| Term::Const(c)).collect() }
 }
 
+// ---------------------------------------------------------------------------
+// Subsumption, coverage, refinement
+// ---------------------------------------------------------------------------
+
+/// Extends `theta` so that `general` matches `specific`, or fails.
+fn match_atom(general: &Atom, specific: &Atom, theta: &mut Subst) -> bool {
+    if general.pred != specific.pred || general.args.len() != specific.args.len() {
+        return false;
+    }
+    for (g, s) in general.args.iter().zip(specific.args.iter()) {
+        match g {
+            Term::Const(c) => {
+                if Term::Const(*c) != *s {
+                    return false;
+                }
+            }
+            Term::Var(v) => {
+                let s_id = match s {
+                    Term::Var(x) => *x,
+                    Term::Const(x) => *x,
+                };
+                match theta.get(v) {
+                    Some(bound) if *bound != s_id => return false,
+                    Some(_) => {}
+                    None => {
+                        theta.insert(*v, s_id);
+                    }
+                }
+            }
+        }
+    }
+    true
+}
+
+fn subsumes_from(general: &[Atom], specific: &[Atom], used: &mut [bool], theta: &mut Subst) -> bool {
+    match general.split_first() {
+        None => true,
+        Some((first, rest)) => {
+            for (i, cand) in specific.iter().enumerate() {
+                if used[i] {
+                    continue;
+                }
+                let mut next = theta.clone();
+                if !match_atom(first, cand, &mut next) {
+                    continue;
+                }
+                used[i] = true;
+                if subsumes_from(rest, specific, used, &mut next) {
+                    return true;
+                }
+                used[i] = false;
+            }
+            false
+        }
+    }
+}
+
+/// True when some substitution maps every literal of `general` onto a distinct literal of
+/// `specific` (head included), the standard theta-subsumption test with injective matching.
+///
+/// Popper carries no such test: its only subsumption is a Prolog query used to delete redundant
+/// literals, and its real redundancy test is coverage on bitarrays. This one is general, which is
+/// what a *necessity* criterion needs: to say "no clause in the language separates these two
+/// objects" one has to compare clause sets, not just count covered examples.
+pub fn subsumes(general: &Clause, specific: &Clause) -> bool {
+    let mut g: Vec<Atom> = Vec::with_capacity(general.body.len() + 1);
+    g.push(general.head.clone());
+    g.extend(general.body.iter().cloned());
+    let mut s: Vec<Atom> = Vec::with_capacity(specific.body.len() + 1);
+    s.push(specific.head.clone());
+    s.extend(specific.body.iter().cloned());
+    if g.len() > s.len() {
+        return false;
+    }
+    let mut used = vec![false; s.len()];
+    let mut theta = Subst::new();
+    subsumes_from(&g, &s, &mut used, &mut theta)
+}
+
+/// A bitset over examples, the representation Popper uses for its redundancy tests.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Coverage {
+    words: Vec<u64>,
+    len: usize,
+}
+
+impl Coverage {
+    pub fn new(len: usize) -> Self {
+        Coverage { words: vec![0; (len + 63) / 64], len }
+    }
+
+    pub fn set(&mut self, i: usize) {
+        assert!(i < self.len);
+        self.words[i / 64] |= 1 << (i % 64);
+    }
+
+    pub fn get(&self, i: usize) -> bool {
+        i < self.len && (self.words[i / 64] >> (i % 64)) & 1 == 1
+    }
+
+    pub fn count(&self) -> usize {
+        self.words.iter().map(|w| w.count_ones() as usize).sum()
+    }
+
+    pub fn is_subset_of(&self, other: &Coverage) -> bool {
+        self.words.iter().zip(other.words.iter()).all(|(a, b)| a & !b == 0)
+    }
+}
+
+/// The coverage of a clause over a list of examples.
+pub fn cover(clause: &Clause, examples: &[Atom], bg: &Background) -> Coverage {
+    let mut out = Coverage::new(examples.len());
+    for (i, e) in examples.iter().enumerate() {
+        if covers(clause, e, bg) {
+            out.set(i);
+        }
+    }
+    out
+}
+
+/// Every clause obtained by adding one literal that keeps the head variables covered and introduces
+/// at most one new variable. This is the literal-addition refinement Popper compiles into ASP; here
+/// it is an ordinary function, which is what a Rust runtime can call and measure.
+pub fn refine(clause: &Clause, bg: &Background, max_vars: u32) -> Vec<Clause> {
+    let mut next = 0u32;
+    for atom in std::iter::once(&clause.head).chain(clause.body.iter()) {
+        for arg in &atom.args {
+            if let Term::Var(v) = arg {
+                next = next.max(*v + 1);
+            }
+        }
+    }
+    let mut out: Vec<Clause> = Vec::new();
+    let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for sig in &bg.signature {
+        let uses = next + 1;
+        let mut tuple = vec![0u32; sig.arity];
+        loop {
+            // The literal uses variables already in play, plus at most one fresh variable: the
+            // tree-shaped growth the fragment is defined by.
+            let fresh = tuple.iter().filter(|&&v| v == next).count();
+            if fresh <= 1 && tuple.iter().all(|&v| v <= next) {
+                let atom = Atom {
+                    pred: sig.name.clone(),
+                    args: tuple.iter().map(|&v| Term::Var(v)).collect(),
+                };
+                if !clause.body.contains(&atom) {
+                    let mut body = clause.body.clone();
+                    body.push(atom);
+                    let mut used = std::collections::BTreeSet::new();
+                    for a in body.iter() {
+                        for arg in &a.args {
+                            if let Term::Var(v) = arg {
+                                used.insert(*v);
+                            }
+                        }
+                    }
+                    let head_vars_ok = clause
+                        .head
+                        .args
+                        .iter()
+                        .all(|arg| !matches!(arg, Term::Var(v) if !used.contains(v)));
+                    if head_vars_ok && used.len() as u32 <= max_vars {
+                        let candidate = Clause { head: clause.head.clone(), body };
+                        if seen.insert(candidate.to_string()) {
+                            out.push(candidate);
+                        }
+                    }
+                }
+            }
+            // odometer over 0..=next
+            let mut i = sig.arity;
+            let mut carry = true;
+            while carry && i > 0 {
+                i -= 1;
+                tuple[i] += 1;
+                if tuple[i] > next {
+                    tuple[i] = 0;
+                } else {
+                    carry = false;
+                }
+            }
+            if carry {
+                break;
+            }
+        }
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------
+// Relational distinguishability
+// ---------------------------------------------------------------------------
+
+/// The result of colour refinement over the ground facts.
+///
+/// Two objects get the same colour when no tree-shaped conjunctive pattern distinguishes them: a
+/// colour is the set of unary predicates plus the multiset of (relation, position, colour) edges.
+/// That is the decidable fragment this learner can express, and saying so precisely is the point;
+/// general conjunctive queries would need a homomorphism test, which is NP-hard.
+#[derive(Clone, Debug)]
+pub struct Partition {
+    pub colour: BTreeMap<u32, u32>,
+    pub rounds: usize,
+    /// `signature[round][colour]` = the unary predicates and edge items that define the colour.
+    pub signature: Vec<BTreeMap<u32, ColourSignature>>,
+}
+
+/// The definition of one colour at one round.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ColourSignature {
+    pub unary: Vec<String>,
+    pub edges: Vec<(String, u8, u32)>,
+}
+
+fn unary_holds(bg: &Background, pred: &str, x: u32) -> bool {
+    bg.facts.iter().any(|f| f.pred == pred && f.args == [Term::Const(x)])
+}
+
+fn colour_signature(bg: &Background, colour: &BTreeMap<u32, u32>, x: u32) -> ColourSignature {
+    let mut unary: Vec<String> = bg
+        .signature
+        .iter()
+        .filter(|s| s.arity == 1)
+        .map(|s| s.name.clone())
+        .filter(|p| unary_holds(bg, p, x))
+        .collect();
+    unary.sort();
+    let mut edges: Vec<(String, u8, u32)> = Vec::new();
+    for f in &bg.facts {
+        if f.args.len() != 2 {
+            continue;
+        }
+        let (a, b) = (f.args[0], f.args[1]);
+        if a == Term::Const(x) {
+            if let Term::Const(o) = b {
+                edges.push((f.pred.clone(), 0, *colour.get(&o).unwrap_or(&u32::MAX)));
+            }
+        }
+        if b == Term::Const(x) {
+            if let Term::Const(o) = a {
+                edges.push((f.pred.clone(), 1, *colour.get(&o).unwrap_or(&u32::MAX)));
+            }
+        }
+    }
+    edges.sort();
+    ColourSignature { unary, edges }
+}
+
+/// Refines colours until the partition stops changing.
+///
+/// Round 0 is the unary signature, so objects that differ in a unary predicate are separated
+/// immediately; each later round adds the multiset of (relation, position, neighbour colour) items.
+/// Refinement only splits classes, so the number of classes is the stopping signal.
+pub fn colour_refine(bg: &Background, domain: &[u32]) -> Partition {
+    let mut colour: BTreeMap<u32, u32> = BTreeMap::new();
+    let mut ids: BTreeMap<Vec<String>, u32> = BTreeMap::new();
+    let mut round_sig: BTreeMap<u32, ColourSignature> = BTreeMap::new();
+    for &x in domain {
+        let unary: Vec<String> = bg
+            .signature
+            .iter()
+            .filter(|s| s.arity == 1)
+            .map(|s| s.name.clone())
+            .filter(|p| unary_holds(bg, p, x))
+            .collect();
+        let n = ids.len() as u32;
+        let id = *ids.entry(unary.clone()).or_insert(n);
+        colour.insert(x, id);
+        round_sig.insert(id, ColourSignature { unary, edges: Vec::new() });
+    }
+    let mut history: Vec<BTreeMap<u32, ColourSignature>> = vec![round_sig];
+    let mut rounds = 0;
+    loop {
+        let sigs: Vec<(u32, ColourSignature)> =
+            domain.iter().map(|&x| (x, colour_signature(bg, &colour, x))).collect();
+        let mut ids: BTreeMap<ColourSignature, u32> = BTreeMap::new();
+        let mut next: BTreeMap<u32, u32> = BTreeMap::new();
+        let mut round_sig: BTreeMap<u32, ColourSignature> = BTreeMap::new();
+        for (x, s) in sigs {
+            let n = ids.len() as u32;
+            let id = *ids.entry(s.clone()).or_insert(n);
+            next.insert(x, id);
+            round_sig.insert(id, s);
+        }
+        let old_classes = colour.values().collect::<std::collections::BTreeSet<_>>().len();
+        let new_classes = ids.len();
+        colour = next;
+        history.push(round_sig);
+        rounds += 1;
+        if new_classes == old_classes {
+            break;
+        }
+    }
+    Partition { colour, rounds, signature: history }
+}
+
+/// The pattern that holds of one colour and of nothing else, built from the refinement history.
+fn colour_pattern(
+    partition: &Partition,
+    round: usize,
+    colour: u32,
+    next_var: &mut u32,
+) -> Vec<Atom> {
+    let Some(sig) = partition.signature.get(round).and_then(|m| m.get(&colour)) else {
+        return Vec::new();
+    };
+    let mut body: Vec<Atom> = sig
+        .unary
+        .iter()
+        .map(|p| Atom { pred: p.clone(), args: vec![Term::Var(0)] })
+        .collect();
+    if round == 0 {
+        return body;
+    }
+    // Edges of this colour point at colours of the previous round.
+    for (pred, pos, child) in &sig.edges {
+        let child_var = *next_var;
+        *next_var += 1;
+        let args = if *pos == 0 {
+            vec![Term::Var(0), Term::Var(child_var)]
+        } else {
+            vec![Term::Var(child_var), Term::Var(0)]
+        };
+        body.push(Atom { pred: pred.clone(), args });
+        let sub = colour_pattern(partition, round - 1, *child, next_var);
+        for atom in sub {
+            let remapped: Vec<Term> = atom
+                .args
+                .iter()
+                .map(|t| match t {
+                    Term::Var(0) => Term::Var(child_var),
+                    other => *other,
+                })
+                .collect();
+            body.push(Atom { pred: atom.pred.clone(), args: remapped });
+        }
+    }
+    body
+}
+
+fn unary_set(bg: &Background, x: u32) -> Vec<String> {
+    bg.signature
+        .iter()
+        .filter(|s| s.arity == 1)
+        .map(|s| s.name.clone())
+        .filter(|p| unary_holds(bg, p, x))
+        .collect()
+}
+
+/// True when the pattern holds of the object: the head unifies with `sep(obj)` and the body holds.
+fn pattern_holds_of(clause: &Clause, bg: &Background, obj: u32) -> bool {
+    covers(clause, &ground("sep", &[obj]), bg)
+}
+
+/// Greedily drops literals while the clause still holds of `x` and not of `y`.
+///
+/// The refinement history yields an exact class description, which can carry edges that the
+/// separation does not need. A witness is more useful small: it is a proposition a person reads and
+/// a kernel checks, not a dump of the neighbourhood.
+pub fn minimize_pattern(clause: &Clause, bg: &Background, x: u32, y: u32) -> Clause {
+    let mut body = clause.body.clone();
+    let mut i = 0;
+    while i < body.len() {
+        let mut trial = body.clone();
+        trial.remove(i);
+        let candidate = Clause { head: clause.head.clone(), body: trial.clone() };
+        if pattern_holds_of(&candidate, bg, x) && !pattern_holds_of(&candidate, bg, y) {
+            body = trial;
+        } else {
+            i += 1;
+        }
+    }
+    Clause { head: clause.head.clone(), body }
+}
+
+/// A clause `sep(V0) :- pattern` that holds of `x` and not of `y`, when the tree-shaped fragment
+/// can tell them apart. `None` is the interesting answer: no pattern in the language separates the
+/// two objects, so the current vocabulary is insufficient in a way that adding more of the same
+/// relations cannot fix.
+pub fn separating_pattern(
+    bg: &Background,
+    domain: &[u32],
+    x: u32,
+    y: u32,
+) -> Option<Clause> {
+    let partition = colour_refine(bg, domain);
+    if partition.colour.get(&x) == partition.colour.get(&y) {
+        return None;
+    }
+    // A unary predicate may already decide it.
+    let ux = unary_set(bg, x);
+    let uy = unary_set(bg, y);
+    if let Some(p) = ux.iter().find(|p| !uy.contains(p)) {
+        return Some(Clause {
+            head: Atom { pred: "sep".to_string(), args: vec![Term::Var(0)] },
+            body: vec![Atom { pred: p.clone(), args: vec![Term::Var(0)] }],
+        });
+    }
+    let colour = *partition.colour.get(&x)?;
+    let mut next_var = 1u32;
+    let body = colour_pattern(&partition, partition.rounds, colour, &mut next_var);
+    if body.is_empty() {
+        return None;
+    }
+    let clause = Clause {
+        head: Atom { pred: "sep".to_string(), args: vec![Term::Var(0)] },
+        body,
+    };
+    Some(minimize_pattern(&clause, bg, x, y))
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -351,5 +764,146 @@ mod tests {
         let a = learn("grandparent", 2, &positives, &negatives, &bg, 2, 3);
         let b = learn("grandparent", 2, &positives, &negatives, &bg, 2, 3);
         assert_eq!(a, b);
+    }
+
+    fn var(v: u32) -> Term {
+        Term::Var(v)
+    }
+
+    fn clause(head: Atom, body: Vec<Atom>) -> Clause {
+        Clause { head, body }
+    }
+
+    fn atom(pred: &str, args: Vec<Term>) -> Atom {
+        Atom { pred: pred.to_string(), args }
+    }
+
+    #[test]
+    fn subsumption_accepts_a_more_specific_clause() {
+        let general = clause(atom("p", vec![var(0)]), vec![atom("q", vec![var(0)])]);
+        let specific = clause(
+            atom("p", vec![var(0)]),
+            vec![atom("q", vec![var(0)]), atom("r", vec![var(0)])],
+        );
+        assert!(subsumes(&general, &specific));
+        assert!(!subsumes(&specific, &general));
+    }
+
+    #[test]
+    fn subsumption_ignores_variable_names() {
+        let a = clause(atom("p", vec![var(0)]), vec![atom("q", vec![var(0)])]);
+        let b = clause(atom("p", vec![var(7)]), vec![atom("q", vec![var(7)])]);
+        assert!(subsumes(&a, &b));
+        assert!(subsumes(&b, &a));
+    }
+
+    #[test]
+    fn subsumption_rejects_a_different_predicate() {
+        let a = clause(atom("p", vec![var(0)]), vec![atom("q", vec![var(0)])]);
+        let b = clause(atom("p", vec![var(0)]), vec![atom("r", vec![var(0)])]);
+        assert!(!subsumes(&a, &b));
+    }
+
+    #[test]
+    fn coverage_bitset_matches_the_ground_test() {
+        let bg = family();
+        let clause = clause(
+            atom("grandparent", vec![var(0), var(1)]),
+            vec![
+                atom("parent", vec![var(0), var(2)]),
+                atom("parent", vec![var(2), var(1)]),
+            ],
+        );
+        let examples = [
+            ground("grandparent", &[0, 2]),
+            ground("grandparent", &[0, 3]),
+            ground("grandparent", &[1, 3]),
+        ];
+        let bits = cover(&clause, &examples, &bg);
+        for (i, e) in examples.iter().enumerate() {
+            assert_eq!(bits.get(i), covers(&clause, e, &bg), "example {i}");
+        }
+        assert_eq!(bits.count(), 2);
+    }
+
+    #[test]
+    fn refinement_adds_one_literal_and_keeps_the_head_covered() {
+        let bg = family();
+        let start = clause(atom("grandparent", vec![var(0), var(1)]), vec![]);
+        let children = refine(&start, &bg, 3);
+        assert!(!children.is_empty());
+        for child in &children {
+            assert_eq!(child.body.len(), 1);
+            let used: std::collections::BTreeSet<u32> = child
+                .body
+                .iter()
+                .flat_map(|a| a.args.iter())
+                .filter_map(|t| match t {
+                    Term::Var(v) => Some(*v),
+                    _ => None,
+                })
+                .collect();
+            assert!(used.contains(&0) && used.contains(&1), "head vars must occur");
+        }
+    }
+
+    fn trees() -> Background {
+        let mut bg = Background::new(vec![
+            Signature { name: "red".to_string(), arity: 1 },
+            Signature { name: "blue".to_string(), arity: 1 },
+            Signature { name: "green".to_string(), arity: 1 },
+            Signature { name: "link".to_string(), arity: 2 },
+        ]);
+        bg.fact("red", &[0]);
+        bg.fact("red", &[1]);
+        bg.fact("link", &[0, 2]);
+        bg.fact("link", &[1, 3]);
+        bg.fact("green", &[2]);
+        bg.fact("blue", &[3]);
+        bg
+    }
+
+    #[test]
+    fn unary_predicates_separate_at_round_zero() {
+        let bg = trees();
+        let domain = [0u32, 1, 2, 3];
+        let p = separating_pattern(&bg, &domain, 0, 2).expect("red separates 0 from 2");
+        let ext = extension(&p, &bg, &domain);
+        assert!(ext.contains(&vec![0]));
+        assert!(!ext.contains(&vec![2]));
+        assert!(separating_pattern(&bg, &domain, 2, 0).is_some());
+    }
+
+    #[test]
+    fn a_relation_is_necessary_when_unary_predicates_collide() {
+        let bg = trees();
+        let domain = [0u32, 1, 2, 3];
+        let p = separating_pattern(&bg, &domain, 0, 1).expect("a link pattern separates 0 from 1");
+        assert!(p.body.iter().any(|a| a.pred == "link"), "pattern: {}", p.to_string());
+        assert!(p.body.iter().any(|a| a.pred == "green"), "pattern: {}", p.to_string());
+        assert_eq!(p.body.len(), 2, "the witness should be minimal: {}", p.to_string());
+        let ext = extension(&p, &bg, &domain);
+        assert_eq!(ext, vec![vec![0]]);
+    }
+
+    #[test]
+    fn bisimilar_objects_have_no_separating_pattern() {
+        let mut bg = Background::new(vec![
+            Signature { name: "red".to_string(), arity: 1 },
+            Signature { name: "green".to_string(), arity: 1 },
+            Signature { name: "link".to_string(), arity: 2 },
+        ]);
+        for x in [0u32, 1] {
+            bg.fact("red", &[x]);
+        }
+        for (a, b) in [(0, 2), (1, 3)] {
+            bg.fact("link", &[a, b]);
+        }
+        for x in [2u32, 3] {
+            bg.fact("green", &[x]);
+        }
+        let domain = [0u32, 1, 2, 3];
+        assert!(separating_pattern(&bg, &domain, 0, 1).is_none());
+        assert!(separating_pattern(&bg, &domain, 2, 3).is_none());
     }
 }

@@ -281,9 +281,10 @@ The release stops at a validated boundary, not at a runtime. What is left, in or
    decomposition changes the goal and structure mapping changes the relational structure; neither has a
    stated effect on the measure, so a scheduler cannot reason about them. Acceptance: a proposition per
    operator, a Rust test, and an extended operator table that leaves Theorems 8--11 intact.
-4. **A relational necessity criterion.** Extending the colliding pair from unary signatures to typed
-   relations is what turns the structure graph into a computation. Acceptance: a domain where unary
-   predicates suffice and the relation is necessary, with the engine reporting "no separating pattern".
+4. **A relational necessity criterion.** Done for the tree-shaped fragment: colour refinement decides
+   whether any pattern separates two objects, the witness is minimised to a readable clause, and a
+   bisimilar pair reports "no separating pattern". Open: general conjunctive queries (a homomorphism
+   test, NP-hard in general) and feeding a learned relation into the kernel's object set.
 5. **Memory that cannot ossify.** The ledger records evidence, not strategy. An operator-experience
    table restricted to ledger-verified entries, and an abstraction library expressed as vocabulary
    growth across tasks, are the two pieces a metareasoning runtime needs. Acceptance: two task families, a measurable

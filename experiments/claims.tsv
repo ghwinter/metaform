@@ -22,3 +22,5 @@ C9	the paper is eleven pages	Test-Path paper\en\main.pdf	contains:True	unverifie
 C10	the charter exists in both languages and every top-level section has a counterpart	$a=(Select-String -Path CHARTER.md -Pattern '^## ').Count; $b=(Select-String -Path CHARTER.zh.md -Pattern '^## ').Count; if($a -eq $b -and $a -gt 0){'aligned ' + $a}else{'drift ' + $a + ' ' + $b}	contains:aligned 11	verified
 C11	each of the charter's thirteen claims states its falsifier	$a=(Select-String -Path CHARTER.md -Pattern 'Falsifier:').Count; $b=(Select-String -Path CHARTER.zh.md -Pattern '证伪：').Count; if($a -eq 13 -and $b -eq 13){'thirteen'}else{'counts ' + $a + ' ' + $b}	contains:thirteen	verified
 C12	the associative memory recalls 15 of 16 noisy probes at 128 pairs and 4096 bits	cargo test -p metaform-vsa --lib associative_recall_holds_at_capacity	contains:test result: ok	verified
+C13	the relational criterion reports no pattern for bisimilar objects	target\debug\relational_demo.exe	contains:no separating pattern	verified
+C14	the relational witness is a link to a green object	target\debug\relational_demo.exe	contains:link(V0,V1), green(V1)	verified

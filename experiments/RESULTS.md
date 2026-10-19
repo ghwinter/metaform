@@ -1222,3 +1222,35 @@ follow the `1/sqrt(N)` signal law and fail where a top-1 decision over N candida
 larger than the noise maximum. At D = 4096 the usable point is about 128-256 pairs, not 10^5: a claim
 of 10^5-item recall needs a larger dimension, sharded traces, or a different addressing scheme, and
 until one of those is measured the library promises only the table above.
+
+## 9. The relational necessity criterion (2026-10-20)
+
+The kernel's collision test is unary: it says no concept over the current attributes separates two
+objects. The relational version asks the same question about patterns: is there a conjunctive query
+over the relations that holds of one object and not the other?
+
+**Fragment.** Tree-shaped patterns: a body grown by attaching one literal at a time, one distinguished
+variable at the root. This is exactly what literal-addition refinement produces, so the criterion and
+the learner speak the same language. General conjunctive queries are *not* decided here: that is a
+homomorphism test, NP-hard in general.
+
+**Decision procedure.** Colour refinement. Round 0 is the unary signature; each later round adds the
+multiset of (relation, position, neighbour colour). Refinement only splits classes, so it stops when
+the class count stops growing. Equal colours mean no separating pattern exists in the fragment;
+different colours mean one does, and the refinement history yields it.
+
+**Witness.** Built from the class description, then greedily minimised by dropping literals while the
+clause still holds of one object and not the other. On the demo domain (0 and 1 both red; 0 links to
+green 2, 1 links to blue 3) the witness is
+
+    sep(V0) :- link(V0,V1), green(V1).
+
+and the bisimilar pair (two red objects, each linking to a green object) returns `None`. That `None`
+is the point: it is the relational form of "the vocabulary is insufficient", and no amount of the
+same relations will fix it.
+
+**What Popper does not have.** Its only subsumption is a Prolog query used to delete redundant
+literals, and its redundancy test is coverage on bitarrays; there is no general clause-to-clause
+theta-subsumption in the source. A necessity argument over clauses needs three pieces, and all three
+are now here: theta-subsumption with injective matching, a coverage bitset, and literal-addition
+refinement as an ordinary function a runtime can call.
