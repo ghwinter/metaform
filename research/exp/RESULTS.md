@@ -1147,3 +1147,36 @@ That is a property of the mechanism, not a bug to patch away: a detector that fi
 would flag every state. What it means practically is that the probe's suspect list has to be read
 even when the run reports success, which is the same lesson as `splits` being necessary and not
 sufficient.
+
+### 7.8 Two arms with a language model in the loop (pilot, n = 4)
+
+`llm_arms.py` builds a concept-identification instance (12 objects, 8 attributes, hidden rule a
+conjunction of two attributes), writes the prompts for two arms, and scores both by the same question:
+does the final hypothesis equal the hidden rule?
+
+- **D0, direct, four labels, one answer.** The model answers from the four labelled objects and may
+  not ask anything. 0/4.
+- **S, scaffolded, four labels plus the kernel's question.** The model proposes up to four predicates;
+  the real binary scores them by separated colliding pairs, adopts the best, and `ask` picks one object;
+  the model is shown the answer and the final vocabulary is scored. 4/4, with the kernel asking one
+  question per instance.
+- **D1, the same six labels, no loop.** A fresh model gets exactly the evidence S ended with and answers
+  once. 4/4.
+
+The honest reading is the third row: the whole gain of the loop here is the label the kernel chose, not
+the proposal bookkeeping. On this generator the labels come from the target, so the smallest attribute
+conjunction consistent with the evidence is usually the target, and a direct answer with the same
+evidence is enough. What the loop demonstrably adds is **which question to ask**: it picks an object
+inside the competing concept and outside the target, which is what turns a tie into a decision.
+
+This is a pilot, and its limits are worth stating. n = 4; the two arms were run by different model
+instances; the task family is easy enough that a simplicity heuristic finds the target; no budget is
+charged for prompt tokens. The design that would test anything is a matched-evidence comparison at
+larger n on a family where the minimal conjunction is not the target.
+
+A first probe on real code suggests where the loop is and is not needed. Three mutations in this
+repository: changing a report heading failed no test; changing the vote threshold failed two tests,
+both in the same module; dropping the asked-mask update failed one. In all three the failing set lies
+inside a single module, so a one-feature vocabulary decides it and the kernel reports `IDENTIFIED`
+without proposing anything. The loop's case is a change whose failures cross modules, where the static
+vocabulary collides and a question buys the missing distinction.
