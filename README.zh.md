@@ -111,6 +111,12 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 只有第三行能"接受"，而接受仍不等于采纳：`research/exp/proposer_arms.py` 把同一个状态交给三个提议者
 （随机、向量检索、语言模型写的候选），由同一个内核裁决并报告结果。
 
+## 仓库对自身的断言
+
+`research/exp/claims.tsv` 列出仓库要求读者相信的句子，每条都带一个能否证它的命令。
+`scripts/check-claims.py` 负责执行：`PASS` 表示文字仍然成立，`FAIL` 是门禁失败，`NEED` 是还没有
+可执行检查的断言——也就是"说了但没验证"的诚实清单。新增一条断言，就在同一个 commit 里补上它的命令。
+
 ## 提交信息
 
 遵循 Conventional Commits：类型（`feat`、`fix`、`docs`、`test`、`refactor`、`chore`）、可选 scope、
@@ -119,7 +125,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ## 三件套复现
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # 六套断言门（Lean/Rust/引用/证伪/双语/数字），约 40 s
+pwsh -File scripts/check-all.ps1                     # 八道门（Lean/Rust/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
 pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 71）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次

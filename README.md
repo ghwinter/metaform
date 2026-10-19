@@ -139,6 +139,13 @@ The third line above is the only one that can accept anything, and accepting is 
 `research/exp/proposer_arms.py` gives one state to three proposers (random, retrieval, and the
 proposals a language model wrote) and reports what each found, judged by the same kernel.
 
+## Claims about the repository
+
+`research/exp/claims.tsv` lists sentences the repository asks a reader to believe, each with a command
+whose output would refute it. `scripts/check-claims.py` runs them: `PASS` means the prose still holds,
+`FAIL` is a gate failure, and `NEED` lists the claims that have no executable check — the honest list
+of what is asserted but not verified. Adding a claim means adding its command in the same commit.
+
 ## Commits
 
 Messages follow Conventional Commits: a type (`feat`, `fix`, `docs`, `test`, `refactor`, `chore`), an
@@ -148,7 +155,7 @@ code comments: no machine paths, no names of untracked material.
 ## Reproducing the three-part setup
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # six assertion gates (Lean/Rust/references/falsification/bilingual/numbers), about 40 s
+pwsh -File scripts/check-all.ps1                     # eight gates (Lean/Rust/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
 pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 71)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once

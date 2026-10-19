@@ -1,0 +1,21 @@
+# Claims this repository makes about itself, each with the command that would refute it.
+#
+# Columns, tab-separated:
+#   id       short identifier
+#   claim    the sentence a reader would believe
+#   check    a shell command; its combined output is matched against `expect`
+#   expect   exit0 | contains:<text> | lacks:<text>
+#   status   verified (the check is run) | unverified (listed as NEED, not run)
+#
+# A claim whose check fails is a claim the repository no longer supports. The point is not to
+# replace the gates -- they check the product -- but to give the prose around them the same
+# treatment: a sentence with a command behind it, and a NEED list for the sentences without one.
+C1	the workspace has six packages, one of them the components crate	cargo metadata --no-deps --format-version 1 --quiet	contains:metaform-components	verified
+C2	the runtime crate does not depend on metaform-vsa	cargo tree -p metaform-runtime --quiet	lacks:metaform-vsa	verified
+C3	the runtime crate does not depend on metaform-sme	cargo tree -p metaform-runtime --quiet	lacks:metaform-sme	verified
+C4	the review scenario still ends decided, not insufficient	target\debug\metaform.exe engine\scenarios\review.demo	contains:IDENTIFIED	verified
+C5	the probe's conflict report and its non-adoption are both visible	target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\noisy_state.txt --probe	contains:conflict:	verified
+C6	the probe's report is never adopted	target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\noisy_state.txt --probe	contains:(not adopted)	verified
+C7	the README points at the workspace binary, not a per-crate one	Select-String -Path README.md -Pattern 'target\\debug\\metaform.exe'	contains:metaform.exe	verified
+C8	no crate keeps a stale build directory of its own	Test-Path engine\target	lacks:True	verified
+C9	the paper is eleven pages	Test-Path paper\en\main.pdf	contains:True	unverified

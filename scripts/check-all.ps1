@@ -7,6 +7,7 @@
     - check-rust: the pass count must equal the expected value, and ignored must be 0
     - check-components.ps1: the proposal components build, and three proposers are judged by one validator
     - check-references.py: no path, file name or link that the repository does not contain
+    - check-claims.py: every claim about the repository still has a command that supports it
     - llm_e2e.py: the propose protocol accepts valid candidates and refuses malformed ones
     - verify_claims.py: key numbers in the paper must match measured values within tolerance
 
@@ -86,6 +87,11 @@ if (-not $SkipReferences) {
 if (-not $SkipComponents) {
     & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'check-components.ps1') | Out-Host
     $results += [pscustomobject]@{ Check = 'components'; Exit = $LASTEXITCODE }
+}
+
+if (-not $SkipClaims) {
+    & $Python (Join-Path $PSScriptRoot 'check-claims.py') | Out-Host
+    $results += [pscustomobject]@{ Check = 'claims'; Exit = $LASTEXITCODE }
 }
 
 if (-not $SkipTheory) {
