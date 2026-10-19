@@ -95,6 +95,7 @@ crate, and none of them may change the state:
 |---|---|---|
 | `crates/vsa` | predicates whose vector similarity to a positive/negative contrast is high | MBAT binding and bundling, `retrieve` |
 | `crates/sme` | predicates inferred by mapping one relational system onto another | structure mapping, `analogize` |
+| `crates/ilp` | clauses whose extension covers the positives and no negative | relational learning, `ilp_demo` |
 | `crates/runtime` | the protocol itself, the validation, and the CLI | `Operator`, `OperatorResult`, `metaform-runtime` |
 
 A component proposes, the kernel judges:

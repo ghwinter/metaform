@@ -1,0 +1,11 @@
+{
+  "protocol": "metaform.propose/1",
+  "request_id": "ilp",
+  "objects": 36,
+  "vocabulary": [
+    {"name": "parent_pair", "ids": [1, 8, 15, 29]},
+    {"name": "same_city_pair", "ids": [1, 8, 29]}
+  ],
+  "evidence": {"pos": [2, 9], "neg": [3, 29]},
+  "limit": 8
+}

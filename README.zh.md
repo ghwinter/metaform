@@ -86,6 +86,7 @@ id、常量或空扩展、与词汇或先前候选重名的名字、重复 id，
 |---|---|---|
 | `crates/vsa` | 与"正负对比向量"相似度高的谓词 | MBAT 绑定/捆绑，`retrieve` |
 | `crates/sme` | 通过结构映射推出的谓词 | 结构映射，`analogize` |
+| `crates/ilp` | 扩展覆盖正例且不覆盖负例的子句 | 关系学习，`ilp_demo` |
 | `crates/runtime` | 协议本身、校验、命令行 | `Operator`、`OperatorResult`、`metaform-runtime` |
 
 组件提议，内核裁决：

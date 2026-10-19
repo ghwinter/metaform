@@ -57,7 +57,7 @@ function Require([bool]$condition, [string]$message) {
     if (-not $condition) { throw $message }
 }
 
-foreach ($crate in 'vsa', 'sme', 'runtime') {
+foreach ($crate in 'vsa', 'sme', 'ilp', 'runtime') {
     if ($SkipBuild) { continue }
     Check "cargo test $crate" {
         $manifest = Join-Path $root "crates\$crate\Cargo.toml"
@@ -106,6 +106,20 @@ Check 'the CLI path: component proposes, engine validates' {
     }
 }
 
+Check 'the ILP component: a learned clause goes through the kernel' {
+    $fixtures = Join-Path $root 'crates\ilp\fixtures'
+    $engine = Join-Path $root 'engine\target\debug\metaform.exe'
+    Require (Test-Path $engine) 'the engine binary is missing (run check-rust first)'
+    $response = Join-Path $env:TEMP "ilp_response_$PID.json"
+    $out = cargo run --quiet --manifest-path (Join-Path $root 'crates\ilp\Cargo.toml') --bin ilp_demo -- --out $response 2>&1
+    $out | Out-Host
+    Require ([bool]($out | Select-String 'grandparent\(V0,V1\) :- parent\(V0,V2\), parent\(V2,V1\)')) 'unexpected clause'
+    $verdict = & $engine propose --request (Join-Path $fixtures 'request.json') --response $response
+    $verdict | Out-Host
+    Require ([bool]($verdict | Select-String '"name":"grandparent_pair"')) 'the learned clause was not accepted'
+    Require ([bool]($verdict | Select-String '"splits":2')) 'the learned clause did not separate both colliding pairs'
+    Remove-Item $response -Force -ErrorAction SilentlyContinue
+}
 foreach ($family in @(@('k2', 10, 0.9), @('k3', 5, 0.8), @('noisy', 5, 0.9))) {
     Check "three proposers, one validator ($($family[0]))" {
         Push-Location (Join-Path $root 'research\exp')

@@ -1012,3 +1012,23 @@ reports how many pairs a proposal separates, separately from whether the proposa
 
 This experiment is deliberately not part of `check-components.ps1`: its objects are the repository,
 so a file added tomorrow changes the state. It is run by hand and recorded here.
+
+### 7.2 The ILP component
+
+`crates/ilp` is a small top-down relational learner: a clause is a head over fresh variables and a
+body grown from a fixed signature; a candidate is kept only if it covers every positive example and
+no negative one, and only if every head variable occurs in the body (without that rule a clause such
+as `grandparent(V0,V1) :- parent(V2,V3)` would "cover" anything). Search is exhaustive within a body
+bound and deterministic; there is no conflict-driven reasoning and no metarule machinery, and no code
+from Popper or Metagol is copied.
+
+On a six-person domain with `parent` and `same_city` facts, two positives and two negatives, the
+learner returns
+
+```
+grandparent(V0,V1) :- parent(V0,V2), parent(V2,V1).
+```
+
+Projected onto the 36 ordered pairs, that extension is accepted by `metaform propose` with `splits:
+2`, and `scripts/check-components.ps1` re-runs the whole path and fails if the clause or the verdict
+changes.
