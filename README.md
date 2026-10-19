@@ -199,6 +199,30 @@ anything that pins what the results are (Lean version, Mathlib revision, the Rus
 - All experiments are on synthetic domains and one small code domain, with **no real LLM proposer** in the loop; the paper scopes its claims accordingly and does not overclaim.
 - The counting form `2^m` of T4 is formalized as `capacity_bound_strong`; the weak form is kept as a lemma.
 
+## Remaining route
+
+The release stops at a validated boundary, not at a runtime. What is left, in order:
+
+1. **Lean inside the repository.** The mechanization check borrows a Lake project whose path is
+   machine-local, so a clone can read the proofs but cannot recompile them. Track the lakefile and the
+   toolchain (Mathlib revision included), generate the manifest, and let `check-lean` run `lake env lean`
+   in place. Acceptance: a clone with only `lake update` reports the same 13 declarations, no warnings.
+2. **A real model behind the protocol.** The propose boundary is pure and validated, but every response
+   so far is fabricated by a mock. An adapter changes no engine code, only the file that fills the
+   response. Acceptance: the same loop against a model, with accepted/rejected counts and queries
+   recorded, and a budget-matched comparison of a direct answer against the loop.
+3. **Types for `decompose` and `analogize`.** The five classes type evidence and representation. Goal
+   decomposition changes the goal and structure mapping changes the relational structure; neither has a
+   stated effect on the measure, so a scheduler cannot reason about them. Acceptance: a proposition per
+   operator, a Rust test, and an extended operator table that leaves Theorems 8--11 intact.
+4. **A relational necessity criterion.** Extending the colliding pair from unary signatures to typed
+   relations is what turns the structure graph into a computation. Acceptance: a domain where unary
+   predicates suffice and the relation is necessary, with the engine reporting "no separating pattern".
+5. **Memory that cannot ossify.** The ledger records evidence, not strategy. An operator-experience
+   table restricted to ledger-verified entries, and an abstraction library expressed as vocabulary
+   growth across tasks, are the two pieces a metareasoning runtime needs. Acceptance: two task families, a measurable
+   drop in proposals per task, and no strategy adopted without a verified entry.
+
 ## Provenance
 
 - The problem was posed in one long research conversation. That conversation is an input, not a

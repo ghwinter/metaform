@@ -81,7 +81,7 @@ PAPER_FORBIDDEN = [
 # The literal names are assembled so that this file does not itself mention them.
 UNTRACKED_NAMES = re.compile(
     r"(?<![\w.-])\.(?:library|local|repo)\b|reasoning_engine_"
-    + r"research_map|\b1\.md\b"
+    + r"research_map|\b1\.md\b|\b2\.md\b"
 )
 
 CITE = re.compile(r"\\cite[a-zA-Z]*\s*\{([^}]*)\}")
