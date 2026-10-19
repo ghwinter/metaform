@@ -10,14 +10,18 @@ From now on, edit only `paper/en/main.tex`, then sync `paper/zh/main.tex`.
 | Directory | Contents |
 |---|---|
 | `paper/en/`, `paper/zh/` | Bilingual body text. en uses `pdflatex` twice; zh uses `xelatex` twice (ctex) |
-| `research/` | Propositions (00), formal core (01), paper outline (02), literature synthesis (03), engine design (04), borrowable mechanisms (05), AI-native hypotheses (06), JEV decision layer (07), claim audit (08), long-form notes (09), unified operators (11), operator typing (12) |
+| `research/` | Design charter and propositions (00), formal core (01), paper outline (02), literature synthesis (03), engine design (04), borrowable mechanisms (05), AI-native hypotheses (06), JEV decision layer (07), claim audit (08), long-form notes (09), unified operators (11), operator typing (12) |
 | `research/lean/` | Lean 4 formalization: 13 declarations carrying Theorems 1–11, no admitted goal and no warnings; `research/lean/mechanization.md` maps theorem to declaration |
 | `research/exp/` | Python experiments: synthetic domains, Lean domain, code domain, cost breakdown, data ledger `RESULTS.md` |
 | `engine/` | Rust kernel + `metaform` command line (`engine/scenarios/` holds example scripts) |
 | `scripts/` | Assertion gates, alignment and reference checks, Lean/Rust wrappers, bundle builder |
 
-## Reference rules
+The charter, `research/00-charter.md` (Chinese copy `research/00-charter.zh.md`), states the problem, the
+thirteen claims each with a falsifier, the six positions of the runtime, the ten laws, and the route. If
+this README and the charter disagree on a design principle, the charter wins; if either disagrees with the
+code or the gates, the code and the gates win.
 
+## Reference rules
 A tracked file may only point at something the repository contains. `scripts/check-references.py`
 fails on an absolute path, on a backticked path or a markdown link that git does not track (generated
 artifacts and the `local.ps1` bootstrap copy excepted), on a bare mention of the untracked corpus or
