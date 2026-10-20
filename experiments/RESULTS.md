@@ -1718,3 +1718,48 @@ The comparison with the earlier run is worth recording: the earlier environment 
 arm was reading it and the run was void; this one was frozen and its hashes checked, and the run
 counted. Freezing the input is the cheapest control in the whole protocol and the one that failed
 first.
+
+## 20. A six-question batch, and the ceiling it hit (2026-10-21)
+
+Six properties, one fixed set of twelve files, five atoms computed from content, ids identical
+across questions so only the target property changes. Each question had two labelled positives,
+three labelled negatives, and two or three withheld positives. Before any arm ran, each question
+passed the leak checks: 10 single-atom comparisons, 35 single/union/difference expressions, 45
+atom-plus-or-minus-evidence expressions and 62 `all_of`/`any_of` expressions, 172 candidates in
+all, zero hits. Requests, briefs and truth files were hashed when the environment was frozen.
+
+Three arms, each run in a fresh context that saw only its own brief, request and a sanitized copy:
+A got the property in words and the request; B got the request and the labels but not the
+property, and had to invent one; C got the property in words and no engine at all.
+
+| arm | runs | exact | withheld positives found | predictions correct |
+|---|---|---|---|---|
+| A | 6 (+1 repeat) | 5 of 6 | 14 of 14 | 7 of 7 |
+| B | 6 | 3 of 6 | 9 of 11 | 6 of 6 |
+| C | 6 | **6 of 6** | 14 of 14 | not asked |
+
+The baseline did not lose. The arm with no engine found every withheld positive on every question.
+The arm with the described property and the request missed one question, and a repeat of that same
+question answered it correctly, so the miss is variance between runs rather than a property of the
+arm. The arm that had to invent a property was the weakest, which is the expected ordering, but it
+still matched the truth on half the questions.
+
+Two of its failures are worth keeping. On one question it invented "the file discusses predicate
+definitions" and produced exactly the same extension as the intended "a line longer than 180
+characters"; the extension was right and the rule was wrong, and the recorded prediction was
+correct, so neither the score nor the bet distinguished a concept from a coincidence. On another
+question it said in its own report that it chose the five-object extension over the two-object one
+because the scoring was asymmetric and the larger extension scored better. That is the metric being
+optimised against, not the question being answered.
+
+What this shows: for a property stated precisely, a careful scanner is at the ceiling, and this
+engine adds nothing to accuracy. What it also shows is weaker than it looks for the engine's side,
+because the described properties were all context-free -- a regular expression, a declaration shape,
+a line length -- which is the class where a protocol that asks "is the vocabulary sufficient" has
+nothing to contribute.
+
+What it does not show: token cost, because the arms are subagents and no usage is reported; matched
+budget, because nothing was matched; and anything about ambiguous properties, because none were
+tested. The next batch must use properties that cannot be checked by a regex, or the ceiling will
+repeat. The real-repository line, where a fix must make a failing test pass, is the one that can
+distinguish the arms.
