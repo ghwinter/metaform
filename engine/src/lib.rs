@@ -28,6 +28,9 @@ pub mod suggest;
 /// `explore`: attribute exploration over the predicate context, ported from conexp-clj.
 pub mod explore;
 
+/// `coverage`: read-only closure over a goal-coverage table (items x required properties).
+pub mod coverage;
+
 /// Portfolio identification: several vocabularies, exactly one of which is sufficient (paper Theorem 2).
 pub mod portfolio;
 

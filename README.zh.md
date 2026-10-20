@@ -67,6 +67,7 @@ metaform check-predictions --project .            # 只读：把记录下来的�
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # 只读：试过哪些布尔候选，以及为何都分不开
 metaform explore    --project . [--max-questions 1000] [--laws <path>] [--emit-questions <path>] [--out <path>] # 只读：证据确认的蕴含、带反例的否证、待问的开放问题
 metaform answer     --project . --questions <q.json> --answers <a.json> [--laws <path>] # 把专家回答记为定律（define 会采纳谓词），下次 explore 从它们出发
+metaform coverage   [--project .] [--format text] [<table.tsv>] # 只读：缺失格、蕴含冲突、等价行、阻断缺口
 metaform plan   --project . --pool .metaform/out/pool.txt # 覆盖 + 纯度 + 重问预算
 metaform report --project .                         # 生成 .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # 候选评分：覆盖/P-R/台账
@@ -132,6 +133,17 @@ metaform ops                                       # 五类算子调度对照：
 `define`/`law`。只有 `define` 回答会写状态，其他回答保持状态不变。重复回答同一份 answers 文件不会
 重复写记录（按 kind + source + premise + conclusion 去重）。未知 id、格式错误的回答、并未真正否证
 的反例、或已存在的定义名，都会以退出码 2 结束且不写任何文件。
+
+`coverage` 是只读的目标覆盖检查：它与 `explore` 用同一套闭包思想，只是把对象换成了“工作项 × 必需属性”的表。
+表是 TSV：表头第一列是 `item`，其后是需求名；每个后续行是一个工作项；单元格为 `yes`、`no`、`?`
+或空（空等同 `?`）；空行和以 `#` 开头的行跳过。它先校验整张表，再打印一个 JSON 对象：
+`items`、`requirements`、`missing`（每个未知格）、`conflicts`、`equivalences`（yes/no/? 模式完全相同的行）
+和 `blocking`。当至少两行对 X 和 Y 都说 `yes` 时，蕴含 `X -> Y` 成立；某行对 X 说 `yes`、对 Y 说 `no` 或
+`?`，就是冲突，`implied_by` 与原因会写明提供该模式的行。需求名以 `!` 结尾表示阻断项，输出时去掉
+`!`；该列的 `?` 会进入 `blocking`，因为这一行在被填上之前读不出意义，而 `no` 是真实回答、不算缺失。
+默认表是 `--project` 下的 `.metaform/coverage.tsv`；位置参数或 `--input` 可以覆盖它。`--format text`
+每个问题打印一行 `item: requirement: reason`，便于 shell 循环。命令不写任何文件；非法单元格、重复需求、
+未知列或缺少表头都会以退出码 2 结束，stdout 为空。
 
 ## LLM 适配器
 
@@ -221,7 +233,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 178）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 184）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接

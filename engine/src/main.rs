@@ -47,6 +47,12 @@
 //! JSON line (or writes it to `--out`) and never saves the state; `--emit-questions` writes the open
 //! questions for `answer` and suppresses the stdout line.
 //!
+//! `metaform coverage [--project .] [--format json|text] [<table.tsv>]` is the read-only
+//! goal-coverage check: a TSV of work items against required properties becomes the missing cells,
+//! the conflicts predicted by implications supported by at least two rows, the rows with identical
+//! answers, and the blocking requirements still unanswered. A requirement named with a trailing
+//! `!` is blocking. It never writes a file.
+//!
 //! `metaform answer --project . --questions <q.json> --answers <a.json> [--laws <path>]` records
 //! the expert's answers in `.metaform/laws.tsv` (`yes` as a law, `no` as a refutation with a
 //! validated counterexample, `define` as a law) and adopts a defined predicate in the state only for
@@ -411,6 +417,83 @@ fn cmd_explore(args: &[String]) -> i32 {
     0
 }
 
+/// `metaform coverage [--project <dir>] [--format json|text] [<table.tsv> | --input <table.tsv>]`.
+///
+/// Read-only. The table defaults to `<project>/.metaform/coverage.tsv`; a positional path or
+/// `--input` names another one. The whole file is parsed and validated before anything is printed,
+/// so a malformed table exits 2 with empty stdout and touches no file. `--format text` prints one
+/// `item: requirement: reason` line per problem instead of the JSON object.
+fn cmd_coverage(args: &[String]) -> i32 {
+    let mut project = std::path::PathBuf::from(".");
+    let mut format = String::from("json");
+    let mut input: Option<std::path::PathBuf> = None;
+    let mut i = 1;
+    while i < args.len() {
+        let flag = &args[i];
+        match flag.as_str() {
+            "--project" | "--format" | "--input" => {
+                let Some(value) = args.get(i + 1) else {
+                    eprintln!("metaform coverage: {flag} expects a value");
+                    return 2;
+                };
+                if value.starts_with("--") {
+                    eprintln!("metaform coverage: {flag} expects a value");
+                    return 2;
+                }
+                match flag.as_str() {
+                    "--project" => project = std::path::PathBuf::from(value),
+                    "--format" => format = value.clone(),
+                    _ => {
+                        if input.is_some() {
+                            eprintln!("metaform coverage: give the table once (positional path or --input)");
+                            return 2;
+                        }
+                        input = Some(std::path::PathBuf::from(value));
+                    }
+                }
+                i += 2;
+            }
+            other if other.starts_with("--") => {
+                eprintln!("metaform coverage: unknown option `{other}`");
+                return 2;
+            }
+            other => {
+                if input.is_some() {
+                    eprintln!("metaform coverage: give the table once (positional path or --input)");
+                    return 2;
+                }
+                input = Some(std::path::PathBuf::from(other));
+                i += 1;
+            }
+        }
+    }
+    if format != "json" && format != "text" {
+        eprintln!("metaform coverage: --format expects `json` or `text`, got `{format}`");
+        return 2;
+    }
+    let path = input.unwrap_or_else(|| project.join(".metaform").join("coverage.tsv"));
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("metaform coverage: cannot read `{}`: {e}", path.display());
+            return 2;
+        }
+    };
+    let table = match metaform::coverage::parse(&text) {
+        Ok(table) => table,
+        Err(e) => {
+            eprintln!("metaform coverage: {e}");
+            return 2;
+        }
+    };
+    let report = metaform::coverage::analyze(&table);
+    match format.as_str() {
+        "text" => print!("{}", metaform::coverage::to_text(&report)),
+        _ => println!("{}", metaform::coverage::to_json(&report)),
+    }
+    0
+}
+
 fn cmd_init(args: &[String]) -> i32 {
     let root = project_root(args).join(".metaform");
     for sub in ["logs", "out", "cache"] {
@@ -711,7 +794,7 @@ fn main() {
             println!("metaform {}", env!("CARGO_PKG_VERSION"));
             println!("usage: metaform <command> [options]  (no argument: interactive script)");
             println!("commands: init, state, ledger, plan, report, score, ops, portfolio, mcp,");
-            println!("          suggest, explore, answer, apply, check-predictions, propose");
+            println!("          suggest, explore, coverage, answer, apply, check-predictions, propose");
             println!("MCP: metaform mcp  (newline-delimited JSON-RPC over stdio)");
             return;
         }
@@ -734,6 +817,10 @@ fn main() {
         Some("explore") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
             std::process::exit(cmd_explore(&v));
+        }
+        Some("coverage") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            std::process::exit(cmd_coverage(&v));
         }
         Some("answer") => {
             let v: Vec<String> = std::env::args().skip(1).collect();

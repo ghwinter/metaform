@@ -71,6 +71,7 @@ metaform check-predictions --project .            # read-only: score recorded he
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # read-only: Boolean candidates tried, and why none separates
 metaform explore    --project . [--max-questions 1000] [--laws <path>] [--emit-questions <path>] [--out <path>] # read-only: implications confirmed by evidence, refuted with a counterexample, or open
 metaform answer     --project . --questions <q.json> --answers <a.json> [--laws <path>] # record expert answers as laws (and adopt a define), so the next explore starts from them
+metaform coverage   [--project .] [--format text] [<table.tsv>] # read-only: missing cells, implication conflicts, duplicate rows, blocking gaps
 metaform plan   --project . --pool .metaform/out/pool.txt # coverage + purity + re-ask budget
 metaform report --project .                         # generate .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # candidate scoring: coverage/P-R/ledger
@@ -155,6 +156,20 @@ state; every other answer leaves it unchanged. Replaying the same answers file d
 line (dedupe on kind + source + premise + conclusion). An unknown id, a malformed answer, a
 counterexample that does not actually refute, or a definition name that already exists exits 2 and
 writes nothing.
+
+`coverage` is the read-only goal-coverage check: the same closure idea as `explore`, applied to a
+table of work items against required properties. The table is TSV; the header is `item` followed by
+requirement names, each later row is a work item, and a cell is `yes`, `no`, `?`, or empty (empty
+means `?`); blank lines and lines starting with `#` are skipped. It validates the whole table before
+printing one JSON object: `items`, `requirements`, `missing` (every unknown cell), `conflicts`,
+`equivalences` (rows with identical yes/no/? patterns), and `blocking`. An implication `X -> Y` is
+supported when at least two rows say `yes` to both; every row that says `yes` to X but `no` or `?`
+to Y is a conflict, with `implied_by` and the reason naming the supporting rows. A requirement whose
+name ends in `!` is blocking and the marker is stripped in output; a `?` in that column is listed in
+`blocking` because the row cannot be read until it is answered, while a `no` is a real answer. The
+default path is `.metaform/coverage.tsv` under `--project`; a positional path or `--input` overrides
+it. `--format text` prints one `item: requirement: reason` line per problem. Nothing is written; a
+malformed cell, duplicate requirement, unknown column, or missing header exits 2 with empty stdout.
 
 ## LLM adapter
 
@@ -279,7 +294,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 178)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 184)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain
