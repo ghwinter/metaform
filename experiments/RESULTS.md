@@ -1794,3 +1794,23 @@ none was involved. By the charter's own earlier measurement, failures inside one
 the loop -- a static feature suffices -- so this task is a baseline, and it is recorded as one. The
 number of tasks is one, the budget was not matched, and the ground truth is pass/fail rather than a
 minimal diff.
+
+## 22. Ablation without a drop (2026-10-21)
+
+The coverage table named ablation as the next blocking requirement. Removing the engine is the
+ablation that the batch already contains: the baseline arm answers every question with no request,
+no vocabulary and no evidence labels, and it was exact on all six, while the engine arm was exact on
+five of six and on the repeat of its one failure. Removing the engine therefore produced no drop.
+
+That is an answer to the requirement and it is negative. The row now says no rather than unknown,
+because "ablated, no drop" is information while "not run" is not. The component most plausibly
+responsible for accuracy in these tasks is the property description itself, which was identical in
+both arms; the engine's contribution was the request and the bet, and neither added correctness
+here.
+
+Two consequences are written down rather than acted on. A finer ablation -- removing only the
+mandatory prediction, or only the rival requirement -- cannot change accuracy by construction,
+because both are records rather than inputs to the answer; what they can change is whether a wrong
+rule is caught, which the batch has one example of. And the requirement that remains genuinely
+unmet is the matched budget: no arm reports token usage, so no cost comparison exists. That one is
+blocked on an input this session does not have.
