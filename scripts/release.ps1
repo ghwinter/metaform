@@ -32,7 +32,7 @@ New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
 $files = @{
     'metaform.exe'                 = 'target\release\metaform.exe'
-    'SKILL.md'                     = 'skills\metaform\SKILL.md'
+    'SKILL.md'                     = '.dsh\skills\metaform\SKILL.md'
     'README.md'                    = 'README.md'
 }
 foreach ($dst in $files.Keys) {

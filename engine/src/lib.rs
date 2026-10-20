@@ -31,8 +31,82 @@ pub mod explore;
 /// Portfolio identification: several vocabularies, exactly one of which is sufficient (paper Theorem 2).
 pub mod portfolio;
 
+/// Evidence ledger: append-only TSV rows folded by id.
+pub mod ledger;
+
+/// Coverage + purity + re-ask budget for one state.
+pub mod plan;
+
+/// Persisted scenario state (`<project>/.metaform/state.json`).
+pub mod state;
+
+/// Held-out predictions recorded by `apply` and scored by `check-predictions`.
+pub mod predictions;
+
+/// Persisted law theory (`<project>/.metaform/laws.tsv`).
+pub mod laws;
+
+/// The `explore --emit-questions` -> `answer` loop.
+pub mod answer;
+
+/// Adoption of a validated `metaform.propose/1` response.
+pub mod apply;
+
+/// Minimal MCP stdio server.
+pub mod mcp;
+
 /// Bitmask over a set of objects. Enough for up to 64 objects; switch to `bitvec` if you need more.
 pub type Mask = u64;
+
+/// Read the value of a `--flag value` pair, if present.
+pub fn kv(args: &[String], key: &str) -> Option<String> {
+    args.iter().position(|a| a == key).and_then(|i| args.get(i + 1)).cloned()
+}
+
+/// Parse a flag value while keeping "absent" distinct from "present but missing". A following
+/// flag is not accepted as a value, so `--laws --out x` is an error rather than a file named
+/// `--out`.
+pub fn flag_value(args: &[String], key: &str) -> Result<Option<String>, String> {
+    match args.iter().position(|a| a == key) {
+        None => Ok(None),
+        Some(i) => match args.get(i + 1) {
+            Some(value) if !value.starts_with("--") => Ok(Some(value.clone())),
+            _ => Err(format!("{key} expects a value")),
+        },
+    }
+}
+
+/// The project root selected by `--project` (default `.`).
+pub fn project_root(args: &[String]) -> std::path::PathBuf {
+    std::path::PathBuf::from(kv(args, "--project").unwrap_or_else(|| ".".into()))
+}
+
+/// Load the project state, reporting an unresolvable definition (missing operand, cycle, bad file)
+/// on stderr and returning `None` so the caller can exit with status 2.
+pub fn load_state(path: &std::path::Path, command: &str) -> Option<state::State> {
+    match state::State::load(path) {
+        Ok(st) => Some(st),
+        Err(e) => {
+            eprintln!("metaform {command}: {e}");
+            None
+        }
+    }
+}
+
+/// Whether two paths name the same file. Used so `--out` cannot overwrite the state that the
+/// read-only command just loaded. A path that does not exist yet is compared by its canonical
+/// parent plus file name.
+pub fn same_path(a: &std::path::Path, b: &std::path::Path) -> bool {
+    fn normalize(p: &std::path::Path) -> std::path::PathBuf {
+        if let Ok(canonical) = p.canonicalize() {
+            return canonical;
+        }
+        let parent = p.parent().unwrap_or_else(|| std::path::Path::new("."));
+        let parent = parent.canonicalize().unwrap_or_else(|_| parent.to_path_buf());
+        parent.join(p.file_name().unwrap_or_default())
+    }
+    normalize(a) == normalize(b)
+}
 
 /// The bit of the `i`-th object.
 pub fn bit(i: usize) -> Mask {

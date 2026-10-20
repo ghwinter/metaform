@@ -54,17 +54,12 @@
 
 use std::io::{self, BufRead, Write};
 
-mod answer;
-mod apply;
-mod laws;
-mod ledger;
-mod mcp;
-mod plan;
-mod predictions;
 mod report;
 mod score;
-mod state;
-use metaform::{bit, Definition, DefOp, Explorer, Predicate, Status, Vocabulary};
+use metaform::{
+    answer, apply, bit, flag_value, kv, laws, ledger, load_state, mcp, plan, predictions,
+    project_root, same_path, state, Definition, DefOp, Explorer, Predicate, Status, Vocabulary,
+};
 
 fn ids_to_mask(ids: &[String], n: usize) -> Result<u64, String> {
     let mut m = 0u64;
@@ -189,42 +184,6 @@ fn status(e: &Explorer) {
 
 // ---------------- project directory and ledger subcommands ----------------
 
-fn kv(args: &[String], key: &str) -> Option<String> {
-    args.iter()
-        .position(|a| a == key)
-        .and_then(|i| args.get(i + 1))
-        .cloned()
-}
-
-/// Parse a flag value while keeping "absent" distinct from "present but missing". A following
-/// flag is not accepted as a value, so `--laws --out x` is an error rather than a file named
-/// `--out`.
-pub(crate) fn flag_value(args: &[String], key: &str) -> Result<Option<String>, String> {
-    match args.iter().position(|a| a == key) {
-        None => Ok(None),
-        Some(i) => match args.get(i + 1) {
-            Some(value) if !value.starts_with("--") => Ok(Some(value.clone())),
-            _ => Err(format!("{key} expects a value")),
-        },
-    }
-}
-
-fn project_root(args: &[String]) -> std::path::PathBuf {
-    std::path::PathBuf::from(kv(args, "--project").unwrap_or_else(|| ".".into()))
-}
-
-/// Load the project state, reporting an unresolvable definition (missing operand, cycle, bad file)
-/// on stderr and returning `None` so the caller can exit with status 2.
-fn load_state(path: &std::path::Path, command: &str) -> Option<state::State> {
-    match state::State::load(path) {
-        Ok(st) => Some(st),
-        Err(e) => {
-            eprintln!("metaform {command}: {e}");
-            None
-        }
-    }
-}
-
 /// Parse the `--define` spelling: `all-of:a,b` or `any-of:a,b`.
 ///
 /// The operator uses the same hyphenated style as the CLI's other flags; the protocol keeps its
@@ -323,21 +282,6 @@ fn cmd_suggest(args: &[String]) -> i32 {
     let report = metaform::suggest::suggest(&st.explorer(), max_arity, max);
     println!("{}", metaform::suggest::to_json(&report));
     0
-}
-
-/// Whether two paths name the same file. Used so `--out` cannot overwrite the state that the
-/// read-only command just loaded. A path that does not exist yet is compared by its canonical
-/// parent plus file name.
-fn same_path(a: &std::path::Path, b: &std::path::Path) -> bool {
-    fn normalize(p: &std::path::Path) -> std::path::PathBuf {
-        if let Ok(canonical) = p.canonicalize() {
-            return canonical;
-        }
-        let parent = p.parent().unwrap_or_else(|| std::path::Path::new("."));
-        let parent = parent.canonicalize().unwrap_or_else(|_| parent.to_path_buf());
-        parent.join(p.file_name().unwrap_or_default())
-    }
-    normalize(a) == normalize(b)
 }
 
 /// `metaform explore --project . [--max-questions N] [--laws <path>] [--emit-questions <path>] [--out <path>]`.

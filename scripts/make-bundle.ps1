@@ -31,7 +31,7 @@ $files = @(
     'README.md',
     'CHARTER.md',
     'CHARTER.zh.md',
-    'skills/metaform/SKILL.md',
+    '.dsh/skills/metaform/SKILL.md',
     'proofs/QueryDriven.lean',
     'proofs/lakefile.toml',
     'proofs/lean-toolchain',

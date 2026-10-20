@@ -20,8 +20,8 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use metaform::bit;
-use metaform::propose::{self, Accepted};
+use crate::bit;
+use crate::propose::{self, Accepted};
 
 /// The header line of `.metaform/predictions.tsv`.
 pub const HEADER: &str = "request_id\tname\tid\tpredicted\textension";
@@ -144,26 +144,18 @@ fn read_records(path: &Path) -> std::io::Result<Vec<Record>> {
     Ok(out)
 }
 
-/// `metaform check-predictions --project <dir>`
+/// Read the project and score every recorded prediction, returning one deterministic JSON line.
 ///
-/// Read-only. The status is the one `state need` and `suggest` use: the recommended `theta` from the
-/// recorded votes, then `strong(theta)`. A prediction is scored only once its object has a strong
-/// label; until then it is `open`.
-pub fn cmd(args: &[String]) -> i32 {
-    let root = crate::project_root(args).join(".metaform");
-    let Some(st) = crate::load_state(&root.join("state.json"), "check-predictions") else {
-        return 2;
-    };
-    let records = match read_records(&root.join("predictions.tsv")) {
-        Ok(records) => records,
-        Err(e) => {
-            eprintln!(
-                "metaform check-predictions: cannot read `{}`: {e}",
-                root.join("predictions.tsv").display()
-            );
-            return 2;
-        }
-    };
+/// This is the non-CLI entry point shared by `metaform check-predictions` and the MCP
+/// `check_predictions` tool. Read-only. The status is the one `state need` and `suggest` use: the
+/// recommended `theta` from the recorded votes, then `strong(theta)`. A prediction is scored only
+/// once its object has a strong label; until then it is `open`.
+pub fn check(project: &Path) -> Result<String, String> {
+    let root = project.join(".metaform");
+    let st = crate::state::State::load(&root.join("state.json"))?;
+    let predictions_path = root.join("predictions.tsv");
+    let records = read_records(&predictions_path)
+        .map_err(|e| format!("cannot read `{}`: {e}", predictions_path.display()))?;
 
     let explorer = st.explorer();
     let theta = explorer.recommended_theta();
@@ -199,9 +191,25 @@ pub fn cmd(args: &[String]) -> i32 {
         }
     }
 
-    println!(
+    Ok(format!(
         "{{\"checked\":{checked},\"correct\":{correct},\"wrong\":[{}],\"open\":{open}}}",
         wrong.join(",")
-    );
-    0
+    ))
+}
+
+/// `metaform check-predictions --project <dir>`
+///
+/// Read-only; see [`check`].
+pub fn cmd(args: &[String]) -> i32 {
+    let root = crate::project_root(args);
+    match check(&root) {
+        Ok(line) => {
+            println!("{line}");
+            0
+        }
+        Err(e) => {
+            eprintln!("metaform check-predictions: {e}");
+            2
+        }
+    }
 }

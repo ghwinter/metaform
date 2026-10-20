@@ -5,7 +5,7 @@
 //!   2. purity — merge conflicting objects by equivalence class; a class with both known positives and negatives ⇒ impure
 //!   3. budget — with unknown purity, compare `1 + (1-p)(c-1)R` against `c` to decide between asking one or asking all
 
-use metaform::{bit, Explorer};
+use crate::{bit, Explorer};
 
 use crate::ledger;
 

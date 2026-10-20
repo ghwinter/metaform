@@ -25,8 +25,9 @@
 //! same answers file does not duplicate a law line (dedupe on source + premise + conclusion).
 
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 
-use metaform::{bit, DefOp, Definition};
+use crate::{bit, DefOp, Definition};
 use serde::{Deserialize, Serialize};
 
 use crate::laws::{self, Entry};
@@ -96,70 +97,42 @@ struct Summary<'a> {
     defined: &'a [String],
 }
 
-/// `metaform answer --project <dir> --questions <q.json> --answers <a.json> [--laws <path>]`
-pub fn cmd(args: &[String]) -> i32 {
-    let (questions_path, answers_path) =
-        match (crate::flag_value(args, "--questions"), crate::flag_value(args, "--answers")) {
-            (Ok(Some(q)), Ok(Some(a))) => (q, a),
-            (Ok(_), Ok(_)) => {
-                eprintln!(
-                    "usage: metaform answer --project <dir> --questions <q.json> --answers <a.json> [--laws <path>]"
-                );
-                return 2;
-            }
-            (Err(e), _) | (_, Err(e)) => {
-                eprintln!("metaform answer: {e}");
-                return 2;
-            }
-        };
-
-    let root = crate::project_root(args).join(".metaform");
+/// Record one validated `answers` document against `questions`, returning the summary JSON line.
+///
+/// This is the non-CLI entry point shared by `metaform answer` and the MCP `answer_questions` tool:
+/// the two inputs are text, so no question/answer files have to exist. Every check still runs
+/// before the first write, and replaying the same answers against the same questions dedupes.
+pub fn apply_text(
+    project: &Path,
+    laws_path: Option<&Path>,
+    questions_text: &str,
+    answers_text: &str,
+) -> Result<String, String> {
+    let root = project.join(".metaform");
     let state_path = root.join("state.json");
-    let laws_path = match crate::flag_value(args, "--laws") {
-        Ok(Some(path)) => std::path::PathBuf::from(path),
-        Ok(None) => root.join("laws.tsv"),
-        Err(e) => {
-            eprintln!("metaform answer: {e}");
-            return 2;
-        }
-    };
+    let laws_path = laws_path
+        .map(|path| path.to_path_buf())
+        .unwrap_or_else(|| root.join("laws.tsv"));
     if crate::same_path(&laws_path, &state_path) {
-        eprintln!("metaform answer: --laws must not be the project state");
-        return 2;
+        return Err("--laws must not be the project state".into());
     }
-    let Some(mut st) = crate::load_state(&state_path, "answer") else {
-        return 2;
-    };
+    let mut st = crate::state::State::load(&state_path)?;
     if st.n > 64 {
-        eprintln!(
-            "metaform answer: at most 64 objects are supported (state has {})",
+        return Err(format!(
+            "at most 64 objects are supported (state has {})",
             st.n
-        );
-        return 2;
+        ));
     }
 
-    let questions_text = match std::fs::read_to_string(&questions_path) {
-        Ok(text) => text,
-        Err(e) => {
-            eprintln!("metaform answer: cannot read questions `{questions_path}`: {e}");
-            return 2;
-        }
-    };
-    let questions_doc: QuestionsFile = match serde_json::from_str(&questions_text) {
-        Ok(doc) => doc,
-        Err(e) => {
-            eprintln!("metaform answer: cannot parse questions `{questions_path}`: {e}");
-            return 2;
-        }
-    };
+    let questions_doc: QuestionsFile =
+        serde_json::from_str(questions_text).map_err(|e| format!("cannot parse questions: {e}"))?;
     let mut questions: HashMap<usize, &Question> = HashMap::new();
     for question in &questions_doc.questions {
         if questions.insert(question.id, question).is_some() {
-            eprintln!(
-                "metaform answer: questions file repeats question id {}",
+            return Err(format!(
+                "questions file repeats question id {}",
                 question.id
-            );
-            return 2;
+            ));
         }
     }
 
@@ -167,29 +140,16 @@ pub fn cmd(args: &[String]) -> i32 {
     for question in &questions_doc.questions {
         for name in question.premise.iter().chain(question.conclusion.iter()) {
             if !names.contains(name) {
-                eprintln!(
-                    "metaform answer: question {} names unknown predicate `{name}`",
+                return Err(format!(
+                    "question {} names unknown predicate `{name}`",
                     question.id
-                );
-                return 2;
+                ));
             }
         }
     }
 
-    let answers_text = match std::fs::read_to_string(&answers_path) {
-        Ok(text) => text,
-        Err(e) => {
-            eprintln!("metaform answer: cannot read answers `{answers_path}`: {e}");
-            return 2;
-        }
-    };
-    let answers_file: AnswersFile = match serde_json::from_str(&answers_text) {
-        Ok(doc) => doc,
-        Err(e) => {
-            eprintln!("metaform answer: cannot parse answers `{answers_path}`: {e}");
-            return 2;
-        }
-    };
+    let answers_file: AnswersFile =
+        serde_json::from_str(answers_text).map_err(|e| format!("cannot parse answers: {e}"))?;
     let answers = answers_file.into_answers();
 
     let mut seen_ids: HashSet<usize> = HashSet::new();
@@ -197,40 +157,28 @@ pub fn cmd(args: &[String]) -> i32 {
     let mut defined: Vec<String> = Vec::new();
     for answer in &answers {
         if !seen_ids.insert(answer.id) {
-            eprintln!("metaform answer: more than one answer for question {}", answer.id);
-            return 2;
+            return Err(format!("more than one answer for question {}", answer.id));
         }
         let Some(question) = questions.get(&answer.id).copied() else {
-            eprintln!("metaform answer: unknown question id {}", answer.id);
-            return 2;
+            return Err(format!("unknown question id {}", answer.id));
         };
-        if let Err(e) = stage(
+        stage(
             &mut st,
             &mut names,
             &mut defined,
             &mut new_entries,
             question,
             answer,
-        ) {
-            eprintln!("metaform answer: question {}: {e}", answer.id);
-            return 2;
-        }
+        )
+        .map_err(|e| format!("question {}: {e}", answer.id))?;
     }
 
     // Every answer validated. Theory entries go first: if the state write fails afterwards,
     // replaying the same answers file still dedupes them and retries the definition.
-    let appended = match laws::append(&laws_path, &new_entries) {
-        Ok(counts) => counts,
-        Err(e) => {
-            eprintln!("metaform answer: {e}");
-            return 2;
-        }
-    };
+    let appended = laws::append(&laws_path, &new_entries)?;
     if !defined.is_empty() {
-        if let Err(e) = st.save(&state_path) {
-            eprintln!("metaform answer: cannot write `{}`: {e}", state_path.display());
-            return 2;
-        }
+        st.save(&state_path)
+            .map_err(|e| format!("cannot write `{}`: {e}", state_path.display()))?;
     }
 
     let summary = Summary {
@@ -240,11 +188,67 @@ pub fn cmd(args: &[String]) -> i32 {
         duplicates: appended.duplicates,
         defined: &defined,
     };
-    println!(
-        "{}",
-        serde_json::to_string(&summary).expect("the answer summary serializes")
-    );
-    0
+    Ok(serde_json::to_string(&summary).expect("the answer summary serializes"))
+}
+
+/// `metaform answer --project <dir> --questions <q.json> --answers <a.json> [--laws <path>]`
+pub fn cmd(args: &[String]) -> i32 {
+    let (questions_path, answers_path) = match (
+        crate::flag_value(args, "--questions"),
+        crate::flag_value(args, "--answers"),
+    ) {
+        (Ok(Some(q)), Ok(Some(a))) => (q, a),
+        (Ok(_), Ok(_)) => {
+            eprintln!(
+                    "usage: metaform answer --project <dir> --questions <q.json> --answers <a.json> [--laws <path>]"
+                );
+            return 2;
+        }
+        (Err(e), _) | (_, Err(e)) => {
+            eprintln!("metaform answer: {e}");
+            return 2;
+        }
+    };
+
+    let project = crate::project_root(args);
+    let laws_path = match crate::flag_value(args, "--laws") {
+        Ok(Some(path)) => Some(std::path::PathBuf::from(path)),
+        Ok(None) => None,
+        Err(e) => {
+            eprintln!("metaform answer: {e}");
+            return 2;
+        }
+    };
+    let questions_text = match std::fs::read_to_string(&questions_path) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("metaform answer: cannot read questions `{questions_path}`: {e}");
+            return 2;
+        }
+    };
+    let answers_text = match std::fs::read_to_string(&answers_path) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("metaform answer: cannot read answers `{answers_path}`: {e}");
+            return 2;
+        }
+    };
+
+    match apply_text(
+        &project,
+        laws_path.as_deref(),
+        &questions_text,
+        &answers_text,
+    ) {
+        Ok(line) => {
+            println!("{line}");
+            0
+        }
+        Err(e) => {
+            eprintln!("metaform answer: {e}");
+            2
+        }
+    }
 }
 
 /// Validate one answer and stage its effects. Nothing is written here: `st` and the vectors are
@@ -352,7 +356,11 @@ fn stage(
                 format!("defined `{name}` = {op_label}:{}", operands.join(",")),
             ));
         }
-        other => return Err(format!("unknown answer `{other}` (expected yes, no or define)")),
+        other => {
+            return Err(format!(
+                "unknown answer `{other}` (expected yes, no or define)"
+            ))
+        }
     }
     Ok(())
 }

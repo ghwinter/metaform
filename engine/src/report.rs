@@ -7,9 +7,9 @@ use std::path::Path;
 
 use metaform::Status;
 
-use crate::ledger;
-use crate::plan;
-use crate::state;
+use metaform::ledger;
+use metaform::plan;
+use metaform::state;
 
 pub fn render(project: &Path) -> Result<String, String> {
     let dir = project.join(".metaform");
@@ -183,7 +183,7 @@ mod tests {
     #[test]
     fn report_lists_recent_ledger_evidence() {
         let dir = setup("ledger-evidence");
-        let e = crate::ledger::Entry {
+        let e = ledger::Entry {
             id: "L1".into(),
             case: 4,
             status: "active".into(),
@@ -193,7 +193,7 @@ mod tests {
             answer: false,
             reason: "probe 4 collides with 0".into(),
         };
-        crate::ledger::append(&dir.join(".metaform/ledger.tsv"), &e);
+        ledger::append(&dir.join(".metaform/ledger.tsv"), &e);
         let md = render(&dir).unwrap();
         assert!(md.contains("## Recent evidence"), "{md}");
         assert!(md.contains("probe 4 collides with 0"), "{md}");

@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use metaform::{bit, DefOp, Definition, Explorer, Predicate, Status, Vocabulary};
+use crate::{bit, DefOp, Definition, Explorer, Predicate, Status, Vocabulary};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]

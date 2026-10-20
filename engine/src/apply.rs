@@ -20,56 +20,63 @@
 //! The output is one JSON line with a fixed field order. The request and response files are only
 //! read, and the before/after status uses the same recommended-`theta` view as `suggest` and
 //! `state need`.
+//!
+//! [`apply_text`] is the non-CLI entry point: it takes the request and response text directly, so
+//! the MCP tool can use the same validation and adoption path without inventing temporary files.
 
 use std::collections::HashSet;
+use std::path::Path;
 
-use metaform::propose::{self, Accepted};
-use metaform::suggest;
+use crate::propose::{self, Accepted};
+use crate::suggest;
 
 use crate::state::PredSpec;
 
-/// `metaform apply --project <dir> --request <request.json> --response <response.json>`
-pub fn cmd(args: &[String]) -> i32 {
-    let (Some(request_path), Some(response_path)) =
-        (crate::kv(args, "--request"), crate::kv(args, "--response"))
-    else {
-        eprintln!(
-            "usage: metaform apply --project <dir> --request <request.json> --response <response.json>"
-        );
-        return 2;
-    };
+/// A failed `apply`, with the CLI exit code and (for a whole-response rejection) the verdict line
+/// that `propose` prints. The MCP entry point only uses `message`.
+pub struct Failure {
+    pub code: i32,
+    pub message: String,
+    pub stdout: Option<String>,
+}
 
-    let root = crate::project_root(args).join(".metaform");
+impl Failure {
+    fn new(code: i32, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            stdout: None,
+        }
+    }
+}
+
+/// Validate one `metaform.propose/1` request/response pair and adopt its accepted candidates.
+///
+/// This is the non-CLI entry point shared by `metaform apply` and the MCP `apply_response` tool.
+/// It reads and writes the project only; the request and response text never have to exist as
+/// files. Success returns exactly the line the command prints (without the trailing newline).
+pub fn apply_text(
+    project: &Path,
+    request_text: &str,
+    response_text: &str,
+) -> Result<String, Failure> {
+    let root = project.join(".metaform");
     let path = root.join("state.json");
-    let Some(st) = crate::load_state(&path, "apply") else {
-        return 2;
-    };
+    let st = crate::state::State::load(&path).map_err(|e| Failure::new(2, e))?;
 
-    let request_text = match std::fs::read_to_string(&request_path) {
-        Ok(text) => text,
-        Err(e) => {
-            eprintln!("metaform apply: cannot read request file `{request_path}`: {e}");
-            return 2;
-        }
-    };
-    // A missing or unreadable response is a protocol failure, exactly as in `propose`.
-    let response_text = std::fs::read_to_string(&response_path).unwrap_or_default();
-    let verdict = match propose::validate_response(&request_text, &response_text) {
-        Ok(verdict) => verdict,
-        Err(e) => {
-            eprintln!("metaform apply: invalid request in `{request_path}`: {e}");
-            return 2;
-        }
-    };
+    let verdict = propose::validate_response(request_text, response_text)
+        .map_err(|e| Failure::new(2, format!("invalid request: {e}")))?;
 
     let (before_status, before_colliding) = suggest::status_and_colliding(&st.explorer());
 
     // A whole-response rejection is not a partial adoption: print the same verdict `propose` would
     // print, and leave every byte of the state file alone.
     if let Some(reason) = &verdict.whole_reject {
-        println!("{}", propose::verdict_json(&verdict));
-        eprintln!("metaform apply: response rejected as a whole ({reason}); state unchanged");
-        return 1;
+        return Err(Failure {
+            code: 1,
+            message: format!("response rejected as a whole ({reason}); state unchanged"),
+            stdout: Some(propose::verdict_json(&verdict)),
+        });
     }
 
     // Everything the validator rejected is reported as skipped, with its reason. Accepted candidates
@@ -106,43 +113,78 @@ pub fn cmd(args: &[String]) -> i32 {
         });
     }
     if let Err(e) = next.resolve() {
-        eprintln!("metaform apply: cannot adopt the accepted candidates: {e}; state unchanged");
-        return 1;
+        return Err(Failure::new(
+            1,
+            format!("cannot adopt the accepted candidates: {e}; state unchanged"),
+        ));
     }
 
     // One write, after every candidate has been accepted into the in-memory state. Only adopted
     // candidates contribute predictions: a candidate skipped as `name_exists` was never admitted.
     if !adopted.is_empty() {
         if let Err(e) = next.save(&path) {
-            eprintln!("metaform apply: cannot write `{}`: {e}", path.display());
-            return 2;
+            return Err(Failure::new(
+                2,
+                format!("cannot write `{}`: {e}", path.display()),
+            ));
         }
         let predictions_path = root.join("predictions.tsv");
-        if let Err(e) =
-            crate::predictions::record(&predictions_path, &verdict.request_id, &adopted)
+        if let Err(e) = crate::predictions::record(&predictions_path, &verdict.request_id, &adopted)
         {
-            eprintln!(
-                "metaform apply: cannot write `{}`: {e}",
-                predictions_path.display()
-            );
-            return 2;
+            return Err(Failure::new(
+                2,
+                format!("cannot write `{}`: {e}", predictions_path.display()),
+            ));
         }
     }
 
     let (after_status, after_colliding) = suggest::status_and_colliding(&next.explorer());
-    println!(
-        "{}",
-        output_json(
-            adopted.len(),
-            &skipped,
-            before_status,
-            before_colliding,
-            after_status,
-            after_colliding,
-            &verdict.request_id,
-        )
-    );
-    0
+    Ok(output_json(
+        adopted.len(),
+        &skipped,
+        before_status,
+        before_colliding,
+        after_status,
+        after_colliding,
+        &verdict.request_id,
+    ))
+}
+
+/// `metaform apply --project <dir> --request <request.json> --response <response.json>`
+pub fn cmd(args: &[String]) -> i32 {
+    let (Some(request_path), Some(response_path)) =
+        (crate::kv(args, "--request"), crate::kv(args, "--response"))
+    else {
+        eprintln!(
+            "usage: metaform apply --project <dir> --request <request.json> --response <response.json>"
+        );
+        return 2;
+    };
+    let project = crate::project_root(args);
+
+    let request_text = match std::fs::read_to_string(&request_path) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("metaform apply: cannot read request file `{request_path}`: {e}");
+            return 2;
+        }
+    };
+    // A missing or unreadable response is a protocol failure, exactly as in `propose`.
+    let response_text = std::fs::read_to_string(&response_path).unwrap_or_default();
+
+    match apply_text(&project, &request_text, &response_text) {
+        Ok(line) => {
+            println!("{line}");
+            0
+        }
+        Err(failure) => {
+            if let Some(line) = failure.stdout {
+                println!("{line}");
+            }
+            eprintln!("metaform apply: {}", failure.message);
+            failure.code
+        }
+    }
 }
 
 fn skipped_json(skipped: &[(String, String)]) -> String {
@@ -163,9 +205,9 @@ fn skipped_json(skipped: &[(String, String)]) -> String {
 fn output_json(
     applied: usize,
     skipped: &[(String, String)],
-    before_status: metaform::Status,
+    before_status: crate::Status,
     before_colliding: usize,
-    after_status: metaform::Status,
+    after_status: crate::Status,
     after_colliding: usize,
     request_id: &str,
 ) -> String {

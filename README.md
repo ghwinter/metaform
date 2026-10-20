@@ -78,6 +78,8 @@ metaform mcp                                       # MCP server (stdio) for agen
 metaform ops                                       # five-operator schedule comparison: fixed order vs skipping redundant steps (paper §4)
 ```
 
+The MCP server is registered host-side as `serverName` `metaform`, transport `stdio`, command `metaform`, args `["mcp"]`, `cwd` at the project root, `toolCallTimeoutMs` 60000, and `failOnStartupError` true; the model-visible names are `mcp__metaform__<tool>`. It echoes the client's supported `protocolVersion` (`2024-11-05`, `2025-03-26`, `2025-06-18`, `2025-11-25`) and answers `2025-11-25` otherwise instead of pinning one revision. The skill lives at `.dsh/skills/metaform/SKILL.md`.
+
 The ledger is **append-only**: retracting means appending a `retracted` line with the same id; when
 folded, the later line wins.
 This repository uses it too: the `.metaform/` directory at the root is its output (migrated from the old JSON by `scripts/migrate-ledger-to-tsv.py`).
@@ -275,7 +277,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 159)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 170)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

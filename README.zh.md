@@ -74,6 +74,8 @@ metaform mcp                                       # MCP 服务端（stdio），
 metaform ops                                       # 五类算子调度对照：固定顺序 vs 跳过冗余（论文 §4）
 ```
 
+宿主的注册项为 `serverName` `metaform`、transport `stdio`、command `metaform`、args `["mcp"]`、`cwd` 指向项目根、`toolCallTimeoutMs` 60000、`failOnStartupError` true；模型可见名为 `mcp__metaform__<tool>`。服务端会回显客户端给出的受支持 `protocolVersion`（`2024-11-05`、`2025-03-26`、`2025-06-18`、`2025-11-25`），其他值回答 `2025-11-25`，不把版本钉死。技能文件位于 `.dsh/skills/metaform/SKILL.md`。
+
 台账是**只追加**的：撤销 = 追加一行同 id 的 `retracted`，折叠时后者胜。
 本仓库自己也在用：根目录下的 `.metaform/` 就是它的产物（`scripts/migrate-ledger-to-tsv.py` 从旧 JSON 迁来）。
 
@@ -218,7 +220,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 159）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 170）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接

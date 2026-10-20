@@ -27,7 +27,7 @@
 !/paper/**
 !/proofs/**
 !/scripts/**
-!/skills/**
+!/.dsh/**
 
 # ---------------------------------------------------------------------------
 # Ignored even inside an allowed directory: build products, machine-local
