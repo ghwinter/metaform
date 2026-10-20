@@ -1627,3 +1627,28 @@ before this run, and the replacement was checked for the same defect.
 The lesson that cost two attempts: freeze the environment before dispatching a proposer. The first
 attempt failed for no reason the proposer could control, and a rebuild between read and score
 invalidates a run even when its numbers look right.
+
+## 17. The loop through the host (2026-10-21)
+
+The server is installed outside the repository, registered in the host's profile as an inserted
+plugin, and its ten tools are visible to the model in the same session. The following ran through
+those tools, not through the command line, on the repository's own demonstration state.
+
+The request carried twelve objects and one predicate, with object 6 positive, object 2 negative,
+and both outside that predicate; the two collided. The proposal was a singleton extension, object 6
+alone, with a prediction that object 9 is negative. It was accepted: the status moved from
+INSUFFICIENT to UNDETERMINED and the colliding count fell to zero. The prediction was recorded with
+the other open one; a vote labelling object 9 negative was then cast, and the check reported one
+prediction checked, one correct, none open.
+
+Exploration then asked whether the existing predicate implies the new one. It does not: objects 3,
+4, 7 and 10 have the predicate and are not object 6. The answer was given as a refutation with
+object 3 as the counterexample. The laws file gained one line whose kind is refutation, not law, and
+a second exploration asked nothing.
+
+What this shows: the wire works end to end; a prediction is recorded before it can be checked and
+scored after; and a negative answer is stored as a refutation rather than as the implication it
+denies. What it does not show: the accepted candidate is a lookup table, a constant extension chosen
+to separate one pair, which is exactly the invention the capacity bound does not price; the
+proposer had read the demonstration ledger, so the correct prediction was not blind; and the domain
+is the repository's own fixture rather than a task. This is a channel test, not a measurement.

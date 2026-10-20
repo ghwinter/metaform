@@ -29,3 +29,4 @@ C16	symmetric relations get a twin match with reversed arguments	cargo test -p m
 C17	unmapped entities become skolems in candidate inferences	cargo test -p metaform-sme --lib unmapped_entities_become_skolems_in_candidate_inferences	contains:test result: ok	verified
 C18	a candidate without a held-out prediction is rejected when the request has unmeasured objects	cargo test -p metaform --test predict	contains:test result: ok	verified
 C19	a recorded refutation decides its premise and never enters the closure	cargo test -p metaform --test answers	contains:test result: ok	verified
+C20	the MCP server exposes ten tools and answers the host handshake transcript	cargo test -p metaform --test mcp_conformance	contains:test result: ok	verified
