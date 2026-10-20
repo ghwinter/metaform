@@ -1845,3 +1845,29 @@ Extensional sufficiency is not explanation.
 What would make the line usable: allow issues with an open pull request (use them as method
 demonstrations, never as pull requests of our own), or allow merged fixes as benchmarks the way the
 earlier tokio task did, which is a benchmark and not a discovery.
+
+## 24. The first matched-budget pair: structure cut the search, not the errors (2026-10-21)
+
+Two runs of the same question through the same runner, the same profile and the same model, the only
+difference being whether the arm received the engine's request with its evidence: the application arm
+got the brief and the request, the baseline arm got the brief alone.
+
+| arm | exact | steps | tokens in | tokens out | seconds |
+|---|---|---|---|---|---|
+| application (request + evidence) | yes | 7 | 13264 | 3816 | 31.0 |
+| baseline (no engine) | yes | 17 | 22074 | 8214 | 59.1 |
+
+Both answered the same correct extension. The arm with the structured request spent about sixty
+percent of the steps and forty percent of the tokens. This is the first comparison in this file where
+the budget was actually accounted for both sides, and the difference is in *search*, not in
+correctness: the request hands the arm two labelled positives, three labelled negatives and the
+colliding pair, so it does not have to find the discriminating property by scanning the corpus.
+
+What it does not show: one question, one model, one repetition. The baseline spent ten more steps
+and it is not established that all of them were search rather than re-reading. And the two arms are
+not budget-matched in the sense of being given equal allowance; they were merely measured on the same
+instrument, which is what makes the comparison possible at all.
+
+The number to remember is the shape, not the ratio: adding structure did not make the answer more
+correct, it made the road to it shorter. If a later run shows structure raising accuracy on an
+ambiguous task, that would be a different claim and a stronger one.
