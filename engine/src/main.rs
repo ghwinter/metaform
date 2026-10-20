@@ -37,15 +37,26 @@
 //! `metaform.propose/1` request instead (or `{"status":"<STATUS>","request":null}` when no new atom
 //! is needed), so a proposer can answer without inventing the request shape.
 //!
-//! `metaform explore --project . [--max-questions N] [--out <path>]` is the read-only attribute
-//! exploration: it walks the closed sets of the law theory, confirms an implication when the
-//! labelled evidence implies it and no object contradicts it, records a refutation with its
-//! counterexample object, and records an open question when no evidence object matches the premise.
-//! It prints one deterministic JSON line (or writes it to `--out`) and never saves the state.
+//! `metaform explore --project . [--max-questions N] [--laws <path>] [--emit-questions <path>] [--out <path>]`
+//! is the read-only attribute exploration: it walks the closed sets of the law theory, confirms an
+//! implication when the labelled evidence implies it and no object contradicts it, records a
+//! refutation with its counterexample object, and records an open question when no evidence object
+//! matches the premise. The initial theory is `.metaform/laws.tsv` (or `--laws`), whose `kind`
+//! column separates laws from recorded refutations: a premise decided by either is not asked again,
+//! and a recorded refutation is reported in `refuted` with its source. It prints one deterministic
+//! JSON line (or writes it to `--out`) and never saves the state; `--emit-questions` writes the open
+//! questions for `answer` and suppresses the stdout line.
+//!
+//! `metaform answer --project . --questions <q.json> --answers <a.json> [--laws <path>]` records
+//! the expert's answers in `.metaform/laws.tsv` (`yes` as a law, `no` as a refutation with a
+//! validated counterexample, `define` as a law) and adopts a defined predicate in the state only for
+//! a `define` answer. Replaying the same answers file does not duplicate an entry.
 
 use std::io::{self, BufRead, Write};
 
+mod answer;
 mod apply;
+mod laws;
 mod ledger;
 mod mcp;
 mod plan;
@@ -185,6 +196,19 @@ fn kv(args: &[String], key: &str) -> Option<String> {
         .cloned()
 }
 
+/// Parse a flag value while keeping "absent" distinct from "present but missing". A following
+/// flag is not accepted as a value, so `--laws --out x` is an error rather than a file named
+/// `--out`.
+pub(crate) fn flag_value(args: &[String], key: &str) -> Result<Option<String>, String> {
+    match args.iter().position(|a| a == key) {
+        None => Ok(None),
+        Some(i) => match args.get(i + 1) {
+            Some(value) if !value.starts_with("--") => Ok(Some(value.clone())),
+            _ => Err(format!("{key} expects a value")),
+        },
+    }
+}
+
 fn project_root(args: &[String]) -> std::path::PathBuf {
     std::path::PathBuf::from(kv(args, "--project").unwrap_or_else(|| ".".into()))
 }
@@ -316,12 +340,15 @@ fn same_path(a: &std::path::Path, b: &std::path::Path) -> bool {
     normalize(a) == normalize(b)
 }
 
-/// `metaform explore --project . [--max-questions N] [--out <path>]`.
+/// `metaform explore --project . [--max-questions N] [--laws <path>] [--emit-questions <path>] [--out <path>]`.
 ///
 /// Read-only attribute exploration. The evidence oracle is the set of objects with a confirmed
 /// label under the recommended `theta` (`strong`), the same `theta` whose state status is reported
-/// in `status`. The state is only read; `--out` writes the one JSON line to a file instead of
-/// stdout and touches nothing else.
+/// in `status`. The state is only read. `--laws` seeds the initial theory (default
+/// `.metaform/laws.tsv`, absent = empty), so a premise a law or a refutation already decides is not
+/// asked again. `--emit-questions` writes the open questions for `metaform answer` and suppresses
+/// the normal stdout line (`--out` still writes it). `--out` writes the report line to a file and
+/// touches nothing else.
 fn cmd_explore(args: &[String]) -> i32 {
     let root = project_root(args).join(".metaform");
     let Some(st) = load_state(&root.join("state.json"), "explore") else {
@@ -329,6 +356,21 @@ fn cmd_explore(args: &[String]) -> i32 {
     };
     let max = match parse_num(args, "--max-questions", metaform::explore::DEFAULT_BUDGET) {
         Ok(v) => v,
+        Err(e) => {
+            eprintln!("metaform explore: {e}");
+            return 2;
+        }
+    };
+    let laws_path = match flag_value(args, "--laws") {
+        Ok(Some(path)) => std::path::PathBuf::from(path),
+        Ok(None) => root.join("laws.tsv"),
+        Err(e) => {
+            eprintln!("metaform explore: {e}");
+            return 2;
+        }
+    };
+    let emit_path = match flag_value(args, "--emit-questions") {
+        Ok(path) => path,
         Err(e) => {
             eprintln!("metaform explore: {e}");
             return 2;
@@ -348,21 +390,77 @@ fn cmd_explore(args: &[String]) -> i32 {
             return 2;
         }
     };
-    let report = context.run(max, e.status_with(theta));
+    let loaded = match laws::load(&laws_path) {
+        Ok(entries) => entries,
+        Err(e) => {
+            eprintln!("metaform explore: {e}");
+            return 2;
+        }
+    };
+    let (theory, recorded) = match laws::masks(&loaded, &context.names) {
+        Ok(parts) => parts,
+        Err(e) => {
+            eprintln!("metaform explore: {e}");
+            return 2;
+        }
+    };
+    let refutations: Vec<metaform::explore::Refutation> = recorded
+        .into_iter()
+        .map(|entry| metaform::explore::Refutation {
+            premise: entry.premise,
+            conclusion: entry.conclusion,
+            counterexample: entry.counterexample,
+            source: entry.source,
+        })
+        .collect();
+    let report =
+        context.run_with_theory_and_refutations(max, e.status_with(theta), &theory, &refutations);
     let line = metaform::explore::to_json(&report);
     let state_path = root.join("state.json");
-    match kv(args, "--out") {
+    let out_path = kv(args, "--out");
+
+    // Refuse every path collision before writing anything: the state is read-only, and a report or
+    // questions file must not silently replace the law theory either.
+    for (flag, path) in [
+        ("--out", out_path.as_deref()),
+        ("--emit-questions", emit_path.as_deref()),
+    ] {
+        let Some(path) = path else { continue };
+        let path = std::path::Path::new(path);
+        if same_path(path, &state_path) {
+            eprintln!("metaform explore: {flag} must not overwrite the project state");
+            return 2;
+        }
+        if same_path(path, &laws_path) {
+            eprintln!("metaform explore: {flag} must not overwrite the law theory");
+            return 2;
+        }
+    }
+    if let (Some(out), Some(questions)) = (out_path.as_deref(), emit_path.as_deref()) {
+        if same_path(std::path::Path::new(out), std::path::Path::new(questions)) {
+            eprintln!("metaform explore: --out and --emit-questions must name different files");
+            return 2;
+        }
+    }
+
+    if let Some(path) = emit_path.as_deref() {
+        let text = format!("{}\n", metaform::explore::questions_json(&report));
+        if let Err(e) = std::fs::write(path, text) {
+            eprintln!("metaform explore: cannot write `{path}`: {e}");
+            return 2;
+        }
+    }
+    match out_path {
         Some(path) => {
-            if same_path(std::path::Path::new(&path), &state_path) {
-                eprintln!("metaform explore: --out must not overwrite the project state");
-                return 2;
-            }
             if let Err(e) = std::fs::write(&path, format!("{line}\n")) {
                 eprintln!("metaform explore: cannot write `{path}`: {e}");
                 return 2;
             }
         }
-        None => println!("{line}"),
+        // With --emit-questions the machine-readable output is the questions file; the report line
+        // is only printed when no questions file was requested.
+        None if emit_path.is_none() => println!("{line}"),
+        None => {}
     }
     0
 }
@@ -676,6 +774,10 @@ fn main() {
         Some("explore") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
             std::process::exit(cmd_explore(&v));
+        }
+        Some("answer") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            std::process::exit(answer::cmd(&v));
         }
         Some("score") => {
             let v: Vec<String> = std::env::args().skip(1).collect();

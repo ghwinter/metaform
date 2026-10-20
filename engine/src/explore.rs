@@ -18,6 +18,12 @@
 //! - Enumeration is lazy: the budget stops the search after `max_questions` premises, and the queue
 //!   only holds the boundary of the visited closed sets, never all `2^p` subsets.
 //!
+//! The theory can be seeded from a laws file (`Context::run_with_theory_and_refutations`): the walk
+//! then enumerates the closed sets of the seed laws plus every law confirmed in the run. A premise a
+//! seed law decides is never examined. A recorded refutation is not a law: it never enters the
+//! closure, but the premise it names is treated as decided (no question, no implication) and appears
+//! in `refuted` with the source that recorded it.
+//!
 //! A law stores its conclusion disjoint from its premise (`B' \ B`), the convention of the
 //! reference's `make-implication`; the closure test is unchanged because the premise is contained
 //! in the set being closed.
@@ -154,7 +160,39 @@ impl Context {
     /// `status` is the state's own status under the same `theta` (`state need`), reported in the
     /// `status` field so this command cannot disagree with the rest of the CLI.
     pub fn run(&self, max_questions: usize, status: Status) -> Report {
-        let mut laws: Vec<(u64, u64)> = Vec::new();
+        self.run_with_theory(max_questions, status, &[])
+    }
+
+    /// Run the exploration with an initial law theory, expressed as `(premise, conclusion)` masks.
+    ///
+    /// The walk enumerates the closed sets of `theory` plus every law confirmed during this run, so
+    /// a premise that a law already decides is never examined (and therefore never asked again).
+    /// The report still lists only the implications confirmed in this run, matching the reference,
+    /// whose return value subtracts the background knowledge.
+    pub fn run_with_theory(
+        &self,
+        max_questions: usize,
+        status: Status,
+        theory: &[(u64, u64)],
+    ) -> Report {
+        self.run_with_theory_and_refutations(max_questions, status, theory, &[])
+    }
+
+    /// Run the exploration with both a seed theory and recorded refutations.
+    ///
+    /// A refutation is not a law: it is never put into `laws`, so it cannot make the closure believe
+    /// the implication it denies. Instead, when the walk reaches a premise with a recorded
+    /// refutation, that premise is treated as decided: it produces no `open` question and no
+    /// `implication`, and the refutation is reported in `refuted` with its recorded source (and,
+    /// when the note named one, its counterexample object).
+    pub fn run_with_theory_and_refutations(
+        &self,
+        max_questions: usize,
+        status: Status,
+        theory: &[(u64, u64)],
+        refutations: &[Refutation],
+    ) -> Report {
+        let mut laws: Vec<(u64, u64)> = theory.to_vec();
         let mut implications: Vec<Implication> = Vec::new();
         let mut refuted: Vec<Refuted> = Vec::new();
         let mut open: Vec<Open> = Vec::new();
@@ -177,6 +215,24 @@ impl Context {
             };
             examined.insert(premise);
             closed_sets += 1;
+
+            let recorded: Vec<&Refutation> = refutations
+                .iter()
+                .filter(|refutation| refutation.premise == premise)
+                .collect();
+            if !recorded.is_empty() {
+                // The expert already decided this premise. Do not ask about it and do not derive an
+                // implication from it; just report the record, with the source that made it.
+                for refutation in recorded {
+                    refuted.push(Refuted {
+                        premise: self.names_of(premise),
+                        conclusion: self.names_of(refutation.conclusion),
+                        counterexample: refutation.counterexample,
+                        by: refutation.source.clone(),
+                    });
+                }
+                continue;
+            }
 
             let evidence_objects = self.extent(premise) & self.evidence;
             if evidence_objects == 0 {
@@ -203,7 +259,8 @@ impl Context {
                 Some(id) => refuted.push(Refuted {
                     premise: self.names_of(premise),
                     conclusion: self.names_of(conclusion),
-                    counterexample: id,
+                    counterexample: Some(id),
+                    by: "evidence".to_string(),
                 }),
                 None => {
                     // The evidence suggests the implication and no object contradicts it. Recording
@@ -257,12 +314,25 @@ pub struct Implication {
     pub by: &'static str,
 }
 
-/// One implication the evidence refuted, with the first object that violates it.
+/// One implication the evidence refuted or the expert recorded as refuted, with the object that
+/// violates it when one is known.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Refuted {
     pub premise: Vec<String>,
     pub conclusion: Vec<String>,
-    pub counterexample: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub counterexample: Option<usize>,
+    /// `evidence` for a refutation found in this run, or the recorded source (`expert`).
+    pub by: String,
+}
+
+/// One recorded refutation, with masks resolved against the context.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Refutation {
+    pub premise: u64,
+    pub conclusion: u64,
+    pub counterexample: Option<usize>,
+    pub source: String,
 }
 
 /// One implication the evidence cannot decide.
@@ -293,6 +363,64 @@ pub struct Report {
 /// Render a report as one line of JSON.
 pub fn to_json(report: &Report) -> String {
     serde_json::to_string(report).expect("explore report serializes")
+}
+
+/// One `open` question with the stable id [`questions_json`] assigns it: its index in `open`
+/// order, which is the deterministic `(cardinality, mask)` walk order.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Question {
+    pub id: usize,
+    pub premise: Vec<String>,
+    pub conclusion: Vec<String>,
+    pub text: String,
+}
+
+/// The `--emit-questions` file. The answer command reads exactly this shape.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Questions {
+    pub status: String,
+    pub questions: Vec<Question>,
+}
+
+impl Report {
+    /// The `open` questions, numbered in report order.
+    pub fn questions(&self) -> Vec<Question> {
+        self.open
+            .iter()
+            .enumerate()
+            .map(|(id, open)| Question {
+                id,
+                premise: open.premise.clone(),
+                conclusion: open.conclusion.clone(),
+                text: question_text(&open.premise, &open.conclusion),
+            })
+            .collect()
+    }
+}
+
+/// Render the open questions as the one-line JSON the answer command consumes.
+pub fn questions_json(report: &Report) -> String {
+    let questions = Questions {
+        status: report.status.clone(),
+        questions: report.questions(),
+    };
+    serde_json::to_string(&questions).expect("questions serialize")
+}
+
+/// The question the reference asks in prose ("Does the implication A -> B hold?"), in the form the
+/// exploration output uses. Empty sides get a word so the sentence stays readable.
+fn question_text(premise: &[String], conclusion: &[String]) -> String {
+    let antecedent = if premise.is_empty() {
+        "no attributes".to_string()
+    } else {
+        premise.join(", ")
+    };
+    let consequent = if conclusion.is_empty() {
+        "nothing".to_string()
+    } else {
+        conclusion.join(", ")
+    };
+    format!("Does every object with {antecedent} also have {consequent}?")
 }
 
 /// Deterministic lazy enumeration of the closed sets of an implication theory, in
@@ -462,7 +590,7 @@ mod tests {
             .find(|r| r.premise == vec!["a"])
             .expect("a -> b must be refuted");
         assert_eq!(r.conclusion, vec!["b"]);
-        assert_eq!(r.counterexample, 2);
+        assert_eq!(r.counterexample, Some(2));
         assert!(report.stopped.is_none());
     }
 

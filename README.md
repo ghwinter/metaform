@@ -69,7 +69,8 @@ metaform state need  --project .                  # one-shot: status and recomme
 metaform apply  --project . --request request.json --response response.json # validate + adopt accepted candidates with one state write
 metaform check-predictions --project .            # read-only: score recorded held-out predictions against the state's strong labels
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # read-only: Boolean candidates tried, and why none separates
-metaform explore    --project . [--max-questions 1000] [--out <path>] # read-only: implications confirmed by evidence, refuted with a counterexample, or open
+metaform explore    --project . [--max-questions 1000] [--laws <path>] [--emit-questions <path>] [--out <path>] # read-only: implications confirmed by evidence, refuted with a counterexample, or open
+metaform answer     --project . --questions <q.json> --answers <a.json> [--laws <path>] # record expert answers as laws (and adopt a define), so the next explore starts from them
 metaform plan   --project . --pool .metaform/out/pool.txt # coverage + purity + re-ask budget
 metaform report --project .                         # generate .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # candidate scoring: coverage/P-R/ledger
@@ -116,12 +117,40 @@ counterexample; if no evidence object matches the premise it is left `open`. Oth
 `B -> B' \ B` is recorded and the implication is reported with `by:"evidence"`. `--max-questions`
 caps the number of premises examined and appends `"stopped":"budget"` when there is more to do. A
 refutation cannot add the counterexample object (the state is read-only), so unlike the reference it
-does not shrink later questions: only a recorded law can. Output is one deterministic JSON line
+does not shrink later questions: only a recorded law (a Horn implication) or a recorded refutation
+can. The initial theory is read from `.metaform/laws.tsv` (or `--laws <path>`; an absent file is the
+empty theory), so a premise a law or a refutation already decides is not examined and is not asked
+again. Output is one deterministic JSON line
 `{"status":...,"questions":...,"budget":...,"implications":[...],"refuted":[...],"open":[...],"closed_sets":...}`;
 `status` is the same status `state need` reports under the same `theta`, `questions` counts the
 `open` entries, `closed_sets` counts the premises examined (a premise that a later law removes still
-counts), and all names are sorted. `--out` writes the line to a file instead of stdout. The
-state is never written.
+counts), and all names are sorted. A `refuted` entry carries the `by` source that decided it
+(`evidence` for a refutation found in this run, `expert` for a recorded one) and, when known, the
+`counterexample` object. `--out` writes the line to a file instead of stdout.
+`--emit-questions <path>` writes the open questions as
+`{"status":...,"questions":[{"id":n,"premise":[...],"conclusion":[...],"text":"Does every object with A also have B?"}]}`
+(ids are 0-based positions in `open` order) and suppresses the normal stdout line; add `--out` when
+both files are wanted. The state is never written, and neither `--out` nor `--emit-questions` may
+name the state or the laws file.
+
+The three commands form one loop: `explore --emit-questions q.json` asks, an expert writes
+`{"answers":[...]}` for those ids, and `metaform answer --project . --questions q.json --answers
+a.json` records the answers in `.metaform/laws.tsv` (both commands accept `--laws <path>` for a
+theory file elsewhere); the next `explore` starts from that file. The file is tab-separated with the
+header `source<TAB>kind<TAB>premise<TAB>conclusion<TAB>note`, one entry per line, names
+comma-separated; `kind` is `law` or `refutation`, and `source` is `evidence`, `expert` or `define`.
+Keeping both kinds in one file gives both commands one theory path (`--laws`), and the `kind` column
+is what prevents a refutation from entering the closure as if it were a law. A `yes` appends
+`expert`/`law` with the question's premise and conclusion. A `no` must carry
+`{"id":k,"lacks":[names]}` where `k` is a real object that has the premise and lacks the listed
+conclusion attributes, and appends `expert`/`refutation` with a note naming `k`; it never appends a
+law. `explore` treats that premise as decided -- no open question and no implication for it -- and
+reports the record in `refuted` with `by:"expert"`. A `define` adopts `name = op:operands` through
+the same path as `state add --define` and appends `define`/`law`. Only a `define` answer writes the
+state; every other answer leaves it unchanged. Replaying the same answers file does not duplicate a
+line (dedupe on kind + source + premise + conclusion). An unknown id, a malformed answer, a
+counterexample that does not actually refute, or a definition name that already exists exits 2 and
+writes nothing.
 
 ## LLM adapter
 
@@ -246,7 +275,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 154)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 159)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

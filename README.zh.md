@@ -65,7 +65,8 @@ metaform state need  --project .                  # 一步式：直接给状态�
 metaform apply  --project . --request request.json --response response.json # 校验并采纳被接受的候选，只写一次状态
 metaform check-predictions --project .            # 只读：把记录下来的留出预测与当前强标签对账
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # 只读：试过哪些布尔候选，以及为何都分不开
-metaform explore    --project . [--max-questions 1000] [--out <path>] # 只读：证据确认的蕴含、带反例的否证、待问的开放问题
+metaform explore    --project . [--max-questions 1000] [--laws <path>] [--emit-questions <path>] [--out <path>] # 只读：证据确认的蕴含、带反例的否证、待问的开放问题
+metaform answer     --project . --questions <q.json> --answers <a.json> [--laws <path>] # 把专家回答记为定律（define 会采纳谓词），下次 explore 从它们出发
 metaform plan   --project . --pool .metaform/out/pool.txt # 覆盖 + 纯度 + 重问预算
 metaform report --project .                         # 生成 .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # 候选评分：覆盖/P-R/台账
@@ -102,11 +103,32 @@ metaform ops                                       # 五类算子调度对照：
 并附该反例；若没有证据对象匹配前提，则进入 `open`。否则记录定律 `B -> B' \ B`，并以
 `by:"evidence"` 报告该蕴含。`--max-questions` 限制检查的前提数，还有剩余工作时追加
 `"stopped":"budget"`。只读状态下无法像参考实现那样把反例对象加入语境，所以否证不会缩小后续问题：
-只有记录下来的定律会。输出是一行确定性 JSON
+只有记录下来的定律（Horn 蕴含）或否证记录会。初始理论从 `.metaform/laws.tsv` 读取（或用
+`--laws <path>`；文件不存在即空理论），因此定律或否证已经决定了的前提不会再被检查，也不会再被
+提问。输出是一行确定性 JSON
 `{"status":...,"questions":...,"budget":...,"implications":[...],"refuted":[...],"open":[...],"closed_sets":...}`；
 `status` 与同一 `theta` 下 `state need` 的状态相同，`questions` 是 `open` 的条数，`closed_sets`
-是检查过的前提数（后来被定律消掉的前提仍计入），所有名字已排序。
-`--out` 把这一行写入文件而不打印。状态从不写入。
+是检查过的前提数（后来被定律消掉的前提仍计入），所有名字已排序。`refuted` 条目带 `by`
+（本轮证据为 `evidence`，记录下来的为 `expert`）；知道反例对象时还带 `counterexample`。
+`--out` 把这一行写入文件而不打印。`--emit-questions <path>` 把开放问题写成
+`{"status":...,"questions":[{"id":n,"premise":[...],"conclusion":[...],"text":"Does every object with A also have B?"}]}`
+（id 是 `open` 顺序中从 0 开始的下标），并抑制正常的 stdout 行；两个文件都要时再加 `--out`。
+状态从不写入，且 `--out` / `--emit-questions` 都不允许指向状态文件或定律文件。
+
+三个命令构成一个闭环：`explore --emit-questions q.json` 提问，专家针对这些 id 写
+`{"answers":[...]}`，再由 `metaform answer --project . --questions q.json --answers a.json` 把回答
+记入 `.metaform/laws.tsv`（两个命令都可用 `--laws <path>` 指定别处的理论文件）；下次 `explore` 就从
+该文件出发。该文件是制表符分隔的，表头为
+`source<TAB>kind<TAB>premise<TAB>conclusion<TAB>note`，一行一条记录，名字用逗号分隔；`kind` 取
+`law` 或 `refutation`，`source` 取 `evidence`、`expert` 或 `define`。两种记录放在同一个文件里，
+两个命令就只有一条理论路径（`--laws`）；`kind` 列保证否证记录不会作为定律进入闭包。`yes` 追加
+`expert`/`law` 与问题的前提/结论。`no` 必须带 `{"id":k,"lacks":[names]}`，其中 `k` 是真实对象、
+具有全部前提且缺少所列的结论属性，然后追加 `expert`/`refutation`，note 写明 `k`，绝不追加定律。
+`explore` 会把该前提视为已决定——不再提问、不再产生蕴含——并在 `refuted` 中以 `by:"expert"`
+报告该记录。`define` 通过与 `state add --define` 相同的路径采纳 `name = op:operands`，并追加
+`define`/`law`。只有 `define` 回答会写状态，其他回答保持状态不变。重复回答同一份 answers 文件不会
+重复写记录（按 kind + source + premise + conclusion 去重）。未知 id、格式错误的回答、并未真正否证
+的反例、或已存在的定义名，都会以退出码 2 结束且不写任何文件。
 
 ## LLM 适配器
 
@@ -196,7 +218,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 154）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 159）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接
