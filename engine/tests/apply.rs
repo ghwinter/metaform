@@ -404,7 +404,8 @@ fn apply_output_is_byte_deterministic_for_the_same_inputs() {
 }
 
 /// A defined candidate is stored by its definition, not by the extension `propose` computed: the
-/// state schema then recomputes the extension on load, exactly as `state add --define` does.
+/// state schema then recomputes the extension on load, exactly as `state add --define` does. The
+/// emitted request names an unmeasured object (2), so the candidate carries the L11 prediction.
 #[test]
 fn apply_stores_a_defined_candidate_as_a_definition() {
     let dir = collision_fixture("defined", 3, &[("a", "0,1"), ("b", "0,1")]);
@@ -414,7 +415,7 @@ fn apply_stores_a_defined_candidate_as_a_definition() {
     write_response(
         &response,
         &request_id,
-        r#"{"name":"p","define":{"all_of":["a","b"]}}"#,
+        r#"{"name":"p","define":{"all_of":["a","b"]},"predict":{"id":2,"label":"pos"}}"#,
     );
 
     let out = run_ok(&[

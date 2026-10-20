@@ -63,6 +63,7 @@ metaform state add   --project . --name p --define all-of:a,b  # 存 p = a AND b
 metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # 一步式：直接给状态与建议
 metaform apply  --project . --request request.json --response response.json # 校验并采纳被接受的候选，只写一次状态
+metaform check-predictions --project .            # 只读：把记录下来的留出预测与当前强标签对账
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # 只读：试过哪些布尔候选，以及为何都分不开
 metaform explore    --project . [--max-questions 1000] [--out <path>] # 只读：证据确认的蕴含、带反例的否证、待问的开放问题
 metaform plan   --project . --pool .metaform/out/pool.txt # 覆盖 + 纯度 + 重问预算
@@ -129,6 +130,21 @@ metaform ops                                       # 五类算子调度对照：
 `before` / `after` 使用与 `suggest`、`state need` 相同的推荐 `theta` 状态与撞车对数，因此这条一步式路径
 不会与只读报告不一致。请求和响应文件都只读。
 
+L11 把留出预测做成校验的一部分。带 `object_ids` 的请求同时声明它的留出测试：该列表中不在 `evidence`
+里的对象就是*未测量*对象。这样的请求里，候选必须携带 `"predict":{"id":<对象 id>,"label":"pos"|"neg"}`，
+否则以 `missing_prediction` 拒绝；被接受时该字段原样回显。只要出现就校验：id 超出 `0..objects` 是
+`prediction_out_of_range`，id 已在 `evidence` 中是 `predicted_measured_object`（它不是留出测试），
+label 不是 `pos` / `neg` 是 `prediction_bad_label`。不带 `object_ids` 的请求（L11 之前的形状）不声明
+未测量对象，所以候选仍可不带该字段，旧判定不变。
+
+`apply` 把每个被采纳的预测记入 `.metaform/predictions.tsv`：一行表头，之后每个预测一行制表符分隔的
+记录（`request_id`、候选名、对象 id、预测标签，以及候选扩展的逗号分隔 id 列表）。行按
+`(request_id, name, id)` 去重，因此重放同一响应不会重复记录，同一输入写出的字节相同。
+`metaform check-predictions --project .` 只读：它用内核同一套推荐 `theta` 强标签，把每条记录与对象的
+实际标签比较，打印
+`{"checked":n,"correct":n,"wrong":[{"name":...,"id":...,"predicted":...,"actual":...}],"open":n}`；
+`open` 是对象尚无强标签的预测数。
+
 在廉价提议的假设下，这个分工才是重点：模型每次给很多候选，引擎支付提问。
 
 ## 组件
@@ -180,7 +196,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 140）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 154）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接

@@ -67,6 +67,7 @@ metaform state add   --project . --name p --define all-of:a,b  # store p = a AND
 metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # one-shot: status and recommendations directly
 metaform apply  --project . --request request.json --response response.json # validate + adopt accepted candidates with one state write
+metaform check-predictions --project .            # read-only: score recorded held-out predictions against the state's strong labels
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # read-only: Boolean candidates tried, and why none separates
 metaform explore    --project . [--max-questions 1000] [--out <path>] # read-only: implications confirmed by evidence, refuted with a counterexample, or open
 metaform plan   --project . --pool .metaform/out/pool.txt # coverage + purity + re-ask budget
@@ -153,6 +154,24 @@ a copy before the single write. The command prints one deterministic JSON line:
 `state need`, so the one-command path cannot disagree with the read-only report. The request and
 response files are only read.
 
+L11 makes the held-out prediction part of validation. A request that carries `object_ids` names its
+held-out test: every id in that list that is absent from `evidence` is *unmeasured*. On such a request
+a candidate must carry `"predict":{"id":<object id>,"label":"pos"|"neg"}`, or it is rejected with
+`missing_prediction`; the prediction is echoed unchanged on acceptance. When present it is always
+checked: an id outside `0..objects` is `prediction_out_of_range`, an id already in `evidence` is
+`predicted_measured_object` (it is not a held-out test), and a label other than `pos` / `neg` is
+`prediction_bad_label`. A request without `object_ids` -- the pre-L11 shape -- declares no unmeasured
+object, so its candidates keep the old optional field and the old verdicts.
+
+`apply` records every adopted prediction in `.metaform/predictions.tsv`: one header line plus one
+tab-separated row per prediction (`request_id`, candidate name, object id, predicted label, and the
+candidate's extension as a comma-separated id list). Rows dedupe on `(request_id, name, id)`, so
+replaying a response does not duplicate a commitment, and the same input writes the same bytes.
+`metaform check-predictions --project .` is read-only: it takes the same recommended-`theta` strong
+labels the kernel uses and compares each recorded prediction with the object's actual label, printing
+`{"checked":n,"correct":n,"wrong":[{"name":...,"id":...,"predicted":...,"actual":...}],"open":n}`;
+`open` counts predictions whose object has no strong label yet.
+
 Under the cheap-proposal assumption this is the division that matters: the model supplies many
 candidates per call, the engine pays for the queries.
 
@@ -227,7 +246,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 140)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 154)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

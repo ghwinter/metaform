@@ -25,6 +25,9 @@
 //! validation and then adopts the accepted candidates, writing `.metaform/state.json` once at the
 //! end. It skips a candidate whose name already exists, reports every candidate it did not adopt,
 //! and leaves the state unchanged when the response is rejected as a whole or an adoption fails.
+//! Every adopted candidate that carried a held-out `predict` is recorded in
+//! `.metaform/predictions.tsv` (L11), and `metaform check-predictions --project <dir>` scores those
+//! commitments once the state has a strong label for the predicted object.
 //!
 //! `metaform suggest --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]]` is the
 //! read-only proof step for an `INSUFFICIENT` state: it enumerates the Boolean definitions the
@@ -46,6 +49,7 @@ mod apply;
 mod ledger;
 mod mcp;
 mod plan;
+mod predictions;
 mod report;
 mod score;
 mod state;
@@ -692,6 +696,10 @@ fn main() {
         Some("apply") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
             std::process::exit(apply::cmd(&v));
+        }
+        Some("check-predictions") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            std::process::exit(predictions::cmd(&v));
         }
         Some("ops") => {
             println!("{}", metaform::operators::demo_json());

@@ -110,10 +110,21 @@ pub fn cmd(args: &[String]) -> i32 {
         return 1;
     }
 
-    // One write, after every candidate has been accepted into the in-memory state.
+    // One write, after every candidate has been accepted into the in-memory state. Only adopted
+    // candidates contribute predictions: a candidate skipped as `name_exists` was never admitted.
     if !adopted.is_empty() {
         if let Err(e) = next.save(&path) {
             eprintln!("metaform apply: cannot write `{}`: {e}", path.display());
+            return 2;
+        }
+        let predictions_path = root.join("predictions.tsv");
+        if let Err(e) =
+            crate::predictions::record(&predictions_path, &verdict.request_id, &adopted)
+        {
+            eprintln!(
+                "metaform apply: cannot write `{}`: {e}",
+                predictions_path.display()
+            );
             return 2;
         }
     }

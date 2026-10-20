@@ -13,13 +13,25 @@
 //!   5. an `ids` candidate then fails `empty_extension`, `constant_extension`, `out_of_range`, `duplicate_ids`
 //!   6. a `define` candidate then fails `empty_definition`, `duplicate_operand`, `unknown_predicate`,
 //!      `empty_extension`, `constant_extension`
-//!   7. `limit_exceeded` for both forms
-//!   8. accepted candidates report `splits`: how many evidence-colliding pairs they separate
+//!   7. the held-out prediction: `missing_prediction` when the request has an unmeasured object and the
+//!      candidate carries no `predict`; otherwise a malformed `predict` is `wrong_protocol`, and its
+//!      id/label are checked as `prediction_out_of_range`, `predicted_measured_object`,
+//!      `prediction_bad_label`
+//!   8. `limit_exceeded` for both forms
+//!   9. accepted candidates report `splits`: how many evidence-colliding pairs they separate
 //!
 //! A candidate is extensional (`ids`) or defined (`define: {"all_of": [...]}` / `{"any_of": [...]}`).
 //! A definition may only name predicates that already exist in the request vocabulary; the operands are
 //! combined with bitwise AND (`all_of`) or OR (`any_of`) and intersected with the object mask. The
 //! resulting extension then follows the same acceptance path as an `ids` candidate.
+//!
+//! L11 -- invention is admitted with a held-out prediction. On a request that carries `object_ids`, the
+//! objects in that list and not in `evidence` are *unmeasured*: their labels are the held-out test a
+//! candidate has to name before adoption. A candidate may carry
+//! `"predict": {"id": <object id>, "label": "pos" | "neg"}`; on a request with at least one unmeasured
+//! object a candidate without it is rejected (`missing_prediction`), and a prediction is always checked
+//! when present. The prediction is echoed unchanged on acceptance, and `apply` records it. A request
+//! without `object_ids` declares no unmeasured objects, which keeps every pre-L11 request valid.
 //!
 //! Pair logic follows `score` in `main.rs`: positives and negatives that share an equivalence class under
 //! the current vocabulary form a colliding pair, and a candidate splits the pair when its membership
@@ -44,6 +56,38 @@ pub struct Proposal<'a> {
     pub falsifier: Option<&'a str>,
 }
 
+/// The label a candidate commits to for an object it was not built from (L11).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PredictedLabel {
+    Pos,
+    Neg,
+}
+
+impl PredictedLabel {
+    /// Parse the protocol spelling. Anything else is `prediction_bad_label`.
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw {
+            "pos" => Some(PredictedLabel::Pos),
+            "neg" => Some(PredictedLabel::Neg),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            PredictedLabel::Pos => "pos",
+            PredictedLabel::Neg => "neg",
+        }
+    }
+}
+
+/// A held-out commitment: the object the candidate names and the label it predicts for it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Prediction {
+    pub id: usize,
+    pub label: PredictedLabel,
+}
+
 /// One candidate the validator accepted, with everything `apply` needs to adopt it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Accepted {
@@ -58,6 +102,9 @@ pub struct Accepted {
     /// `Some` when the candidate was defined (`all_of` / `any_of`); [`Accepted::ids`] is then its
     /// extension. `None` means the candidate supplied its ids directly.
     pub definition: Option<Definition>,
+    /// The held-out prediction the candidate committed to, if it carried one. Required on a request
+    /// with an unmeasured object; optional (but validated) otherwise.
+    pub prediction: Option<Prediction>,
 }
 
 /// One candidate the validator rejected, with the ids it supplied (empty for a defined candidate).
@@ -435,11 +482,23 @@ impl<'a> Parser<'a> {
 struct Request {
     request_id: String,
     n: usize,
+    /// The objects the request declares; `suggest --emit-request` lists `0..n`. An absent field is
+    /// the pre-L11 shape and declares no unmeasured object, so old requests keep their verdicts.
+    object_ids: Vec<usize>,
     /// Current vocabulary, in request order. Only names and extensions matter here.
     vocab: Vec<(String, Mask)>,
     pos: Mask,
     neg: Mask,
     limit: usize,
+}
+
+impl Request {
+    /// Objects named by the request whose label is not in `evidence`. Their labels are held out, so
+    /// L11 requires a candidate to name one of them and predict it.
+    fn has_unmeasured(&self) -> bool {
+        let measured = self.pos | self.neg;
+        self.object_ids.iter().any(|&o| measured & bit(o) == 0)
+    }
 }
 
 fn parse_request(text: &str) -> Result<Request, String> {
@@ -467,6 +526,21 @@ fn parse_request(text: &str) -> Result<Request, String> {
             None => return Err("`limit` must be an integer".into()),
         },
     };
+
+    let mut object_ids = Vec::new();
+    match root.get("object_ids") {
+        None | Some(Json::Null) => {}
+        Some(Json::Arr(items)) => {
+            for id in items {
+                if let Some(x) = id.as_i64() {
+                    if x >= 0 && (x as usize) < n {
+                        object_ids.push(x as usize);
+                    }
+                }
+            }
+        }
+        Some(_) => return Err("`object_ids` must be an array".into()),
+    }
 
     let mut vocab = Vec::new();
     match root.get("vocabulary") {
@@ -517,7 +591,15 @@ fn parse_request(text: &str) -> Result<Request, String> {
         Some(_) => return Err("`evidence` must be an object".into()),
     }
 
-    Ok(Request { request_id, n, vocab, pos, neg, limit })
+    Ok(Request {
+        request_id,
+        n,
+        object_ids,
+        vocab,
+        pos,
+        neg,
+        limit,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -624,6 +706,50 @@ fn definition_extension(
     Ok(ext)
 }
 
+/// Validate the optional `predict` field of one candidate.
+///
+/// A malformed shape is a candidate-level `wrong_protocol`; an id that does not name an object is
+/// `prediction_out_of_range`; an id whose label is already in the evidence is
+/// `predicted_measured_object` (it is not a held-out test); a label other than `pos` / `neg` is
+/// `prediction_bad_label`. `None` means the candidate carried no prediction.
+fn parse_prediction(obj: &Json, req: &Request) -> Result<Option<Prediction>, &'static str> {
+    let Some(value) = obj.get("predict") else {
+        return Ok(None);
+    };
+    // `null` is the absent spelling, matching `limit` and `refused`.
+    if matches!(value, Json::Null) {
+        return Ok(None);
+    }
+    if !matches!(value, Json::Obj(_)) {
+        return Err("wrong_protocol");
+    }
+    let Some(raw_id) = value.get("id").and_then(Json::as_i64) else {
+        return Err("prediction_out_of_range");
+    };
+    if raw_id < 0 || raw_id as usize >= req.n {
+        return Err("prediction_out_of_range");
+    }
+    let id = raw_id as usize;
+    if (req.pos | req.neg) & bit(id) != 0 {
+        return Err("predicted_measured_object");
+    }
+    let Some(label) = value.get("label").and_then(Json::as_str).and_then(PredictedLabel::parse)
+    else {
+        return Err("prediction_bad_label");
+    };
+    Ok(Some(Prediction { id, label }))
+}
+
+/// Parse the prediction and apply the L11 admission rule: on a request with at least one unmeasured
+/// object, an otherwise valid candidate without `predict` is `missing_prediction`.
+fn checked_prediction(obj: &Json, req: &Request) -> Result<Option<Prediction>, &'static str> {
+    let prediction = parse_prediction(obj, req)?;
+    if prediction.is_none() && req.has_unmeasured() {
+        return Err("missing_prediction");
+    }
+    Ok(prediction)
+}
+
 fn count_splits(n: usize, pos: Mask, neg: Mask, classes: &[Mask], ext: Mask) -> usize {
     let mut total = 0;
     for class in classes {
@@ -683,6 +809,14 @@ fn ids_json(ids: &[i64]) -> String {
     format!("[{}]", items.join(","))
 }
 
+fn prediction_json(prediction: &Prediction) -> String {
+    format!(
+        "{{\"id\":{},\"label\":\"{}\"}}",
+        prediction.id,
+        prediction.label.as_str()
+    )
+}
+
 fn accepted_json(candidate: &Accepted) -> String {
     let ids: Vec<String> = candidate.ids.iter().map(|x| x.to_string()).collect();
     let mut out = format!(
@@ -698,6 +832,10 @@ fn accepted_json(candidate: &Accepted) -> String {
     if let Some(falsifier) = &candidate.falsifier {
         out.push_str(",\"falsifier\":");
         out.push_str(&json_string(falsifier));
+    }
+    if let Some(prediction) = &candidate.prediction {
+        out.push_str(",\"predict\":");
+        out.push_str(&prediction_json(prediction));
     }
     out.push('}');
     out
@@ -882,6 +1020,17 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
                 });
                 continue;
             }
+            let prediction = match checked_prediction(obj, req) {
+                Ok(prediction) => prediction,
+                Err(reason) => {
+                    rejected.push(Rejected {
+                        name: name.to_string(),
+                        ids: Vec::new(),
+                        reason: reason.to_string(),
+                    });
+                    continue;
+                }
+            };
             if accepted.len() >= req.limit {
                 rejected.push(Rejected {
                     name: name.to_string(),
@@ -899,6 +1048,7 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
                 warrant: obj.get("warrant").and_then(Json::as_str).map(str::to_string),
                 falsifier: obj.get("falsifier").and_then(Json::as_str).map(str::to_string),
                 definition: Some(definition),
+                prediction,
             });
             continue;
         }
@@ -935,6 +1085,17 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
             });
             continue;
         }
+        let prediction = match checked_prediction(obj, req) {
+            Ok(prediction) => prediction,
+            Err(reason) => {
+                rejected.push(Rejected {
+                    name: name.to_string(),
+                    ids: ids.values,
+                    reason: reason.to_string(),
+                });
+                continue;
+            }
+        };
         if accepted.len() >= req.limit {
             rejected.push(Rejected {
                 name: name.to_string(),
@@ -956,6 +1117,7 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
             warrant: obj.get("warrant").and_then(Json::as_str).map(str::to_string),
             falsifier: obj.get("falsifier").and_then(Json::as_str).map(str::to_string),
             definition: None,
+            prediction,
         });
     }
 
@@ -1233,6 +1395,171 @@ mod tests {
             r#""rejected":[{"reason":"wrong_protocol"}],"refused":null}"#
         );
         assert_eq!(got, want);
+    }
+
+    // ---------------------------------------------------------------------
+    // L11: a held-out prediction is required while an object is unmeasured.
+    // ---------------------------------------------------------------------
+
+    /// Objects 0 and 1 are measured; object 2 is named by `object_ids` and absent from `evidence`.
+    const REQ_UNMEASURED: &str = r#"{"protocol":"metaform.propose/1","request_id":"r-p1","objects":3,"object_ids":[0,1,2],"vocabulary":[],"evidence":{"pos":[0],"neg":[1]},"limit":8}"#;
+
+    /// Every object named by the request is measured: a prediction is optional here.
+    const REQ_MEASURED: &str = r#"{"protocol":"metaform.propose/1","request_id":"r-p2","objects":2,"object_ids":[0,1],"vocabulary":[],"evidence":{"pos":[0],"neg":[1]},"limit":8}"#;
+
+    #[test]
+    fn propose_requires_a_prediction_for_an_unmeasured_object() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","candidates":["#,
+            r#"{"name":"only0","ids":[0]}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","accepted":[],"#,
+            r#""rejected":[{"name":"only0","ids":[0],"reason":"missing_prediction"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_UNMEASURED, resp), want);
+
+        // `null` is the absent spelling, so it is missing too.
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","candidates":["#,
+            r#"{"name":"only0","ids":[0],"predict":null}]}"#
+        );
+        assert_eq!(output(REQ_UNMEASURED, resp), want);
+    }
+
+    #[test]
+    fn propose_accepts_and_echoes_a_held_out_prediction() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","candidates":["#,
+            r#"{"name":"only0","ids":[0],"predict":{"id":2,"label":"pos"}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","accepted":["#,
+            r#"{"name":"only0","ids":[0],"splits":1,"predict":{"id":2,"label":"pos"}}"#,
+            r#"],"rejected":[],"refused":null}"#
+        );
+        assert_eq!(output(REQ_UNMEASURED, resp), want);
+
+        // A defined candidate carries the same field and the same echo.
+        let req = r#"{"protocol":"metaform.propose/1","request_id":"r-p3","objects":3,"object_ids":[0,1,2],"vocabulary":[{"name":"a","ids":[0,1]},{"name":"b","ids":[0,2]}],"evidence":{"pos":[0],"neg":[1]},"limit":8}"#;
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p3","candidates":["#,
+            r#"{"name":"p","define":{"all_of":["a","b"]},"predict":{"id":2,"label":"neg"}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p3","accepted":["#,
+            r#"{"name":"p","ids":[0],"splits":0,"predict":{"id":2,"label":"neg"}}"#,
+            r#"],"rejected":[],"refused":null}"#
+        );
+        assert_eq!(output(req, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_a_prediction_out_of_range() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","candidates":["#,
+            r#"{"name":"high","ids":[0],"predict":{"id":3,"label":"pos"}},"#,
+            r#"{"name":"negative","ids":[0],"predict":{"id":-1,"label":"pos"}},"#,
+            r#"{"name":"missing","ids":[0],"predict":{"label":"pos"}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","accepted":[],"#,
+            r#""rejected":["#,
+            r#"{"name":"high","ids":[0],"reason":"prediction_out_of_range"},"#,
+            r#"{"name":"negative","ids":[0],"reason":"prediction_out_of_range"},"#,
+            r#"{"name":"missing","ids":[0],"reason":"prediction_out_of_range"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_UNMEASURED, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_a_prediction_on_a_measured_object() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","candidates":["#,
+            r#"{"name":"known_pos","ids":[0],"predict":{"id":0,"label":"neg"}},"#,
+            r#"{"name":"known_neg","ids":[0],"predict":{"id":1,"label":"pos"}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","accepted":[],"#,
+            r#""rejected":["#,
+            r#"{"name":"known_pos","ids":[0],"reason":"predicted_measured_object"},"#,
+            r#"{"name":"known_neg","ids":[0],"reason":"predicted_measured_object"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_UNMEASURED, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_a_prediction_with_a_bad_label() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","candidates":["#,
+            r#"{"name":"word","ids":[0],"predict":{"id":2,"label":"yes"}},"#,
+            r#"{"name":"absent","ids":[0],"predict":{"id":2}},"#,
+            r#"{"name":"number","ids":[0],"predict":{"id":2,"label":1}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","accepted":[],"#,
+            r#""rejected":["#,
+            r#"{"name":"word","ids":[0],"reason":"prediction_bad_label"},"#,
+            r#"{"name":"absent","ids":[0],"reason":"prediction_bad_label"},"#,
+            r#"{"name":"number","ids":[0],"reason":"prediction_bad_label"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_UNMEASURED, resp), want);
+    }
+
+    #[test]
+    fn propose_rejects_a_malformed_prediction_as_wrong_protocol() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","candidates":["#,
+            r#"{"name":"scalar","ids":[0],"predict":"pos"}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p1","accepted":[],"#,
+            r#""rejected":[{"name":"scalar","ids":[0],"reason":"wrong_protocol"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_UNMEASURED, resp), want);
+    }
+
+    #[test]
+    fn propose_prediction_is_optional_when_every_object_is_measured() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p2","candidates":["#,
+            r#"{"name":"only0","ids":[0]}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p2","accepted":["#,
+            r#"{"name":"only0","ids":[0],"splits":1}"#,
+            r#"],"rejected":[],"refused":null}"#
+        );
+        assert_eq!(output(REQ_MEASURED, resp), want);
+    }
+
+    #[test]
+    fn propose_validates_an_optional_prediction_when_present() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p2","candidates":["#,
+            r#"{"name":"only0","ids":[0],"predict":{"id":1,"label":"pos"}}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-p2","accepted":[],"#,
+            r#""rejected":[{"name":"only0","ids":[0],"reason":"predicted_measured_object"}],"refused":null}"#
+        );
+        assert_eq!(output(REQ_MEASURED, resp), want);
+    }
+
+    /// Backwards compatibility: before L11 a request had no `object_ids`. Such a request declares no
+    /// unmeasured object, so a prediction-free candidate keeps its old verdict.
+    #[test]
+    fn propose_treats_a_request_without_object_ids_as_having_no_unmeasured_object() {
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-1","candidates":["#,
+            r#"{"name":"only0","ids":[0]}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-1","accepted":["#,
+            r#"{"name":"only0","ids":[0],"splits":1}"#,
+            r#"],"rejected":[],"refused":null}"#
+        );
+        assert_eq!(output(REQ_VALID, resp), want);
     }
 
     #[test]
