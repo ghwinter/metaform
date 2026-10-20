@@ -27,3 +27,5 @@ C14	the relational witness is a link to a green object	target\debug\relational_d
 C15	the SME evidence arithmetic reproduces SME4's 0.036 for a nine-parent entity	cargo test -p metaform-sme --lib entity_evidence_matches_the_sme4_arithmetic	contains:test result: ok	verified
 C16	symmetric relations get a twin match with reversed arguments	cargo test -p metaform-sme --lib symmetric_relations_get_a_twin_match	contains:test result: ok	verified
 C17	unmapped entities become skolems in candidate inferences	cargo test -p metaform-sme --lib unmapped_entities_become_skolems_in_candidate_inferences	contains:test result: ok	verified
+C18	a candidate without a held-out prediction is rejected when the request has unmeasured objects	cargo test -p metaform --test predict	contains:test result: ok	verified
+C19	a recorded refutation decides its premise and never enters the closure	cargo test -p metaform --test answers	contains:test result: ok	verified
