@@ -14,7 +14,7 @@
       1  not satisfied
 
 .PARAMETER Expected
-    Expected pass count (default 170: 120 library unit tests including the MCP conformance cases +
+    Expected pass count (default 171: 120 library unit tests including the MCP conformance cases +
     7 binary report/score tests + 43 integration tests: 1 MCP transcript, 1 propose, 3 state,
     12 suggest, 2 new_atom_loop, 2 ask_loop, 6 apply, 6 explore, 5 answer, 5 predict).
 
@@ -23,7 +23,7 @@
 #>
 [CmdletBinding()]
 param(
-    [int]$Expected = 170,
+    [int]$Expected = 171,
     [string]$Manifest = (Join-Path $PSScriptRoot '..\engine\Cargo.toml')
 )
 

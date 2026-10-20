@@ -32,19 +32,33 @@ use serde_json::{json, Value};
 
 use crate::{answer, apply, explore, laws, ledger, plan, predictions, state, suggest};
 
-/// The protocol revisions this server can echo during `initialize`.
+/// The protocol revisions this server was built against, kept as the table the echo test walks.
+/// Negotiation itself echoes whatever well-formed revision the client offers, so this list is not
+/// an admission filter; it is the set the server has actually been exercised with.
+#[cfg(test)]
 const SUPPORTED_PROTOCOLS: [&str; 4] = ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"];
 
-/// The revision answered when the client asks for one this server does not implement.
+/// The revision answered when the client sends no usable version string.
 const FALLBACK_PROTOCOL: &str = "2025-11-25";
 
-/// Echo the client's requested revision when it is supported, otherwise answer the fallback.
+/// Echo the client's requested revision.
 ///
 /// MCP hosts negotiate by offering a revision and checking what the server returns; a server that
-/// pins one version refuses every host whose supported set does not intersect the pin.
+/// pins one version refuses every host whose supported set does not intersect the pin. Echoing is
+/// therefore the only stable answer, including for a revision newer than the list this server was
+/// built with: the host chose it, and a host that does not accept its own offer fails on the next
+/// request either way. The fallback is only for a request that carries no usable string.
 fn negotiated_protocol(params: &Value) -> String {
     match params.get("protocolVersion").and_then(|v| v.as_str()) {
-        Some(version) if SUPPORTED_PROTOCOLS.contains(&version) => version.to_string(),
+        Some(version)
+            if !version.is_empty()
+                && version.len() <= 32
+                && version
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == '-' || c == '.') =>
+        {
+            version.to_string()
+        }
         _ => FALLBACK_PROTOCOL.to_string(),
     }
 }
@@ -534,9 +548,26 @@ mod tests {
     }
 
     #[test]
-    fn initialize_falls_back_for_an_unknown_protocol_version() {
+    fn initialize_echoes_a_well_formed_version_it_was_not_built_with() {
+        // The host negotiates through an SDK whose revisions move; a version newer than this
+        // server's list must still be echoed, or the host sees its own offer refused.
+        for version in ["2026-07-28", "1999-01-01", "2025-11-25"] {
+            let result = initialize(Some(json!({"protocolVersion": version})));
+            assert_eq!(result["protocolVersion"], version, "must echo {version}");
+        }
+    }
+
+    #[test]
+    fn initialize_falls_back_for_a_malformed_protocol_version() {
+        for bad in ["", "latest", "2025/06/18", "2025-06-18 "].iter() {
+            let result = initialize(Some(json!({"protocolVersion": bad})));
+            assert_eq!(result["protocolVersion"], FALLBACK_PROTOCOL, "must not echo {bad:?}");
+        }
+        let long = "1".repeat(40);
+        let result = initialize(Some(json!({"protocolVersion": long})));
+        assert_eq!(result["protocolVersion"], FALLBACK_PROTOCOL, "must not echo a 40-char string");
         let result = initialize(Some(json!({"protocolVersion": "1999-01-01"})));
-        assert_eq!(result["protocolVersion"], FALLBACK_PROTOCOL);
+        assert_eq!(result["protocolVersion"], "1999-01-01", "old but well formed is still an offer");
         assert_eq!(result["serverInfo"]["name"], "metaform");
     }
 
