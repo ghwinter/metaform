@@ -1684,3 +1684,37 @@ that pair exists, the library solves a problem this kernel does not have.
 
 The cheaper alternative, in progress: deduplicate `suggest` candidates by extension, and canonicalise
 definition operands, so two spellings of the same set stop being two answers.
+
+## 19. A second blind run, and the part the brief gives away (2026-10-21)
+
+A second environment was built and frozen before the arm ran. The question: which of twelve files
+contain a hexadecimal integer literal, by the lexical rule `0x` followed by at least one hex digit.
+Five positives, seven negatives, five atoms computed from file content, ids shuffled. The three leak
+checks were run before the arm: 20 single-atom comparisons, 35 single/union/difference expressions,
+45 atom-plus-or-minus-evidence expressions, and all 62 `all_of`/`any_of` expressions the vocabulary
+can form; none equals the withheld set, and the state is INSUFFICIENT with one colliding pair.
+The request and the brief were hashed when the environment was frozen and re-hashed after scoring;
+both hashes matched.
+
+The proposer saw the brief, the request, and a sanitized copy of the repository, and nothing else.
+It reported the exact extension {3,5,7,8,11} with a prediction that object 7 is positive. The kernel
+accepted the candidate with one split; the scorer returned tp 5, fp 0, fn 0, tn 7, exact. The
+predicted object is positive in the truth file. One proposal, one turn.
+
+What carries signal is not the two labelled positives, which were given. It is the three withheld
+positives: the candidate had to generalise from "these two files contain the literal" to "these five
+do", and it did, with a byte-level scan quoted line by line. The kernel's own check is consistent:
+the candidate separates the colliding pair, and its prediction names an object it was not built from.
+
+What this does not show, and it is the same gap as before in a sharper form: the brief states the
+missing predicate in words. The proposer did not invent "has a hexadecimal literal"; it was told
+that sentence and computed its extension. In the loop a person or a model supplies the sentence, and
+nothing in this experiment measures where that sentence comes from. The property is also
+context-free, a regular expression over bytes, which is the easiest class of new predicate; a
+semantic concept with exceptions would be a different test. It is one question, one proposer, one
+turn, with no token accounting, and the proposer is a subagent rather than a metered model.
+
+The comparison with the earlier run is worth recording: the earlier environment was rebuilt while an
+arm was reading it and the run was void; this one was frozen and its hashes checked, and the run
+counted. Freezing the input is the cheapest control in the whole protocol and the one that failed
+first.
