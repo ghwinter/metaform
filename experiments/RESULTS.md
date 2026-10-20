@@ -1763,3 +1763,34 @@ budget, because nothing was matched; and anything about ambiguous properties, be
 tested. The next batch must use properties that cannot be checked by a regex, or the ceiling will
 repeat. The real-repository line, where a fix must make a failing test pass, is the one that can
 distinguish the arms.
+
+## 21. The first real fix: a tokio bug, solved blind in one attempt (2026-10-21)
+
+The repository was tokio, the task was a merged bug fix whose test was kept and whose fix was
+removed. At the parent commit the test panics: `reset_doesnt_panic_max_duration` reaches
+`Interval::reset`, which builds its deadline with `Instant::now() + period` and overflows on a
+maximum duration. The solver got the worktree, the failing command and the panic text, and no
+history: no `git log`, no fix commit, no network.
+
+It reproduced the failure, found that every other duration-to-deadline conversion in the crate
+already uses `checked_add` with the far-future fallback, and patched the two methods that did not.
+One patch attempt, zero failed attempts. The whole test binary went from 12 passed and 2 failed to
+14 passed and 0 failed; the library suite and six other time test binaries stayed green; formatting
+checked clean.
+
+Ground truth compared: the upstream fix touches the same file and the same root cause, and uses the
+same mechanism, but it is larger -- it introduces a `saturating_add` helper and also changes the
+burst and delay arithmetic. The solver's patch is two hunks in the two public methods. File-level
+and mechanism-level agreement, hunk-level difference; both pass the same tests.
+
+The brief was wrong in one place and it mattered: it said the other thirteen tests in the binary
+already pass, when in fact twelve passed and two failed, the second failure being the same bug in
+`reset_after`. The solver found this only because it ran the whole binary after making one method
+green. A filter names a test; it does not describe the requirement.
+
+What this shows: a blind agent solves a real intra-module bug at the first attempt, with the
+repository's own convention as the guide. What it does not show: any effect of this engine, because
+none was involved. By the charter's own earlier measurement, failures inside one module do not need
+the loop -- a static feature suffices -- so this task is a baseline, and it is recorded as one. The
+number of tasks is one, the budget was not matched, and the ground truth is pass/fail rather than a
+minimal diff.
