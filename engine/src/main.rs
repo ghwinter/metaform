@@ -699,6 +699,20 @@ fn cmd_score(args: &[String]) -> i32 {
 
 fn main() {
     match std::env::args().nth(1).as_deref() {
+        // Answered here rather than falling through to the script runner, which would try to open
+        // `--version` as a file and panic. An installed binary is checked with these two flags.
+        Some("-V" | "--version") => {
+            println!("metaform {}", env!("CARGO_PKG_VERSION"));
+            return;
+        }
+        Some("-h" | "--help") => {
+            println!("metaform {}", env!("CARGO_PKG_VERSION"));
+            println!("usage: metaform <command> [options]  (no argument: interactive script)");
+            println!("commands: init, state, ledger, plan, report, score, ops, portfolio, mcp,");
+            println!("          suggest, explore, answer, apply, check-predictions, propose");
+            println!("MCP: metaform mcp  (newline-delimited JSON-RPC over stdio)");
+            return;
+        }
         Some("init") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
             std::process::exit(cmd_init(&v));

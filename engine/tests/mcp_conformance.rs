@@ -196,3 +196,20 @@ fn stdio_transcript_matches_the_host_conformance_sequence() {
 
     let _ = std::fs::remove_dir_all(&project);
 }
+
+#[test]
+fn version_and_help_are_answered_without_starting_a_script() {
+    // Before this was handled, `--version` fell through to the script runner and panicked trying
+    // to open a file called `--version`, which is what an install check runs first.
+    let version = Command::new(ENGINE).arg("--version").output().expect("run --version");
+    assert!(version.status.success(), "--version must exit 0");
+    let text = String::from_utf8_lossy(&version.stdout);
+    assert!(text.starts_with("metaform "), "unexpected version line: {text}");
+    assert!(text.trim().split(' ').nth(1).unwrap().chars().next().unwrap().is_ascii_digit());
+
+    let help = Command::new(ENGINE).arg("--help").output().expect("run --help");
+    assert!(help.status.success(), "--help must exit 0");
+    let text = String::from_utf8_lossy(&help.stdout);
+    assert!(text.contains("usage:"), "help must say how to use it: {text}");
+    assert!(text.contains("mcp"), "help must mention the mcp command");
+}
