@@ -1871,3 +1871,11 @@ instrument, which is what makes the comparison possible at all.
 The number to remember is the shape, not the ratio: adding structure did not make the answer more
 correct, it made the road to it shorter. If a later run shows structure raising accuracy on an
 ambiguous task, that would be a different claim and a stronger one.
+
+The five-question repetition did not produce numbers. Ten runs were attempted on the same
+instrument: one pair completed (the q2 pair above), one application arm died after eleven steps
+having spent 13636 input tokens, and the remaining eight failed before their first step with zero
+tokens and a nine-second exit. A run that dies before reporting any step is a provider or
+credential failure, not a measurement, and the runner marked each one `complete:false` rather than
+reporting a zero. The repetition therefore stands at one pair, and the ratio in the previous section
+should be read as a single observation until a working key produces the rest.
