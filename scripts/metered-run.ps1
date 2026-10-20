@@ -9,7 +9,7 @@
       {"task_id":"...","profile":"headless","exit":0,"elapsed_s":1.2,
        "steps":3,"tokens_in":123,"tokens_out":45,"complete":true}
 
-    Key handling, in order: the environment variable named by -KeyEnv, then the file named by
+    Key handling, in order: the environment variable named by -KeyEnv (default DK_API_KEY), then the file named by
     -KeyFile. A key file that resolves inside this repository is refused before it is read. A key
     read from a file is placed only in the child process environment and removed immediately after
     the child starts; the parent environment is never touched. The key is never printed, logged,
@@ -41,7 +41,7 @@
     dsh profile. Defaults to headless.
 
 .PARAMETER KeyEnv
-    Environment variable that supplies the key. Defaults to DEEPSEEK_API_KEY.
+    Environment variable that supplies the key. Defaults to DK_API_KEY; the value is handed to the child as -ChildEnvName.
 
 .PARAMETER KeyFile
     Optional key file outside this repository. Used only when the environment variable is unset.
@@ -63,7 +63,8 @@ param(
     [string]$Workdir = (Get-Location).Path,
     [string]$Out,
     [string]$Profile = 'headless',
-    [string]$KeyEnv = 'DEEPSEEK_API_KEY',
+    [string]$KeyEnv = 'DK_API_KEY',
+    [string]$ChildEnvName = 'DEEPSEEK_API_KEY',
     [string]$KeyFile,
     [int]$TimeoutSec = 600,
     [string]$Raw,
@@ -296,6 +297,11 @@ else {
         if (-not (Test-Path -LiteralPath $keyPath -PathType Leaf)) { Fail "key file not found: $keyPath" }
     }
     $envKey = [Environment]::GetEnvironmentVariable($KeyEnv, 'Process')
+    if ([string]::IsNullOrWhiteSpace($envKey)) {
+        # A user-scope variable set after the host started is not inherited by this process; read
+        # the user scope directly. The value is used only here and is never printed.
+        $envKey = [Environment]::GetEnvironmentVariable($KeyEnv, 'User')
+    }
     if (-not [string]::IsNullOrWhiteSpace($envKey)) {
         $key = $envKey.Trim()
         if ($key.Length -gt 0 -and $key[0] -eq [char]0xFEFF) { $key = $key.Substring(1).Trim() }
@@ -355,11 +361,11 @@ else {
     $null = New-Item -ItemType File -Force -Path $stdoutTemp, $stderrTemp
 
     try {
-        if ($keyFromFile) {
-            # ProcessStartInfo.Environment is the child's block. The parent $env: block is never
-            # assigned, and the entry is removed from the start info after the child is running.
-            $psi.Environment[$KeyEnv] = $key
-        }
+        # The key is handed to the child under the name the CLI reads, whichever name supplied it.
+        # The alias the user set in the parent environment is removed from the child block so the
+        # secret exists in exactly one variable for the lifetime of the run.
+        $psi.Environment[$ChildEnvName] = $key
+        if ($ChildEnvName -ne $KeyEnv) { [void]$psi.Environment.Remove($KeyEnv) }
         $process = $null
         $startFailed = $false
         try {
