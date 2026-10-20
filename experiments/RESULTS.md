@@ -1814,3 +1814,34 @@ because both are records rather than inputs to the answer; what they can change 
 rule is caught, which the batch has one example of. And the requirement that remains genuinely
 unmet is the matched budget: no arm reports token usage, so no cost comparison exists. That one is
 blocked on an input this session does not have.
+
+## 23. Why a real open issue cannot label itself (2026-10-21)
+
+The plan was to take a still-open bug from a real repository, build a state of files, features and
+labels from the issue text alone, and let the engine say which feature is missing before anyone looks
+at a fix. The reconnaissance found that this cannot be done with the rule as stated, and the reason is
+structural rather than bad luck.
+
+Six open bugs were examined. The two whose text supplies a file-level positive and a set of negatives
+-- a panic frame naming one scheduler file plus a paragraph saying the other flavour is unaffected,
+and a regression report naming the function that stopped waking -- both already have fixes: one an
+open pull request, the other merged. Two more have failing tests in the issue and an open pull request
+each. The only bug in the set with no fix at all names a single positive and no negative, and its real
+contrast is between two types in the same file, so a file-level object set cannot express it.
+
+The pattern: an issue that specifies its own evidence well enough to label a training state is an
+issue someone can fix quickly, so those are exactly the ones that are no longer open. "The issue
+labels the objects" and "the issue is still open" pull against each other.
+
+One by-product is worth keeping. On the best-designed of the six, the engine was given thirteen
+scheduler files, three static features, and the labels the issue itself supplies. It returned
+INSUFFICIENT with one colliding pair: the file that panics and the file the issue cites as the working
+contrast are indistinguishable under those features. That is the engine doing its job on real
+material -- proving the static vocabulary cannot express the distinction and naming the pair that
+needs a new predicate. It also showed the trap: adding a feature that happens to separate the pair
+(one of the files uses unsafe code) makes the engine stop, and stop for a reason that is not causal.
+Extensional sufficiency is not explanation.
+
+What would make the line usable: allow issues with an open pull request (use them as method
+demonstrations, never as pull requests of our own), or allow merged fixes as benchmarks the way the
+earlier tokio task did, which is a benchmark and not a discovery.
