@@ -438,6 +438,11 @@ predict that object's label before the label is measured. A concept and a lookup
 extension on the objects they were built from; only the unmeasured object tells them apart. What this
 forbids: adoption on fit alone, and a warrant that is printed but never used to decide. **[theorem + engineering]**
 
+A green gate is not evidence that the change is the one intended. The gates check that the repository still
+behaves; they cannot check that the diff is the change meant, and a commit whose message describes three
+edits while its diff contains twelve is a lie the gates pass happily. Read the diff before writing the
+message, and treat a mismatch between the two as a defect of the commit, not of the gate. **[engineering]**
+
 ## 5. Theory map
 
 One sentence first: **the contribution is not an algorithm, it is the trigger conditions and the typing
