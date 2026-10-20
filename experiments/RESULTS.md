@@ -1584,3 +1584,46 @@ brief and the request.
 Nothing in this section invalidates the earlier finding that the request publishes the evidence. It
 sharpens it: the request publishes the evidence and the vocabulary, and a target concept that is a
 short combination of the two is published as well.
+
+## 16. A held-out experiment with an independent proposer (2026-10-21)
+
+Question, chosen because its answer is stated nowhere in the tracked tree or the history: which of
+these files belong to a workspace crate that declares at least one dependency on a crate not built
+from this repository (a version requirement, not a path).
+
+Twelve objects: all seven workspace manifests plus five decoys. Five atoms computed from file
+content. Four positives, eight negatives; five labelled (two positive, three negative), seven
+withheld (two positive, five negative). Ids shuffled, no interval and no prefix pattern.
+
+The three leak checks were run exhaustively before the arm: no single atom equals the withheld set
+or its complement; of 35 single/union/difference expressions at most two atoms wide, none equals it
+(55 when intersections and symmetric differences are added); of 45 atom-plus-or-minus-evidence
+expressions, none equals it. All 62 all_of/any_of expressions over the vocabulary contain neither
+the withheld set nor the positive set, so only an explicit ids candidate can be exact. Enumeration
+and split search are in the experiment directory under tmp, which is not tracked.
+
+Two attempts. The first was invalid: the environment was rebuilt after the proposer read it, so the
+response carried a stale request id and the kernel rejected it as wrong_request_id. Its extension
+happened to score exact against the final truth, but the ids referred to different files, so it is
+not a measurement. The second attempt read a frozen environment; its request id matched byte for
+byte, and the result is the one below.
+
+Held-out score: tp 4, fp 0, fn 0, tn 8, exact. The proposer returned a single ids candidate
+whose extension is exactly the four positives, with a prediction on id 5, judged negative, which is
+correct. One proposal, one turn.
+
+The kernel rejected that response: refused was written as the boolean false rather than null or a
+string, so the validator answered malformed_response. The concept was right and the file was
+invalid, and the protocol caught it. A reviewer would have fixed the field without noticing.
+
+What this does not show. It is one question, one proposer, one turn, no budget control, and the
+proposer is a subagent with repository read access rather than a metered model API; token counts are
+therefore absent rather than measured. The exact extension is reachable by reading the manifests and
+the lock file, which is the intended reasoning path, so this is evidence that the task is solvable
+from the corpus, not evidence that the engine caused the solution. One positive had been withheld
+precisely because its own source file stated its dependency situation; that object was replaced
+before this run, and the replacement was checked for the same defect.
+
+The lesson that cost two attempts: freeze the environment before dispatching a proposer. The first
+attempt failed for no reason the proposer could control, and a rebuild between read and score
+invalidates a run even when its numbers look right.
