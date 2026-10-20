@@ -13,12 +13,14 @@
 //!   5. an `ids` candidate then fails `empty_extension`, `constant_extension`, `out_of_range`, `duplicate_ids`
 //!   6. a `define` candidate then fails `empty_definition`, `duplicate_operand`, `unknown_predicate`,
 //!      `empty_extension`, `constant_extension`
-//!   7. the held-out prediction: `missing_prediction` when the request has an unmeasured object and the
-//!      candidate carries no `predict`; otherwise a malformed `predict` is `wrong_protocol`, and its
-//!      id/label are checked as `prediction_out_of_range`, `predicted_measured_object`,
-//!      `prediction_bad_label`
-//!   8. `limit_exceeded` for both forms
-//!   9. accepted candidates report `splits`: how many evidence-colliding pairs they separate
+//!   7. the held-out prediction: `missing_prediction` when the request has an unmeasured object (or
+//!      the candidate names a `rival`) and the candidate carries no `predict`; otherwise a malformed
+//!      `predict` is `wrong_protocol`, and its id/label are checked as `prediction_out_of_range`,
+//!      `predicted_measured_object`, `prediction_bad_label`
+//!   8. a `rival` is parsed with the candidate's own rules; when both are present the prediction must
+//!      land on an object where the two extensions disagree, or `predict_not_discriminating`
+//!   9. `limit_exceeded` for both forms
+//!  10. accepted candidates report `splits`: how many evidence-colliding pairs they separate
 //!
 //! A candidate is extensional (`ids`) or defined (`define: {"all_of": [...]}` / `{"any_of": [...]}`).
 //! A definition may only name predicates that already exist in the request vocabulary; the operands are
@@ -32,6 +34,17 @@
 //! object a candidate without it is rejected (`missing_prediction`), and a prediction is always checked
 //! when present. The prediction is echoed unchanged on acceptance, and `apply` records it. A request
 //! without `object_ids` declares no unmeasured objects, which keeps every pre-L11 request valid.
+//!
+//! A candidate may also name the rule it is competing with: `"rival": {"ids": [...]}` or
+//! `"rival": {"define": {...}}`, parsed with the candidate's own shape, range and vocabulary rules.
+//! The rival's extension is recomputed from the request vocabulary; it is never taken from the
+//! response. A prediction is a bet only if the two rules could have made different bets there, so a
+//! rivaled candidate must predict an object on which the candidate's extension and the rival's
+//! extension disagree -- otherwise the answer is `predict_not_discriminating`. This is what stops a
+//! coherent but false rule from passing on a prediction that every rule in its neighbourhood makes.
+//! A rival without a prediction is `missing_prediction`, because there is nothing left to compare.
+//! A candidate without `rival` is exactly the pre-rival candidate, and `apply` records its rival
+//! column empty.
 //!
 //! Pair logic follows `score` in `main.rs`: positives and negatives that share an equivalence class under
 //! the current vocabulary form a colliding pair, and a candidate splits the pair when its membership
@@ -105,6 +118,10 @@ pub struct Accepted {
     /// The held-out prediction the candidate committed to, if it carried one. Required on a request
     /// with an unmeasured object; optional (but validated) otherwise.
     pub prediction: Option<Prediction>,
+    /// The extension of the `rival` the candidate named, if any. The prediction was accepted only
+    /// because the candidate and this rival disagree on the predicted object; `apply` records the
+    /// extension so `check-predictions` can count the discriminating bets.
+    pub rival: Option<Vec<usize>>,
 }
 
 /// One candidate the validator rejected, with the ids it supplied (empty for a defined candidate).
@@ -744,14 +761,101 @@ fn parse_prediction(obj: &Json, req: &Request) -> Result<Option<Prediction>, &'s
     Ok(Some(Prediction { id, label }))
 }
 
-/// Parse the prediction and apply the L11 admission rule: on a request with at least one unmeasured
-/// object, an otherwise valid candidate without `predict` is `missing_prediction`.
-fn checked_prediction(obj: &Json, req: &Request) -> Result<Option<Prediction>, &'static str> {
+/// The extension of one alternative: a candidate, or the `rival` a candidate names. Both forms are
+/// parsed and checked by the same rules, so a rival cannot be held to a weaker standard than the
+/// candidate it competes with.
+struct Alternative {
+    mask: Mask,
+    definition: Option<Definition>,
+}
+
+/// Parse one `ids`-or-`define` alternative into its extension over the request's objects.
+///
+/// The rules are the candidate's own: carrying both `ids` and `define` is `wrong_protocol`; a
+/// defined alternative may only name request vocabulary and fails `empty_definition`,
+/// `duplicate_operand` or `unknown_predicate`; an extensional one fails `empty_extension`,
+/// `constant_extension`, `out_of_range` or `duplicate_ids`; a defined one also fails
+/// `empty_extension` / `constant_extension` once its operands resolve. A missing `ids` is the empty
+/// extension, exactly as for a candidate.
+fn alternative(value: &Json, req: &Request) -> Result<Alternative, &'static str> {
+    let has_ids = value.get("ids").is_some();
+    let has_define = value.get("define").is_some();
+    // An alternative is either extensional or defined, never both.
+    if has_ids && has_define {
+        return Err("wrong_protocol");
+    }
+    if has_define {
+        let mut definition = parse_definition(value.get("define").expect("checked present"))?;
+        let ext = definition_extension(&definition, &req.vocab)? & object_mask(req.n);
+        if ext == 0 {
+            return Err("empty_extension");
+        }
+        if ext == object_mask(req.n) {
+            return Err("constant_extension");
+        }
+        // Validation is done: `duplicate_operand` has rejected a raw repeated operand above, so
+        // canonicalising now only fixes the order. The adopted definition is stored sorted and
+        // unique, making all_of:[b,a] and all_of:[a,b] the same definition.
+        definition.canonicalize();
+        return Ok(Alternative { mask: ext, definition: Some(definition) });
+    }
+    let ids = parse_ids(value.get("ids"));
+    if !ids.is_array || ids.count == 0 {
+        return Err("empty_extension");
+    }
+    if covers_all(req.n, &ids.values) {
+        return Err("constant_extension");
+    }
+    if ids.bad || ids.values.iter().any(|&x| x < 0 || x as usize >= req.n) {
+        return Err("out_of_range");
+    }
+    if has_duplicates(&ids.values) {
+        return Err("duplicate_ids");
+    }
+    let mut mask = 0u64;
+    for &x in &ids.values {
+        mask |= bit(x as usize);
+    }
+    Ok(Alternative { mask, definition: None })
+}
+
+/// Validate the optional `rival` field: the competing rule the candidate has to disagree with.
+///
+/// `null` is the absent spelling, matching `predict`, `limit` and `refused`. A present rival must be
+/// an object and is parsed by [`alternative`], so it answers to the candidate's own rules; its
+/// extension is `Some(mask)`, computed from the request vocabulary and the request's objects.
+fn parse_rival(obj: &Json, req: &Request) -> Result<Option<Mask>, &'static str> {
+    match obj.get("rival") {
+        None | Some(Json::Null) => Ok(None),
+        Some(value) if matches!(value, Json::Obj(_)) => Ok(Some(alternative(value, req)?.mask)),
+        Some(_) => Err("wrong_protocol"),
+    }
+}
+
+/// Parse the prediction and the rival, and apply the L11 admission rules.
+///
+/// The prediction's own rules are unchanged. A candidate that names a rival must also place a bet:
+/// the rival exists to make the bet discriminating, so a rival without `predict` is
+/// `missing_prediction` even on a request whose objects are all measured. When both are present,
+/// the predicted object must be one where the candidate's extension and the rival's extension
+/// disagree; if they agree there the bet says nothing about the difference between the two rules,
+/// and the candidate is `predict_not_discriminating`.
+fn checked_commitment(
+    obj: &Json,
+    req: &Request,
+    ext: Mask,
+) -> Result<(Option<Prediction>, Option<Mask>), &'static str> {
     let prediction = parse_prediction(obj, req)?;
-    if prediction.is_none() && req.has_unmeasured() {
+    let rival = parse_rival(obj, req)?;
+    if prediction.is_none() && (req.has_unmeasured() || rival.is_some()) {
         return Err("missing_prediction");
     }
-    Ok(prediction)
+    if let (Some(prediction), Some(rival)) = (prediction, rival) {
+        if ((ext >> prediction.id) & 1) == ((rival >> prediction.id) & 1) {
+            return Err("predict_not_discriminating");
+        }
+    }
+    Ok((prediction, rival))
 }
 
 fn count_splits(n: usize, pos: Mask, neg: Mask, classes: &[Mask], ext: Mask) -> usize {
@@ -973,131 +1077,28 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
         // Remember every named candidate, accepted or not: "an earlier candidate name" is enough.
         seen_names.insert(name.to_string());
 
-        // A candidate is either extensional (`ids`) or defined (`define`), never both.
-        let has_ids = obj.get("ids").is_some();
-        let has_define = obj.get("define").is_some();
-        if has_ids && has_define {
-            rejected.push(Rejected {
-                name: name.to_string(),
-                ids: ids.values,
-                reason: "wrong_protocol".to_string(),
-            });
-            continue;
-        }
-        if has_define {
-            let mut definition = match parse_definition(obj.get("define").expect("checked present")) {
-                Ok(definition) => definition,
-                Err(reason) => {
-                    rejected.push(Rejected {
-                        name: name.to_string(),
-                        ids: ids.values,
-                        reason: reason.to_string(),
-                    });
-                    continue;
-                }
-            };
-            let ext = match definition_extension(&definition, &req.vocab) {
-                Ok(ext) => ext & object_mask(req.n),
-                Err(reason) => {
-                    rejected.push(Rejected {
-                        name: name.to_string(),
-                        ids: ids.values,
-                        reason: reason.to_string(),
-                    });
-                    continue;
-                }
-            };
-            // Validation is done: `duplicate_operand` has rejected a raw repeated operand above,
-            // so canonicalising now only fixes the order. The adopted definition is stored sorted
-            // and unique, making all_of:[b,a] and all_of:[a,b] the same definition.
-            definition.canonicalize();
-            // A definition gets the same extension checks as an `ids` candidate.
-            if ext == 0 {
-                rejected.push(Rejected {
-                    name: name.to_string(),
-                    ids: Vec::new(),
-                    reason: "empty_extension".to_string(),
-                });
-                continue;
-            }
-            if ext == object_mask(req.n) {
-                rejected.push(Rejected {
-                    name: name.to_string(),
-                    ids: Vec::new(),
-                    reason: "constant_extension".to_string(),
-                });
-                continue;
-            }
-            let prediction = match checked_prediction(obj, req) {
-                Ok(prediction) => prediction,
-                Err(reason) => {
-                    rejected.push(Rejected {
-                        name: name.to_string(),
-                        ids: Vec::new(),
-                        reason: reason.to_string(),
-                    });
-                    continue;
-                }
-            };
-            if accepted.len() >= req.limit {
-                rejected.push(Rejected {
-                    name: name.to_string(),
-                    ids: Vec::new(),
-                    reason: "limit_exceeded".to_string(),
-                });
-                continue;
-            }
-            let ext_ids = ids_of(ext, req.n);
-            let splits = count_splits(req.n, req.pos, req.neg, &classes, ext);
-            accepted.push(Accepted {
-                name: name.to_string(),
-                ids: ext_ids,
-                splits,
-                warrant: obj.get("warrant").and_then(Json::as_str).map(str::to_string),
-                falsifier: obj.get("falsifier").and_then(Json::as_str).map(str::to_string),
-                definition: Some(definition),
-                prediction,
-            });
-            continue;
-        }
-
-        if !ids.is_array || ids.count == 0 {
-            rejected.push(Rejected {
-                name: name.to_string(),
-                ids: ids.values,
-                reason: "empty_extension".to_string(),
-            });
-            continue;
-        }
-        if covers_all(req.n, &ids.values) {
-            rejected.push(Rejected {
-                name: name.to_string(),
-                ids: ids.values,
-                reason: "constant_extension".to_string(),
-            });
-            continue;
-        }
-        if ids.bad || ids.values.iter().any(|&x| x < 0 || x as usize >= req.n) {
-            rejected.push(Rejected {
-                name: name.to_string(),
-                ids: ids.values,
-                reason: "out_of_range".to_string(),
-            });
-            continue;
-        }
-        if has_duplicates(&ids.values) {
-            rejected.push(Rejected {
-                name: name.to_string(),
-                ids: ids.values,
-                reason: "duplicate_ids".to_string(),
-            });
-            continue;
-        }
-        let prediction = match checked_prediction(obj, req) {
-            Ok(prediction) => prediction,
+        // A candidate is an alternative (its own extension) plus an optional commitment. A defined
+        // candidate's extension is computed from the request vocabulary; an extensional one keeps
+        // the order it was sent in.
+        let alt = match alternative(obj, req) {
+            Ok(alt) => alt,
             Err(reason) => {
                 rejected.push(Rejected {
                     name: name.to_string(),
+                    ids: ids.values,
+                    reason: reason.to_string(),
+                });
+                continue;
+            }
+        };
+        let ext = alt.mask;
+        let (prediction, rival) = match checked_commitment(obj, req, ext) {
+            Ok(commitment) => commitment,
+            Err(reason) => {
+                rejected.push(Rejected {
+                    name: name.to_string(),
+                    // A defined candidate never supplies ids, so this echoes the empty list, exactly
+                    // as the definition branch always has.
                     ids: ids.values,
                     reason: reason.to_string(),
                 });
@@ -1113,19 +1114,20 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
             continue;
         }
 
-        let mut ext = 0u64;
-        for &x in &ids.values {
-            ext |= bit(x as usize);
-        }
+        let ext_ids = match &alt.definition {
+            Some(_) => ids_of(ext, req.n),
+            None => ids.values.iter().map(|&x| x as usize).collect(),
+        };
         let splits = count_splits(req.n, req.pos, req.neg, &classes, ext);
         accepted.push(Accepted {
             name: name.to_string(),
-            ids: ids.values.iter().map(|&x| x as usize).collect(),
+            ids: ext_ids,
             splits,
             warrant: obj.get("warrant").and_then(Json::as_str).map(str::to_string),
             falsifier: obj.get("falsifier").and_then(Json::as_str).map(str::to_string),
-            definition: None,
+            definition: alt.definition,
             prediction,
+            rival: rival.map(|mask| ids_of(mask, req.n)),
         });
     }
 

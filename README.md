@@ -209,16 +209,28 @@ a candidate must carry `"predict":{"id":<object id>,"label":"pos"|"neg"}`, or it
 checked: an id outside `0..objects` is `prediction_out_of_range`, an id already in `evidence` is
 `predicted_measured_object` (it is not a held-out test), and a label other than `pos` / `neg` is
 `prediction_bad_label`. A request without `object_ids` -- the pre-L11 shape -- declares no unmeasured
-object, so its candidates keep the old optional field and the old verdicts.
+object, so its candidates keep the old optional field and the old verdicts. A prediction only counts
+as a bet when another rule could have made a different one, so a candidate may name the rule it is
+competing with: `"rival":{"ids":[...]}"` or `"rival":{"define":{"all_of"|"any_of":[...]}}`. The rival
+is parsed by the candidate's own rules and its extension is recomputed from the request vocabulary;
+the prediction must then name an object where the two extensions disagree, or the candidate is
+rejected with `predict_not_discriminating`. A rival without a prediction is `missing_prediction`,
+because there is nothing left to compare. A candidate without `rival` behaves exactly as before and
+keeps its old verdict, so a coherent but false rule can no longer pass on a prediction that every
+rule in its neighbourhood would make too.
 
 `apply` records every adopted prediction in `.metaform/predictions.tsv`: one header line plus one
-tab-separated row per prediction (`request_id`, candidate name, object id, predicted label, and the
-candidate's extension as a comma-separated id list). Rows dedupe on `(request_id, name, id)`, so
-replaying a response does not duplicate a commitment, and the same input writes the same bytes.
+tab-separated row per prediction (`request_id`, candidate name, object id, predicted label, the
+candidate's extension as a comma-separated id list, and the rival's extension, empty when the
+candidate named none). Rows dedupe on `(request_id, name, id)`, so replaying a response does not
+duplicate a commitment, and the same input writes the same bytes. The rival column is last, so a
+record written before it existed still loads: a five-column header and four- or five-field rows are
+read with an empty rival.
 `metaform check-predictions --project .` is read-only: it takes the same recommended-`theta` strong
 labels the kernel uses and compares each recorded prediction with the object's actual label, printing
-`{"checked":n,"correct":n,"wrong":[{"name":...,"id":...,"predicted":...,"actual":...}],"open":n}`;
-`open` counts predictions whose object has no strong label yet.
+`{"checked":n,"correct":n,"wrong":[{"name":...,"id":...,"predicted":...,"actual":...}],"open":n,"discriminating":n}`;
+`open` counts predictions whose object has no strong label yet, and `discriminating` counts the
+checked predictions whose non-empty rival disagreed with the candidate on the predicted object.
 
 Under the cheap-proposal assumption this is the division that matters: the model supplies many
 candidates per call, the engine pays for the queries.
@@ -294,7 +306,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 184)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 189)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

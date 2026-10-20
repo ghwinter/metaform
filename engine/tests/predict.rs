@@ -14,6 +14,13 @@
 //! (e) a request whose objects are all measured still accepts a prediction-free candidate, so every
 //!     pre-L11 request keeps its verdict.
 //!
+//! The second half of the suite freezes the rival rule. A candidate may name the rule it competes
+//! with (`"rival": {"ids": [...]}` or `"rival": {"define": {...}}`); the prediction then has to land
+//! on an object where the two extensions disagree, or the candidate is `predict_not_discriminating`.
+//! `apply` records the rival's extension in a sixth, trailing column, and `check-predictions` counts
+//! the checked bets whose rival disagreed (`discriminating`). A five-column record written before
+//! that column existed keeps loading, with an empty rival.
+//!
 //! The collision fixture is the one `suggest` and `apply` use: two full predicates put a strong
 //! positive and a strong negative in one class, so the state is `INSUFFICIENT`.
 
@@ -204,8 +211,8 @@ fn apply_records_predictions_once_and_is_idempotent() {
     assert_eq!(first["skipped"], json!([]), "{first}");
 
     let want = concat!(
-        "request_id\tname\tid\tpredicted\textension\n",
-        "predict-record\tonly0\t2\tpos\t0\n"
+        "request_id\tname\tid\tpredicted\textension\trival\n",
+        "predict-record\tonly0\t2\tpos\t0\t\n"
     );
     assert_eq!(
         std::fs::read_to_string(predictions_file(&dir)).expect("read predictions"),
@@ -301,7 +308,7 @@ fn check_predictions_scores_correct_and_wrong_and_is_read_only() {
         out,
         concat!(
             r#"{"checked":2,"correct":1,"#,
-            r#""wrong":[{"name":"p2","id":3,"predicted":"neg","actual":"pos"}],"open":1}"#,
+            r#""wrong":[{"name":"p2","id":3,"predicted":"neg","actual":"pos"}],"open":1,"discriminating":0}"#,
             "\n"
         ),
         "one deterministic line, scored against the kernel's strong labels"
@@ -372,6 +379,275 @@ fn measured_request_accepts_a_prediction_free_candidate() {
     assert!(
         verdict["accepted"][0].get("predict").is_none(),
         "an absent prediction must not be invented: {verdict}"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ---------------------------------------------------------------------------
+// The rival rule: a bet has to land where two rules disagree.
+// ---------------------------------------------------------------------------
+
+/// Three objects whose state vocabulary matches the request exactly: `a` = {0,1}, `b` = {0,2},
+/// object 0 strong-positive, object 1 strong-negative. Object 2 is the held-out test, and it is the
+/// object `a` and `b` classify differently, so a defined rival built from them can agree or
+/// disagree with an ids candidate on purpose.
+fn rival_fixture(tag: &str) -> PathBuf {
+    let dir = temp_dir(tag);
+    let project = dir.to_str().expect("utf-8 path");
+    run_ok(&["state", "init", "--project", project, "--n", "3"]);
+    run_ok(&[
+        "state", "add", "--project", project, "--name", "a", "--ids", "0,1",
+    ]);
+    run_ok(&[
+        "state", "add", "--project", project, "--name", "b", "--ids", "0,2",
+    ]);
+    run_ok(&[
+        "state", "vote", "--project", project, "--id", "0", "--yes", "3", "--no", "0",
+    ]);
+    run_ok(&[
+        "state", "vote", "--project", project, "--id", "1", "--yes", "0", "--no", "3",
+    ]);
+    dir
+}
+
+/// The request over [`rival_fixture`]: `a` = {0,1}, `b` = {0,2}, objects 0 and 1 measured, 2 held out.
+fn rival_request(request_id: &str) -> String {
+    format!(
+        concat!(
+            r#"{{"protocol":"metaform.propose/1","request_id":"{request_id}","objects":3,"#,
+            r#""object_ids":[0,1,2],"vocabulary":[{{"name":"a","ids":[0,1]}},{{"name":"b","ids":[0,2]}}],"#,
+            r#""evidence":{{"pos":[0],"neg":[1]}},"limit":8}}"#
+        ),
+        request_id = request_id
+    )
+}
+
+/// (a) A rival whose extension agrees with the candidate on the predicted object makes the bet
+/// worthless: the two rules would have made the same prediction there, so `predict.id` does not
+/// distinguish them and the candidate is rejected.
+#[test]
+fn rival_that_agrees_on_the_predicted_object_is_rejected() {
+    let dir = temp_dir("rival-agree");
+    let request = write(&dir, "request.json", &rival_request("predict-rival-agree"));
+    // The candidate covers {0}; `all_of:[a,b]` also covers {0}. On object 2 both say negative.
+    let response = write(
+        &dir,
+        "response.json",
+        &response(
+            "predict-rival-agree",
+            concat!(
+                r#"{"name":"only0","ids":[0],"predict":{"id":2,"label":"pos"},"#,
+                r#""rival":{"define":{"all_of":["a","b"]}}}"#
+            ),
+        ),
+    );
+
+    let verdict = propose(&request, &response);
+    assert_eq!(verdict["accepted"], json!([]), "{verdict}");
+    assert_eq!(
+        verdict["rejected"],
+        json!([{"name": "only0", "ids": [0], "reason": "predict_not_discriminating"}]),
+        "an agreeing rival must reject the candidate, not merely warn: {verdict}"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// (b) A rival that disagrees on the predicted object makes the bet a real test of the difference
+/// between the two rules: the candidate is accepted, `apply` adopts it, and the recorded row carries
+/// the rival's extension in the new trailing column.
+#[test]
+fn rival_that_disagrees_is_accepted_and_recorded() {
+    let dir = rival_fixture("rival-record");
+    let project = dir.to_str().expect("utf-8 path");
+    let request = write(&dir, "request.json", &rival_request("predict-rival-record"));
+    // The candidate covers {0}; `any_of:[b]` covers {0,2}, so object 2 is where they disagree.
+    let response = write(
+        &dir,
+        "response.json",
+        &response(
+            "predict-rival-record",
+            concat!(
+                r#"{"name":"only0","ids":[0],"predict":{"id":2,"label":"pos"},"#,
+                r#""rival":{"define":{"any_of":["b"]}}}"#
+            ),
+        ),
+    );
+
+    let verdict = propose(&request, &response);
+    assert_eq!(verdict["rejected"], json!([]), "{verdict}");
+    assert_eq!(
+        verdict["accepted"],
+        json!([{
+            "name": "only0",
+            "ids": [0],
+            "splits": 0,
+            "predict": {"id": 2, "label": "pos"}
+        }]),
+        "a disagreeing rival must be accepted: {verdict}"
+    );
+
+    let applied = apply(project, &request, &response);
+    assert_eq!(applied["applied"], json!(1), "{applied}");
+    // The rival column is the rival's extension: the candidate covers 0, the rival covers 0 and 2.
+    let want = concat!(
+        "request_id\tname\tid\tpredicted\textension\trival\n",
+        "predict-rival-record\tonly0\t2\tpos\t0\t0,2\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(predictions_file(&dir)).expect("read predictions"),
+        want,
+        "the recorded row must carry the rival extension"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// (c) Backward compatibility: a candidate that names no rival is still accepted on a request with
+/// an unmeasured object, and its row exists with an empty trailing rival column.
+#[test]
+fn candidate_without_a_rival_records_an_empty_rival_column() {
+    let dir = unmeasured_fixture("rival-empty");
+    let project = dir.to_str().expect("utf-8 path");
+    let request = write(&dir, "request.json", &request("predict-no-rival"));
+    let response = write(
+        &dir,
+        "response.json",
+        &response(
+            "predict-no-rival",
+            r#"{"name":"only0","ids":[0],"predict":{"id":2,"label":"pos"}}"#,
+        ),
+    );
+
+    let verdict = propose(&request, &response);
+    assert_eq!(verdict["rejected"], json!([]), "{verdict}");
+    assert_eq!(
+        verdict["accepted"],
+        json!([{
+            "name": "only0",
+            "ids": [0],
+            "splits": 1,
+            "predict": {"id": 2, "label": "pos"}
+        }]),
+        "no rival means the pre-rival candidate, unchanged: {verdict}"
+    );
+
+    let applied = apply(project, &request, &response);
+    assert_eq!(applied["applied"], json!(1), "{applied}");
+    let want = concat!(
+        "request_id\tname\tid\tpredicted\textension\trival\n",
+        "predict-no-rival\tonly0\t2\tpos\t0\t\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(predictions_file(&dir)).expect("read predictions"),
+        want,
+        "the rival column is present but empty"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// (d) A record written before the rival column existed has a five-column header and five fields per
+/// row. It must still load: the missing trailing column is read as empty, not as a parse error.
+#[test]
+fn five_column_predictions_file_written_by_the_old_format_still_scores() {
+    let dir = temp_dir("legacy-record");
+    let project = dir.to_str().expect("utf-8 path");
+    run_ok(&["state", "init", "--project", project, "--n", "2"]);
+    run_ok(&[
+        "state", "add", "--project", project, "--name", "a", "--ids", "0",
+    ]);
+    run_ok(&[
+        "state", "vote", "--project", project, "--id", "0", "--yes", "3", "--no", "0",
+    ]);
+    run_ok(&[
+        "state", "vote", "--project", project, "--id", "1", "--yes", "0", "--no", "3",
+    ]);
+    std::fs::write(
+        predictions_file(&dir),
+        "request_id\tname\tid\tpredicted\textension\nr1\tp\t0\tpos\t0\n",
+    )
+    .expect("write the old record");
+
+    let out = run_ok(&["check-predictions", "--project", project]);
+    assert_eq!(
+        out,
+        concat!(
+            r#"{"checked":1,"correct":1,"wrong":[],"open":0,"discriminating":0}"#,
+            "\n"
+        ),
+        "the old five-column record must score without a parse error"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// (e) `discriminating` counts checked predictions whose row carries a non-empty rival that actually
+/// disagreed. Two of the four rows are checked and rivaled (one right, one wrong, and the wrong one
+/// is still reported in `wrong`); the rivaled row whose object is unvoted stays open and is not
+/// counted.
+#[test]
+fn check_predictions_counts_discriminating_bets() {
+    let dir = temp_dir("discriminating");
+    let project = dir.to_str().expect("utf-8 path");
+    run_ok(&["state", "init", "--project", project, "--n", "5"]);
+    for name in ["a", "b"] {
+        run_ok(&[
+            "state", "add", "--project", project, "--name", name, "--ids", "0,1,2,3,4",
+        ]);
+    }
+    run_ok(&[
+        "state", "vote", "--project", project, "--id", "0", "--yes", "3", "--no", "0",
+    ]);
+    run_ok(&[
+        "state", "vote", "--project", project, "--id", "1", "--yes", "0", "--no", "3",
+    ]);
+
+    let request = write(
+        &dir,
+        "request.json",
+        &format!(
+            concat!(
+                r#"{{"protocol":"metaform.propose/1","request_id":"{id}","objects":5,"#,
+                r#""object_ids":[0,1,2,3,4],"vocabulary":[{{"name":"a","ids":[0,1,2,3,4]}},{{"name":"b","ids":[0,1,2,3,4]}}],"#,
+                r#""evidence":{{"pos":[0],"neg":[1]}},"limit":8}}"#
+            ),
+            id = "predict-discriminating"
+        ),
+    );
+    let candidates = concat!(
+        r#"{"name":"p1","ids":[0],"predict":{"id":2,"label":"pos"},"rival":{"ids":[0,2]}},"#,
+        r#"{"name":"p2","ids":[1],"predict":{"id":3,"label":"neg"},"rival":{"ids":[0,3]}},"#,
+        r#"{"name":"p3","ids":[2],"predict":{"id":4,"label":"neg"}},"#,
+        r#"{"name":"p4","ids":[2],"predict":{"id":4,"label":"pos"},"rival":{"ids":[1,4]}}"#
+    );
+    let response = write(
+        &dir,
+        "response.json",
+        &response("predict-discriminating", candidates),
+    );
+    let applied = apply(project, &request, &response);
+    assert_eq!(applied["applied"], json!(4), "{applied}");
+
+    // p1's bet is right; p2's is wrong; object 4 is never voted, so p3 and p4 stay open.
+    run_ok(&[
+        "state", "vote", "--project", project, "--id", "2", "--yes", "3", "--no", "0",
+    ]);
+    run_ok(&[
+        "state", "vote", "--project", project, "--id", "3", "--yes", "3", "--no", "0",
+    ]);
+
+    let out = run_ok(&["check-predictions", "--project", project]);
+    assert_eq!(
+        out,
+        concat!(
+            r#"{"checked":2,"correct":1,"#,
+            r#""wrong":[{"name":"p2","id":3,"predicted":"neg","actual":"pos"}],"#,
+            r#""open":2,"discriminating":2}"#,
+            "\n"
+        ),
+        "discriminating counts checked rivaled rows, including the wrong one"
     );
 
     let _ = std::fs::remove_dir_all(&dir);

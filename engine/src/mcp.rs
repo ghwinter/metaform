@@ -339,7 +339,7 @@ fn tools() -> Value {
         },
         {
             "name": "check_predictions",
-            "description": "Read-only: score the predictions recorded in .metaform/predictions.tsv, returning checked/correct/wrong/open.",
+            "description": "Read-only: score the predictions recorded in .metaform/predictions.tsv, returning checked/correct/wrong/open/discriminating.",
             "inputSchema": {
                 "type": "object",
                 "properties": {"project": {"type": "string"}}

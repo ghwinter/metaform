@@ -172,15 +172,23 @@ L11 把留出预测做成校验的一部分。带 `object_ids` 的请求同时�
 否则以 `missing_prediction` 拒绝；被接受时该字段原样回显。只要出现就校验：id 超出 `0..objects` 是
 `prediction_out_of_range`，id 已在 `evidence` 中是 `predicted_measured_object`（它不是留出测试），
 label 不是 `pos` / `neg` 是 `prediction_bad_label`。不带 `object_ids` 的请求（L11 之前的形状）不声明
-未测量对象，所以候选仍可不带该字段，旧判定不变。
+未测量对象，所以候选仍可不带该字段，旧判定不变。只有别的规则可能做出不同判断时，预测才算一次真正的
+下注；因此候选可以携带它所要竞争的规则：`"rival":{"ids":[...]}"` 或
+`"rival":{"define":{"all_of"|"any_of":[...]}}`。rival 按候选自身的规则解析，其扩展由请求词汇重新
+算出；预测必须落在这两个扩展判断不同的对象上，否则以 `predict_not_discriminating` 拒绝。带 rival
+却没有预测是 `missing_prediction`，因为已经没有什么可比的了。不带 `rival` 的候选行为完全不变、旧判定
+不变，于是一条自洽但错误的规则，不能再凭一条邻居规则也会做出的预测通过。
 
 `apply` 把每个被采纳的预测记入 `.metaform/predictions.tsv`：一行表头，之后每个预测一行制表符分隔的
-记录（`request_id`、候选名、对象 id、预测标签，以及候选扩展的逗号分隔 id 列表）。行按
-`(request_id, name, id)` 去重，因此重放同一响应不会重复记录，同一输入写出的字节相同。
+记录（`request_id`、候选名、对象 id、预测标签、候选扩展的逗号分隔 id 列表，以及 rival 的扩展；候选
+未指定 rival 时该列为空）。行按 `(request_id, name, id)` 去重，因此重放同一响应不会重复记录，同一
+输入写出的字节相同。rival 列在最后，所以在这列出现之前写下的文件仍然加载：五列表头、四列或五列数据
+的行都按 rival 为空读取。
 `metaform check-predictions --project .` 只读：它用内核同一套推荐 `theta` 强标签，把每条记录与对象的
 实际标签比较，打印
-`{"checked":n,"correct":n,"wrong":[{"name":...,"id":...,"predicted":...,"actual":...}],"open":n}`；
-`open` 是对象尚无强标签的预测数。
+`{"checked":n,"correct":n,"wrong":[{"name":...,"id":...,"predicted":...,"actual":...}],"open":n,"discriminating":n}`；
+`open` 是对象尚无强标签的预测数，`discriminating` 是已判分、且非空 rival 在预测对象上与候选判断不同
+的条数。
 
 在廉价提议的假设下，这个分工才是重点：模型每次给很多候选，引擎支付提问。
 
@@ -233,7 +241,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 184）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 189）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接
