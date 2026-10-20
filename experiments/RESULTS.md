@@ -1652,3 +1652,35 @@ denies. What it does not show: the accepted candidate is a lookup table, a const
 to separate one pair, which is exactly the invention the capacity bound does not price; the
 proposer had read the demonstration ledger, so the correct prediction was not blind; and the domain
 is the repository's own fixture rather than a task. This is a channel test, not a measurement.
+
+## 18. Why the e-graph is not the next purchase (2026-10-21)
+
+A design study read the egg library and asked what it would add. The answer is a canonical class, a
+two-valued decision, and a checkable proof: `find` canonicalises an e-class, `equivs` decides whether
+two terms share one, and an explanation re-checks every step against the rule table. A canonicaliser
+cannot produce that proof at all.
+
+The reason it does not fit is granularity. egg decides equality of *terms*; this kernel decides
+equality of *extensions*, and for the measure that matters, extension equality is the right
+criterion. Encoding objects as terms would reproduce the signature the kernel already computes, and
+treating term equality as identity would inflate the live set. Its decision is also two-valued:
+an empty `equivs` result cannot distinguish "different" from "did not saturate", while the kernel's
+interface is required to be three-valued. Saturation closes the rewrite rules, not the theory, so a
+non-confluent rule set is silently incomplete and "different" is not a disproof; rule soundness is
+not checked, only rule instances; extraction is tree-cost only; and distributivity blows up exactly
+where the library would earn its keep.
+
+The cost is concrete. egg is MIT, but its manifest carries a git dependency that is not in the local
+cargo cache, so an offline build fails outright; even without default features it pulls dozens of
+packages. The kernel rule would force it into a separate crate, which the absorption policy allows
+only as an interface, not as a place in the tree.
+
+Verdict: not now. The flat monotone language the kernel accepts today already has a complete
+canonical form and decision procedure, because the mask is one. What egg would unlock is a claim the
+repository cannot make yet: "two presentations are the same term, independent of the object set,
+with a machine-checked derivation". The trigger for revisiting is the first pair of intensions that
+is extensionally equal on the sample but must stay distinct for a reason no object can witness. Until
+that pair exists, the library solves a problem this kernel does not have.
+
+The cheaper alternative, in progress: deduplicate `suggest` candidates by extension, and canonicalise
+definition operands, so two spellings of the same set stop being two answers.
