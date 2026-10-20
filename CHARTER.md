@@ -17,7 +17,7 @@ reference.
 | **[evidence]** | this repository has run it and has numbers | scripts under `experiments/` reproduce them |
 | **[wager]** | belief without evidence | can only be cashed in or abandoned by later experiments |
 
-Authority: **code and the eight gates > this file > any note**. The charter obeys its own L9: every
+Authority: **code and the nine gates > this file > any note**. The charter obeys its own L9: every
 checkable sentence it writes either has a check in the repository or is explicitly marked **[wager]**.
 
 One writing discipline: every principle states **what it forbids**. A principle without a prohibition is
@@ -261,15 +261,15 @@ concrete operators are grown** (no published catalogue of "twenty thinking opera
 level an operator may be an element** (otherwise the operator library stays closed and the system can
 never learn a new way of thinking).
 
-Two of the five classes have no statable failure condition today, and §6.3 records that as a gap. Each has
-one, and it is a construction rather than a score. **Analogy is a partial functor:** a correspondence that
-preserves relations but not their composition is similarity, not a mapping — so its failure condition is a
-broken composite, and the quantity that measures it is a composition-preservation rate, not a weighted
+Two of the five classes had no statable failure condition until now. Each has one, and it is a
+construction rather than a score. **Analogy is a partial functor:** a correspondence that preserves
+relations but not their composition is similarity, not a mapping — so its failure condition is a broken
+composite, and the quantity that measures it is a composition-preservation rate, not a weighted
 systematicity score (§5.5's missing "systematicity weights" are this rate). **Decomposition is a gluing
 condition:** pieces that are each consistent on their overlap and still do not assemble have failed for a
 reason no extra measurement repairs — a global obstruction, not a missing number. Neither class may be
-scored: a composite either survives the correspondence or it does not, and local consistency either glues or
-it does not. **[wager]**
+scored: a composite either survives the correspondence or it does not, and local consistency either glues
+or it does not. **[wager]**
 
 Two boundaries decide what may enter the kernel:
 
@@ -577,7 +577,7 @@ change itself.
 |---|---|---|---|
 | M0 | a runtime exists | state, operators, controller, record — all four, running one scenario | done |
 | M1 | a representation change can be triggered | the engine decides "vocabulary insufficient", gives a coverage target, accepts an external predicate | done: judgement and coverage target work; the protocol accepts a defined predicate (`define: {all_of\|any_of}` over existing predicates), and `state add --define` stores the definition so the extension is recomputed on load when the object set changes |
-| M2 | real use at equal budget | a fixed model and budget, three arms, conclusions from unseen tasks | pilot: two arms, four cases each, budget not strictly accounted |
+| M2 | real use at equal budget | a fixed model and budget, four arms, conclusions from unseen tasks | pilot: two arms, four cases each, budget not strictly accounted |
 | M3 | accumulation across tasks | the experience table drives selection, proposals per task family fall, every policy comes from a verified entry | skeleton: the table exists, and the controller consults it through the experience hint, which changes ask order only and never the adopted proposal |
 | M4 | bootstrapping | metaform iterates metaform, and every deliverable carries an executable claim | embryonic: the claims register and the gates |
 
@@ -617,15 +617,13 @@ What cannot be said yet:
 
 - There is no real model in the loop (the protocol is pure; the responses are fabricated).
 - The tree-shaped fragment of the relational necessity criterion is decided by colour refinement with a minimised witness; general conjunctive queries (a homomorphism test) are still open.
-- No operator type covers decomposition or analogy (they change the goal and the structure, but have no
-  statable effect on the measure).
 - There is no validation on a large real repository.
 
 ### 6.4 The next gate
 
 **Regressions on a real repository.** Take 10–20 real fixes, use "fails before the fix, passes after" as
-ground truth, derive features from the dependency graph and test metadata, and run three arms at equal
-budget: direct answer, fixed pipeline, dynamic scheduling.
+ground truth, derive features from the dependency graph and test metadata, and run four arms at equal
+budget: model alone; the model with ordinary tools; fixed toolchain; dynamic scheduling.
 
 The core hypothesis, written so that it can be refuted:
 
@@ -637,7 +635,7 @@ The core hypothesis, written so that it can be refuted:
 The criterion is not "we won". It is: **the loop produces a measurable gain only on cross-module failures.**
 If a static feature suffices inside a module, that is a result too — and a more valuable one.
 
-Five parts of the protocol; a conclusion does not stand without all five:
+Six parts of the protocol; a conclusion does not stand without all six:
 
 1. **Four arms present**: model alone; the model with ordinary tools (read files, search the tree, run the
    tests, read the compiler); fixed toolchain; dynamic scheduling. Beating the bare model is expected and is
@@ -651,6 +649,12 @@ Five parts of the protocol; a conclusion does not stand without all five:
    a change of wording.
 5. **Negative results allowed**: negative findings are written up; reporting only the successful half is
    not an experiment.
+6. **Independence.** Any experiment run through the protocol must satisfy three conditions, each learned by
+   breaking it: the request must not contain the answer (it carries the evidence, and the evidence ids *are*
+   the target extension, so a proposer can echo them); no published atom may equal the withheld set, nor may a
+   union or difference of two atoms reproduce it (a held-out split leaks through the vocabulary); and the
+   proposer must be independent of the labels (the same agent that chose the labels is a demonstration, not a
+   measurement). A request-shaped experiment that fails any of these measures copying, not discovery.
 
 Read other people's results by the same list: fair baseline, matched budget, independent test set,
 sufficient ablation, transfer tested, failures reported, reproducible. **Peer review is not the same as a
@@ -695,7 +699,7 @@ Four engineering disciplines:
 
 ### 6.6 Definition of done for a round
 
-1. It builds, and the eight gates are green.
+1. It builds, and the nine gates are green.
 2. The claims register is updated: a new fact has a command; a fact without one goes to NEED.
 3. The results file gains one numbered conclusion, or says explicitly that the round has none.
 4. The English document and the Chinese copy are in sync.
@@ -768,7 +772,7 @@ It is a meter, not a second mind, and its one act is to install a refusal in a m
 | 样本 | sample | the examples the asker gives; not the object he wants |
 | 可判定 | decidable | a program returns 0/1 in finitely many steps |
 
-## 11. The three tools, and a self-check
+## 10. The three tools, and a self-check
 
 **VSA recalls, structure mapping aligns, rule induction states a rule, and the kernel alone can say
 "the vocabulary is insufficient".** This is not a pipeline: the loop is kernel-judges → ILP/SME
@@ -798,6 +802,8 @@ criterion: two red objects, one linking to green, one to blue, are separated by 
 two linking to green are bisimilar, and no tree-shaped pattern separates them. Guarantees an explicit,
 executable, checkable rule; not truth — coverage is consistency; held-out data is the guard.
 
+The single status authority is §6.1; this table is the same information viewed by part.
+
 | remaining part | status today, not the plan |
 |---|---|
 | kernel (Φ, collision test, `INSUFFICIENT`) | exists; Theorems 1–11 compile in Lean |
@@ -823,7 +829,7 @@ oracle that can judge it; must it scale to 10³–10⁵ items? The three answers
 resemblance at that scale is VSA, correspondences between two structures are alignment, and a rule that
 must hold beyond its samples needs an oracle to check it.
 
-## 12. Sources and change
+## 11. Sources and change
 
 - Sources: three research conversations — the first on code aesthetics and parallel elements, the second
   on A and S and the structure of thought, the third on an external tool and computability — followed by
