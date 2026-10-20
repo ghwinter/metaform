@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Run all seven assertion-bearing checks with one command: Lean formalization, Rust kernel tests, theorem falsification, bilingual alignment, and paper-number regression.
+    Run all ten assertion-bearing checks with one command: Lean formalization, Rust kernel tests, theorem falsification, bilingual alignment, and paper-number regression.
 
 .DESCRIPTION
     - check-lean: fail on any warning
@@ -9,6 +9,7 @@
     - check-components.ps1: the proposal components build, and three proposers are judged by one validator
     - check-references.py: no path, file name or link that the repository does not contain
     - check-claims.py: every claim about the repository still has a command that supports it
+    - check-secrets.py: tracked files and tmp carry no API-key-shaped strings, and its self-test passes
     - llm_e2e.py: the propose protocol accepts valid candidates and refuses malformed ones
     - verify_claims.py: key numbers in the paper must match measured values within tolerance
 
@@ -98,6 +99,12 @@ if (-not $SkipClaims) {
     & $Python (Join-Path $PSScriptRoot 'check-claims.py') | Out-Host
     $results += [pscustomobject]@{ Check = 'claims'; Exit = $LASTEXITCODE }
 }
+
+& $Python (Join-Path $PSScriptRoot 'check-secrets.py') --self-test | Out-Host
+$secretsSelf = $LASTEXITCODE
+& $Python (Join-Path $PSScriptRoot 'check-secrets.py') | Out-Host
+$secretsScan = $LASTEXITCODE
+$results += [pscustomobject]@{ Check = 'secrets'; Exit = [Math]::Max($secretsSelf, $secretsScan) }
 
 if (-not $SkipTheory) {
     Push-Location (Join-Path $root 'experiments')

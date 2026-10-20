@@ -35,6 +35,15 @@ needs no edit; a new top-level directory does. The same gate fails if a tracked 
 allowed rule, or if an allowed rule matches nothing, so a dropped note or a build product cannot enter
 the history by accident.
 
+## Metered runs and secret scanning
+
+`scripts/metered-run.ps1` runs one headless task with `--json`, sums the step usage, and writes the
+metrics JSON; it takes the key from the variable named by `-KeyEnv` or from an external `-KeyFile`,
+refuses a key file inside the repository, sets a file-sourced key only in the child environment, and
+keeps raw stdout under tmp only when `-Raw` is given. `scripts/check-secrets.py` scans the tracked
+files and tmp for key-shaped strings and has a `--self-test`; `scripts/check-all.ps1` runs it as the
+`secrets` gate.
+
 ## `metaform`: lay out the current scenario
 
 ```powershell
@@ -304,7 +313,7 @@ code comments: no machine paths, no names of untracked material.
 ## Reproducing the three-part setup
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
+pwsh -File scripts/check-all.ps1                     # ten gates (Lean/Rust/VSA/references/claims/components/secrets/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
 pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 189)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once

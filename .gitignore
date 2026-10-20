@@ -75,6 +75,10 @@ proofs/lean-toolchain
 experiments/tmp/
 crates/*/Cargo.lock
 
+# Metered-run metrics. tmp/ already ignores this; the explicit rule keeps the
+# output path intentional if the broad tmp rule is ever narrowed.
+tmp/metrics/
+
 # Conversation dumps and internal notes.
 1.md
 1-digest.md

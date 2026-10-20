@@ -32,6 +32,13 @@ git 未跟踪的反引号路径或 markdown 链接（生成的产物与 `local.p
 允许目录里新增源文件不需要改规则，新增顶层目录才需要。同一道门会在"受跟踪文件落在所有放行规则之外"
 或"放行规则匹配不到任何文件"时失败，所以随手写的笔记或构建产物不可能再意外进入历史。
 
+## 计量式运行与密钥扫描
+
+`scripts/metered-run.ps1` 用 `--json` 跑一次 headless 任务、汇总每步用量并写出指标 JSON；密钥取自
+`-KeyEnv` 指定的环境变量或仓库外的 `-KeyFile`，仓库内的密钥文件会被拒绝，来自文件的密钥只放进
+子进程环境，只有传 `-Raw` 时才把原始 stdout 留在 tmp。`scripts/check-secrets.py` 扫描受跟踪文件与
+tmp 中形似密钥的字符串，支持 `--self-test`；`scripts/check-all.ps1` 把两者作为 `secrets` 门运行。
+
 ## `metaform`：把当前场景摆出来
 
 ```powershell
@@ -239,7 +246,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ## 三件套复现
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
+pwsh -File scripts/check-all.ps1                     # 十道门（Lean/Rust/VSA/引用/claim/组件/secrets/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
 pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 189）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次

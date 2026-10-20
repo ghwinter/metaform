@@ -33,3 +33,4 @@ C20	the MCP server exposes ten tools and answers the host handshake transcript	c
 C21	two operand sets with one extension are reported as one candidate	cargo test -p metaform --test suggest	contains:test result: ok	verified
 C22	a prediction that two competing rules agree on is refused	cargo test -p metaform --test predict	contains:test result: ok	verified
 C23	the coverage command reports missing cells, supported implications and blocking requirements	cargo test -p metaform --test coverage	contains:test result: ok	verified
+C24	the secret scanner's self-test classifies every embedded sample correctly	python scripts/check-secrets.py --self-test	contains:ok	verified

@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -49,9 +51,27 @@ def rows(path: Path = CLAIMS) -> list[dict]:
     return out
 
 
+def resolve_interpreter(check: str) -> str:
+    """Resolve a leading `python` through METAFORM_PYTHON.
+
+    Claims spell the interpreter the way a reader would type it. On a machine
+    whose PATH `python` is a Store stub, that spelling would fail even though
+    the gates have a working interpreter: use the same METAFORM_PYTHON the other
+    gates use, and leave the command untouched when it is not set.
+    """
+    python = os.environ.get("METAFORM_PYTHON")
+    if not python:
+        return check
+    match = re.match(r"^python(?:\.exe)?\s+", check, re.IGNORECASE)
+    if not match:
+        return check
+    quoted = "'" + python.replace("'", "''") + "'"
+    return f"& {quoted} {check[match.end():]}"
+
+
 def run(check: str) -> tuple[int, str]:
     result = subprocess.run(
-        ["pwsh", "-NoProfile", "-Command", check],
+        ["pwsh", "-NoProfile", "-Command", resolve_interpreter(check)],
         cwd=ROOT,
         capture_output=True,
         text=True,
