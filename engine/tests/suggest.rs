@@ -304,7 +304,7 @@ fn fully_probed_conflict_recommends_new_atom() {
                 concat!(
                     r#"{"status":"INSUFFICIENT","colliding":2,"#,
                     r#""reason":"boolean_recombination_cannot_separate","#,
-                    r#""colliding_pairs":[[0,1],[2,1]],"next":"new_atom","tried":1,"suggestions":[]}"#,
+                    r#""colliding_pairs":[[0,1],[2,1]],"next":"new_atom","tried":1,"deduplicated":0,"suggestions":[]}"#,
                     "\n"
                 ),
                 "the new recommendation is exact and repeatable"
@@ -420,6 +420,66 @@ fn boolean_recombination_cannot_break_a_collision_theorem_11() {
     assert_eq!(after["classes"], before["classes"], "{after}");
 
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Distinct operand sets can spell the same extension. Here `a & b`, `a & c` and `b & c` all equal
+/// `{1}`; the enumerator must report one candidate for that extension, keep the first in enumeration
+/// order (with canonical, sorted operands), and still count every enumerated expression in `tried`.
+///
+/// The pair is synthetic: a real colliding pair shares a signature, so Boolean recombination is
+/// constant on it and `suggest` never emits a candidate (Theorem 11). `enumerate` takes the pairs
+/// explicitly so this dedupe rule can be tested on the input it is defined on.
+#[test]
+fn candidate_dedup_by_extension_keeps_one_sorted_representative() {
+    use metaform::{bit, suggest};
+
+    let preds = vec![
+        ("a".to_string(), bit(0) | bit(1)),
+        ("b".to_string(), bit(1) | bit(2)),
+        ("c".to_string(), bit(1) | bit(3)),
+    ];
+    let found = suggest::enumerate(&preds, 0b1111, &[(0, 1)], 2, 20);
+
+    assert_eq!(
+        found.tried, 9,
+        "dedup happens after evaluation: 3 singletons + 3 conjunctions + 3 disjunctions"
+    );
+    assert_eq!(
+        found.deduplicated, 2,
+        "a&c and b&c repeat a&b's extension {{1}}"
+    );
+
+    // Of the three operand sets with extension {1}, exactly one is reported.
+    let ones: Vec<&metaform::suggest::Suggestion> = found
+        .suggestions
+        .iter()
+        .filter(|s| s.definition.operands == vec!["a", "b"])
+        .collect();
+    assert_eq!(
+        ones.len(),
+        1,
+        "exactly one candidate for extension {{1}}: {:?}",
+        found.suggestions
+    );
+    assert!(
+        !found.suggestions.iter().any(|s| {
+            s.definition.op == metaform::DefOp::AllOf
+                && (s.definition.operands == vec!["a", "c"]
+                    || s.definition.operands == vec!["b", "c"])
+        }),
+        "the dropped conjunctions must not reappear: {:?}",
+        found.suggestions
+    );
+
+    // The survivor's operands are canonical (sorted, unique), whatever order the vocabulary
+    // supplied them in.
+    for s in &found.suggestions {
+        assert!(
+            s.definition.operands.windows(2).all(|w| w[0] < w[1]),
+            "operands must be sorted and unique: {:?}",
+            s.definition.operands
+        );
+    }
 }
 
 #[test]

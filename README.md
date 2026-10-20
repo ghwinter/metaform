@@ -78,7 +78,7 @@ metaform mcp                                       # MCP server (stdio) for agen
 metaform ops                                       # five-operator schedule comparison: fixed order vs skipping redundant steps (paper §4)
 ```
 
-The MCP server is registered host-side as `serverName` `metaform`, transport `stdio`, command `metaform`, args `["mcp"]`, `cwd` at the project root, `toolCallTimeoutMs` 60000, and `failOnStartupError` true; the model-visible names are `mcp__metaform__<tool>`. It echoes whatever well-formed `protocolVersion` the client offers, including revisions newer than the one it was built with, and answers `2025-11-25` only when the client sends none. `scripts/install-mcp.ps1` installs it to a stable prefix outside the repository, checks `--version` and the handshake, and prints the profile entry to paste; the skill lives at `.dsh/skills/metaform/SKILL.md`.
+The MCP server is registered host-side as `serverName` `metaform`, transport `stdio`, command `metaform`, args `["mcp"]`, `cwd` at the project root, `toolCallTimeoutMs` 60000, and `failOnStartupError` true; the model-visible names are `mcp__metaform__<tool>`. It echoes whatever well-formed `protocolVersion` the client offers, including revisions newer than the one it was built with, and answers `2025-11-25` only when the client sends none. `scripts/install-mcp.ps1` installs it to a stable prefix outside the repository, checks `--version` and the handshake, and registers the entry in each profile's patch layer, reporting the action per profile (`-NoRegister` prints the entry instead, `-DryRun` prints the plan); the skill lives at `.dsh/skills/metaform/SKILL.md`.
 
 The ledger is **append-only**: retracting means appending a `retracted` line with the same id; when
 folded, the later line wins.
@@ -86,7 +86,9 @@ This repository uses it too: the `.metaform/` directory at the root is its outpu
 
 `suggest` is the read-only proof step for an `INSUFFICIENT` state. It enumerates every `all_of`
 (arity 1 through `--max-arity`) and every `any_of` (arity `--max-arity`) over the current vocabulary,
-scores each against the colliding pairs, and reports how many candidates it `tried`. Every colliding
+scores each against the colliding pairs, deduplicates candidates that cover the same object mask
+(keeping the first in enumeration order, with canonical sorted operands), and reports how many
+candidates it `tried` and how many it `deduplicated`. Every colliding
 pair shares a signature, so every Boolean recombination is constant on it (Theorem 11): `suggestions`
 stays empty and `reason` says why. `next` names what can actually change the state: while some
 colliding class still has a member that was never asked directly, one more question (`ask`) verifies
@@ -277,7 +279,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 174)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 178)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

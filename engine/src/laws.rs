@@ -20,6 +20,8 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+use crate::canonical_names;
+
 /// The required first line of a non-empty theory file.
 pub const HEADER: &str = "source\tkind\tpremise\tconclusion\tnote";
 
@@ -369,13 +371,6 @@ fn counterexample_of(note: &str) -> Option<usize> {
         }
     }
     None
-}
-
-/// Sorted, deduplicated names: the canonical spelling used by both the key and the file line.
-fn canonical_names(mut names: Vec<String>) -> Vec<String> {
-    names.sort();
-    names.dedup();
-    names
 }
 
 /// One serialized entry. Tabs/newlines in the note would break the column layout, so they become

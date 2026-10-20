@@ -100,6 +100,60 @@ fn define_flag_stores_the_definition_and_reload_recomputes_it() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Operand order is not part of a definition's identity. `all-of:b,a` and `all-of:a,b` resolve to
+/// the same extension and are stored as the same canonical definition (sorted, unique operands),
+/// so the second one is not a structurally different definition.
+#[test]
+fn operand_order_does_not_change_a_definition() {
+    let dir = temp_dir("canonical-operands");
+    let project = dir.to_str().expect("utf-8 path");
+    run_ok(&["state", "init", "--project", project, "--n", "3"]);
+    run_ok(&["state", "add", "--project", project, "--name", "a", "--ids", "0,1"]);
+    run_ok(&["state", "add", "--project", project, "--name", "b", "--ids", "1,2"]);
+
+    let p = json(&run_ok(&[
+        "state", "add", "--project", project, "--name", "p", "--define", "all-of:b,a",
+    ]));
+    let q = json(&run_ok(&[
+        "state", "add", "--project", project, "--name", "q", "--define", "all-of:a,b",
+    ]));
+    assert_eq!(p["ok"], true, "{p}");
+    assert_eq!(q["ok"], true, "{q}");
+    assert_eq!(
+        p["ids"],
+        serde_json::json!([1]),
+        "a & b = {{1}}, whichever order the operands were written in"
+    );
+    assert_eq!(
+        q["ids"], p["ids"],
+        "the reordered definition must report the same extension"
+    );
+
+    let saved = json(&std::fs::read_to_string(state_file(&dir)).expect("state file"));
+    let pd = &find(&saved, "p")["definition"];
+    let qd = &find(&saved, "q")["definition"];
+    assert_eq!(
+        pd["operands"],
+        serde_json::json!(["a", "b"]),
+        "the stored operands are canonical: {saved}"
+    );
+    assert_eq!(
+        qd, pd,
+        "the second spelling is not a structurally different definition: {saved}"
+    );
+
+    // A reload (state show) keeps the same canonical definitions.
+    let shown = json(&run_ok(&["state", "show", "--project", project]));
+    assert_eq!(
+        find(&shown, "p")["definition"],
+        find(&shown, "q")["definition"],
+        "{shown}"
+    );
+    assert_eq!(find(&shown, "p")["ids"], find(&shown, "q")["ids"], "{shown}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn ids_flag_still_stores_an_extensional_predicate() {
     let dir = temp_dir("extensional");

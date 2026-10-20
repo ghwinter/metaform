@@ -2,11 +2,14 @@
 //! cannot produce a separating predicate.
 //!
 //! Every candidate is an `all_of` / `any_of` of predicates already in the vocabulary, so its extension
-//! is a function of the current signature. A colliding pair is two objects with the same signature
+//! is a function of the current signature. Two operand sets that produce the same object mask are the
+//! same candidate: the first in enumeration order survives, with canonical sorted operands, and
+//! `deduplicated` counts the rest. The enumeration still runs and counts every candidate it `tried`,
+//! because the empty result is the evidence: the next move must be outside Boolean recombination.
+//! `reason` states that structural fact, and `next` names the action that can actually change the state.
+//!
+//! A colliding pair is two objects with the same signature
 //! (Theorem 11; `README.md`: "Boolean recombination inside the vocabulary cannot break a collision").
-//! The enumeration still runs and counts every candidate it `tried`, because the empty result is the
-//! evidence: the next move must be outside Boolean recombination. `reason` states that structural
-//! fact, and `next` names the action that can actually change the state.
 //!
 //! When `next` is `ask`, the report also names the question: one representative per colliding
 //! equivalence class that still has a member never asked directly. `why` distinguishes a class with
@@ -28,7 +31,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{bit, DefOp, Definition, Explorer, Mask, Status};
+use crate::{bit, canonical_names, DefOp, Definition, Explorer, Mask, Status};
 
 /// The protocol a ready-to-fill proposal request declares.
 pub const PROPOSE_PROTOCOL: &str = "metaform.propose/1";
@@ -140,10 +143,25 @@ pub struct Report {
     pub next: Option<Next>,
     /// How many Boolean definitions were enumerated (including ones with no effect).
     pub tried: usize,
+    /// How many otherwise-viable candidates were dropped because an earlier candidate had the same
+    /// object mask. Dedup happens after evaluation, so `tried` still counts them.
+    pub deduplicated: usize,
     pub suggestions: Vec<Suggestion>,
     /// Present only when `next == Ask`: which objects to ask and why. `NewAtom` omits it because no
     /// question can repair the state.
     pub ask: Option<Ask>,
+}
+
+/// The result of one enumeration: ranked candidates plus the two counts that make dedup visible.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Enumerated {
+    /// Candidates after deduplication, ranked and truncated to `max`.
+    pub suggestions: Vec<Suggestion>,
+    /// How many definitions were evaluated. Dedup happens after evaluation, so this counts every
+    /// enumerated expression, including the ones dropped as duplicates.
+    pub tried: usize,
+    /// How many candidates were dropped because an earlier candidate covered the same object mask.
+    pub deduplicated: usize,
 }
 
 /// Enumerate the Boolean vocabulary and report the candidates that split at least one colliding pair.
@@ -171,6 +189,7 @@ pub fn suggest(e: &Explorer, max_arity: usize, max: usize) -> Report {
             colliding_pairs: pairs,
             next: None,
             tried: 0,
+            deduplicated: 0,
             suggestions: Vec::new(),
             ask: None,
         };
@@ -178,7 +197,8 @@ pub fn suggest(e: &Explorer, max_arity: usize, max: usize) -> Report {
 
     let preds = vocabulary(e);
     let objects = object_mask(e.n);
-    let (suggestions, tried) = rank(&preds, objects, &pairs, max_arity, max);
+    let found = enumerate(&preds, objects, &pairs, max_arity, max);
+    let suggestions = found.suggestions;
 
     let all_share = pairs.iter().all(|&(a, b)| e.signature(a) == e.signature(b));
     let reason = if suggestions.is_empty() {
@@ -208,7 +228,8 @@ pub fn suggest(e: &Explorer, max_arity: usize, max: usize) -> Report {
         reason,
         colliding_pairs: pairs,
         next,
-        tried,
+        tried: found.tried,
+        deduplicated: found.deduplicated,
         suggestions,
         ask,
     }
@@ -231,13 +252,14 @@ pub fn to_json(report: &Report) -> String {
         None => String::new(),
     };
     format!(
-        "{{\"status\":\"{}\",\"colliding\":{},\"reason\":\"{}\",\"colliding_pairs\":{},\"next\":\"{}\",\"tried\":{},\"suggestions\":[{}]{}}}",
+        "{{\"status\":\"{}\",\"colliding\":{},\"reason\":\"{}\",\"colliding_pairs\":{},\"next\":\"{}\",\"tried\":{},\"deduplicated\":{},\"suggestions\":[{}]{}}}",
         status_str(report.status),
         report.colliding,
         report.reason.map(Reason::as_str).unwrap_or("none_separate"),
         pairs_json(&report.colliding_pairs),
         report.next.map(Next::as_str).unwrap_or("new_atom"),
         report.tried,
+        report.deduplicated,
         suggestions.join(","),
         ask
     )
@@ -461,24 +483,32 @@ fn object_mask(n: usize) -> Mask {
     }
 }
 
-/// Enumerate candidates, keep the ones that split a pair, rank and truncate them.
+/// Enumerate candidates, dedupe them by object mask, keep the ones that split a pair, rank and
+/// truncate them.
 ///
-/// `pairs` is passed separately from `e` so the ranking rules can be tested with pairs that are not
+/// `pairs` is passed separately from `e` so the enumeration can be exercised with pairs that are not
 /// class-derived; the CLI never does that (it always passes the colliding pairs of the state).
-fn rank(
+///
+/// Dedup happens after each candidate's extension is computed and after it earns a place by
+/// splitting a pair. The first candidate in enumeration order for a given mask is kept, so the
+/// surviving representative -- and therefore the ranked output -- is deterministic. Dropping a later
+/// operand set does not decrement `tried`: that count reports how many expressions were evaluated.
+pub fn enumerate(
     preds: &[(String, Mask)],
     objects: Mask,
     pairs: &[(usize, usize)],
     max_arity: usize,
     max: usize,
-) -> (Vec<Suggestion>, usize) {
+) -> Enumerated {
     let mut en = Enumerator {
         preds,
         objects,
         pairs,
         taken: preds.iter().map(|(name, _)| name.clone()).collect(),
+        seen: BTreeSet::new(),
         suggestions: Vec::new(),
         tried: 0,
+        deduplicated: 0,
     };
     en.run(max_arity);
     en.finish(max)
@@ -490,8 +520,11 @@ struct Enumerator<'a> {
     pairs: &'a [(usize, usize)],
     /// Candidate names already used, including every vocabulary name.
     taken: BTreeSet<String>,
+    /// Object masks already claimed by a candidate that split a pair.
+    seen: BTreeSet<Mask>,
     suggestions: Vec<Suggestion>,
     tried: usize,
+    deduplicated: usize,
 }
 
 impl<'a> Enumerator<'a> {
@@ -550,14 +583,25 @@ impl<'a> Enumerator<'a> {
             return;
         }
 
-        let operands: Vec<String> = indices.iter().map(|&i| self.preds[i].0.clone()).collect();
+        // The extension is the candidate's identity. A later operand set that covers the same
+        // objects adds no information, so it is dropped here -- after `tried` counted it -- and the
+        // first representative in enumeration order survives.
+        if !self.seen.insert(ext) {
+            self.deduplicated += 1;
+            return;
+        }
+
+        // Canonical operand order: sorted and unique, independent of the order the caller supplied
+        // `preds` in. The generated name follows the canonical order too.
+        let operands = canonical_names(indices.iter().map(|&i| self.preds[i].0.clone()).collect());
+        let arity = operands.len();
         let name = self.unique_name(op, &operands);
         self.suggestions.push(Suggestion {
             name,
-            definition: Definition { op, operands },
+            definition: Definition::new(op, operands),
             splits: covers.len(),
             covers,
-            arity: indices.len(),
+            arity,
         });
     }
 
@@ -586,7 +630,7 @@ impl<'a> Enumerator<'a> {
         }
     }
 
-    fn finish(mut self, max: usize) -> (Vec<Suggestion>, usize) {
+    fn finish(mut self, max: usize) -> Enumerated {
         self.suggestions.sort_by(|a, b| {
             b.splits
                 .cmp(&a.splits)
@@ -594,7 +638,11 @@ impl<'a> Enumerator<'a> {
                 .then(a.name.cmp(&b.name))
         });
         self.suggestions.truncate(max);
-        (self.suggestions, self.tried)
+        Enumerated {
+            suggestions: self.suggestions,
+            tried: self.tried,
+            deduplicated: self.deduplicated,
+        }
     }
 }
 
@@ -692,6 +740,7 @@ mod tests {
         );
         assert_eq!(report.next, Some(Next::NewAtom));
         assert_eq!(report.tried, 1);
+        assert_eq!(report.deduplicated, 0);
         assert!(report.suggestions.is_empty());
         assert!(
             report.ask.is_none(),
@@ -704,7 +753,7 @@ mod tests {
             concat!(
                 r#"{"status":"INSUFFICIENT","colliding":1,"#,
                 r#""reason":"boolean_recombination_cannot_separate","#,
-                r#""colliding_pairs":[[0,1]],"next":"new_atom","tried":1,"suggestions":[]}"#
+                r#""colliding_pairs":[[0,1]],"next":"new_atom","tried":1,"deduplicated":0,"suggestions":[]}"#
             )
         );
         assert_eq!(
@@ -830,9 +879,10 @@ mod tests {
             ("c".to_string(), bit(3)),
         ];
         let pairs = vec![(0usize, 2usize), (1, 3)];
-        let (suggestions, tried) = rank(&preds, 0b1111, &pairs, 2, 4);
+        let found = enumerate(&preds, 0b1111, &pairs, 2, 4);
+        let suggestions = found.suggestions;
 
-        assert_eq!(tried, 9, "3 singletons + 3 conjunctions + 3 disjunctions");
+        assert_eq!(found.tried, 9, "3 singletons + 3 conjunctions + 3 disjunctions");
         let names: Vec<&str> = suggestions.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, vec!["a_2", "b_2", "c_2", "a_and_b"]);
         assert_eq!(suggestions[0].splits, 2);
@@ -844,15 +894,76 @@ mod tests {
     }
 
     #[test]
+    fn dedup_by_extension_keeps_the_first_canonical_candidate() {
+        // Deliberately unsorted vocabulary: `b & a` is enumerated first for {1}, but the surviving
+        // definition must still spell its operands as `[a, b]`.
+        let preds = vec![
+            ("b".to_string(), bit(1) | bit(2)),
+            ("a".to_string(), bit(0) | bit(1)),
+            ("c".to_string(), bit(1) | bit(3)),
+        ];
+        let found = enumerate(&preds, 0b1111, &[(0, 1)], 2, 20);
+
+        assert_eq!(
+            found.tried, 9,
+            "3 singletons + 3 conjunctions + 3 disjunctions"
+        );
+        assert_eq!(
+            found.deduplicated, 2,
+            "b&c and a&c repeat b&a's extension {{1}}"
+        );
+
+        let ones: Vec<&Suggestion> = found
+            .suggestions
+            .iter()
+            .filter(|s| s.definition.operands == vec!["a", "b"])
+            .collect();
+        assert_eq!(
+            ones.len(),
+            1,
+            "one candidate for extension {{1}}: {:?}",
+            found.suggestions
+        );
+        assert_eq!(ones[0].definition.op, DefOp::AllOf);
+        assert!(
+            found.suggestions.iter().all(|s| {
+                s.definition
+                    .operands
+                    .windows(2)
+                    .all(|w| w[0] < w[1])
+            }),
+            "every surviving operand list is sorted and unique: {:?}",
+            found.suggestions
+        );
+
+        let json = to_json(&Report {
+            status: Status::Insufficient,
+            colliding: 1,
+            reason: Some(Reason::CandidatesFound),
+            colliding_pairs: vec![(0, 1)],
+            next: Some(Next::NewAtom),
+            tried: found.tried,
+            deduplicated: found.deduplicated,
+            suggestions: found.suggestions.clone(),
+            ask: None,
+        });
+        assert!(
+            json.contains(r#""tried":9,"deduplicated":2,"#),
+            "the JSON records the drops without changing `tried`: {json}"
+        );
+    }
+
+    #[test]
     fn arity_one_skips_the_duplicate_any_of_form() {
         let preds = vec![
             ("a".to_string(), bit(0) | bit(1)),
             ("b".to_string(), bit(1) | bit(2)),
         ];
-        let (suggestions, tried) = rank(&preds, 0b111, &[(0, 2)], 1, 20);
-        assert_eq!(tried, 2, "only the two singletons, no duplicate any_of");
-        assert_eq!(suggestions.len(), 2);
-        assert!(suggestions
+        let found = enumerate(&preds, 0b111, &[(0, 2)], 1, 20);
+        assert_eq!(found.tried, 2, "only the two singletons, no duplicate any_of");
+        assert_eq!(found.suggestions.len(), 2);
+        assert!(found
+            .suggestions
             .iter()
             .all(|s| s.arity == 1 && s.definition.op == DefOp::AllOf));
     }
@@ -865,7 +976,8 @@ mod tests {
             ("a_and_b".to_string(), bit(0)),
         ];
         let vocab: BTreeSet<&str> = preds.iter().map(|(name, _)| name.as_str()).collect();
-        let (suggestions, _) = rank(&preds, 0b1111, &[(0, 2), (1, 3)], 2, 20);
+        let found = enumerate(&preds, 0b1111, &[(0, 2), (1, 3)], 2, 20);
+        let suggestions = found.suggestions;
         assert!(
             !suggestions.is_empty(),
             "the synthetic pairs must produce candidates"

@@ -78,8 +78,12 @@ impl State {
     ///
     /// Extensional predicates are left untouched, so loading an old file is a no-op.
     pub fn resolve(&mut self) -> Result<(), String> {
-        for p in &self.predicates {
-            if let Some(def) = &p.definition {
+        for p in &mut self.predicates {
+            if let Some(def) = &mut p.definition {
+                // A definition loaded from an older file may spell its operands in any order.
+                // Canonicalising here keeps the in-memory value and the rewritten file identical to
+                // a definition built through `Definition::new`.
+                def.canonicalize();
                 if def.operands.is_empty() {
                     return Err(format!(
                         "predicate `{}` has a definition with no operands",
@@ -314,10 +318,10 @@ mod tests {
         PredSpec {
             name: name.into(),
             ids: Vec::new(),
-            definition: Some(Definition {
+            definition: Some(Definition::new(
                 op,
-                operands: operands.iter().map(|s| s.to_string()).collect(),
-            }),
+                operands.iter().map(|s| s.to_string()).collect(),
+            )),
         }
     }
 

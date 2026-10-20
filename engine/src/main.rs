@@ -213,7 +213,9 @@ fn parse_define(raw: &str) -> Result<Definition, String> {
         }
         operands.push(name.to_string());
     }
-    Ok(Definition { op, operands })
+    // Repeated operands are rejected above rather than silently merged, so canonicalising here only
+    // fixes the order: `all-of:b,a` is stored as `all_of:[a,b]`.
+    Ok(Definition::new(op, operands))
 }
 
 /// Parse a numeric flag, keeping "absent" distinct from "present but malformed".

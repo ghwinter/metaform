@@ -122,15 +122,55 @@ pub enum DefOp {
     AnyOf,
 }
 
+/// Sorted, deduplicated names: the canonical spelling of a definition's operands and of a law row.
+/// Every writer emits this order, so comparisons and dedupe are order-independent.
+pub fn canonical_names(mut names: Vec<String>) -> Vec<String> {
+    names.sort();
+    names.dedup();
+    names
+}
+
 /// A stored predicate definition: `all_of` is intersection, `any_of` is union of its operands.
 ///
 /// The definition is kept next to the extension so the extension can be recomputed when the object
 /// set changes; the persistence layer in the binary keeps it in `.metaform/state.json`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Operands are commutative, so their order carries no meaning. Construction through
+/// [`Definition::new`] and comparison through the manual `PartialEq` both use
+/// [`canonical_names`], making `all_of:[b,a]` and `all_of:[a,b]` the same definition even when a
+/// caller builds the struct literally.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Definition {
     pub op: DefOp,
     pub operands: Vec<String>,
 }
+
+impl Definition {
+    /// Build a definition with canonical (sorted, unique) operands.
+    pub fn new(op: DefOp, operands: Vec<String>) -> Self {
+        Self {
+            op,
+            operands: canonical_names(operands),
+        }
+    }
+
+    /// Rewrite the operands in canonical order. A path that must keep the raw list long enough to
+    /// reject a duplicate operand calls this after that validation, not before it.
+    pub fn canonicalize(&mut self) {
+        self.operands = canonical_names(std::mem::take(&mut self.operands));
+    }
+}
+
+/// Order-insensitive equality on the operands: the same Boolean definition compares equal however
+/// its operands were spelled or ordered.
+impl PartialEq for Definition {
+    fn eq(&self, other: &Self) -> bool {
+        self.op == other.op
+            && canonical_names(self.operands.clone()) == canonical_names(other.operands.clone())
+    }
+}
+
+impl Eq for Definition {}
 
 /// A predicate: name + extension.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -148,7 +188,8 @@ impl Predicate {
     }
 
     /// A predicate adopted from a definition over existing predicates.
-    pub fn defined(name: impl Into<String>, ext: Mask, definition: Definition) -> Self {
+    pub fn defined(name: impl Into<String>, ext: Mask, mut definition: Definition) -> Self {
+        definition.canonicalize();
         Self { name: name.into(), ext, definition: Some(definition) }
     }
 }
@@ -527,6 +568,28 @@ mod tests {
         assert_eq!(e.unprobed(), vec![1, 2]);
         e.answer_votes(1, 0, 3);
         assert_eq!(e.unprobed(), vec![2]);
+    }
+
+    /// Operand order is not part of a definition's identity: construction canonicalises and
+    /// equality ignores order even for a literal that bypassed the constructor.
+    #[test]
+    fn definitions_compare_ignoring_operand_order() {
+        let built = Definition::new(DefOp::AllOf, vec!["b".into(), "a".into()]);
+        assert_eq!(built.operands, vec!["a", "b"], "new() stores canonical order");
+
+        let literal = Definition {
+            op: DefOp::AllOf,
+            operands: vec!["b".into(), "a".into()],
+        };
+        assert_eq!(built, literal, "all_of:[b,a] and all_of:[a,b] are one definition");
+        assert_ne!(
+            built,
+            Definition {
+                op: DefOp::AnyOf,
+                operands: vec!["a".into(), "b".into()],
+            },
+            "the operator is still part of the identity"
+        );
     }
 
     #[test]

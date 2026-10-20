@@ -335,10 +335,9 @@ fn stage(
                 DefOp::AllOf => "all_of",
                 DefOp::AnyOf => "any_of",
             };
-            let definition = Definition {
-                op,
-                operands: operands.clone(),
-            };
+            let definition = Definition::new(op, operands.clone());
+            // The law note names the definition in the same canonical order the state stores.
+            let note_operands = definition.operands.join(",");
             st.predicates.push(PredSpec {
                 name: name.to_string(),
                 ids: Vec::new(),
@@ -353,7 +352,7 @@ fn stage(
                 "define",
                 question.premise.clone(),
                 question.conclusion.clone(),
-                format!("defined `{name}` = {op_label}:{}", operands.join(",")),
+                format!("defined `{name}` = {op_label}:{note_operands}"),
             ));
         }
         other => {

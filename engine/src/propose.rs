@@ -650,6 +650,10 @@ fn object_mask(n: usize) -> Mask {
 }
 
 /// Parse a `define` value. A malformed clause is a candidate-level `wrong_protocol` rejection.
+///
+/// The operands are returned in the spelling the candidate sent: `definition_extension` must still
+/// see a repeated operand to reject it as `duplicate_operand` instead of silently merging it. The
+/// accepted path canonicalises the definition after that validation.
 fn parse_definition(value: &Json) -> Result<Definition, &'static str> {
     let Json::Obj(fields) = value else {
         return Err("wrong_protocol");
@@ -981,7 +985,7 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
             continue;
         }
         if has_define {
-            let definition = match parse_definition(obj.get("define").expect("checked present")) {
+            let mut definition = match parse_definition(obj.get("define").expect("checked present")) {
                 Ok(definition) => definition,
                 Err(reason) => {
                     rejected.push(Rejected {
@@ -1003,6 +1007,10 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
                     continue;
                 }
             };
+            // Validation is done: `duplicate_operand` has rejected a raw repeated operand above,
+            // so canonicalising now only fixes the order. The adopted definition is stored sorted
+            // and unique, making all_of:[b,a] and all_of:[a,b] the same definition.
+            definition.canonicalize();
             // A definition gets the same extension checks as an `ids` candidate.
             if ext == 0 {
                 rejected.push(Rejected {
