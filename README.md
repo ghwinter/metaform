@@ -68,6 +68,7 @@ metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # one-shot: status and recommendations directly
 metaform apply  --project . --request request.json --response response.json # validate + adopt accepted candidates with one state write
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # read-only: Boolean candidates tried, and why none separates
+metaform explore    --project . [--max-questions 1000] [--out <path>] # read-only: implications confirmed by evidence, refuted with a counterexample, or open
 metaform plan   --project . --pool .metaform/out/pool.txt # coverage + purity + re-ask budget
 metaform report --project .                         # generate .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # candidate scoring: coverage/P-R/ledger
@@ -103,6 +104,23 @@ vocabulary). The file is valid input for `metaform propose --request <file> --re
 and a response with `"candidates":[]` is a valid empty answer. Any other status prints
 `{"status":"<STATUS>","request":null}` and no request, because those states do not need a predicate
 outside the vocabulary.
+
+`explore` is the read-only port of conexp-clj's `explore-attributes`. The context is the predicate
+table (objects `0..n`, each predicate's extension, each object's intent); the expert is the evidence:
+objects with a confirmed label under the recommended `theta`. It walks the closed sets of the law
+theory in a fixed `(cardinality, mask)` order, and for a premise `A` computes `B` = `A` closed under
+the recorded laws and `B'` = intent of `extent(B)` over the evidence. If `B' == B` nothing follows;
+if an object in `extent(B)` lacks an attribute of `B' \ B` the implication is `refuted` with that
+counterexample; if no evidence object matches the premise it is left `open`. Otherwise the law
+`B -> B' \ B` is recorded and the implication is reported with `by:"evidence"`. `--max-questions`
+caps the number of premises examined and appends `"stopped":"budget"` when there is more to do. A
+refutation cannot add the counterexample object (the state is read-only), so unlike the reference it
+does not shrink later questions: only a recorded law can. Output is one deterministic JSON line
+`{"status":...,"questions":...,"budget":...,"implications":[...],"refuted":[...],"open":[...],"closed_sets":...}`;
+`status` is the same status `state need` reports under the same `theta`, `questions` counts the
+`open` entries, `closed_sets` counts the premises examined (a premise that a later law removes still
+counts), and all names are sorted. `--out` writes the line to a file instead of stdout. The
+state is never written.
 
 ## LLM adapter
 
@@ -209,7 +227,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # nine gates (Lean/Rust/VSA/references/claims/components/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 124)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 140)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

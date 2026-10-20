@@ -64,6 +64,7 @@ metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # 一步式：直接给状态与建议
 metaform apply  --project . --request request.json --response response.json # 校验并采纳被接受的候选，只写一次状态
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # 只读：试过哪些布尔候选，以及为何都分不开
+metaform explore    --project . [--max-questions 1000] [--out <path>] # 只读：证据确认的蕴含、带反例的否证、待问的开放问题
 metaform plan   --project . --pool .metaform/out/pool.txt # 覆盖 + 纯度 + 重问预算
 metaform report --project .                         # 生成 .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # 候选评分：覆盖/P-R/台账
@@ -92,6 +93,19 @@ metaform ops                                       # 五类算子调度对照：
 可原样作为 `metaform propose --request <file> --response <file>` 的输入，响应里 `"candidates":[]`
 是合法的空回答。其他状态只打印 `{"status":"<STATUS>","request":null}`，不打印请求，因为此时不需要
 词汇之外的谓词。
+
+`explore` 是 conexp-clj `explore-attributes` 的只读移植。语境是谓词表（对象 `0..n`、每个谓词的
+扩展、每个对象的意图）；专家是证据：推荐 `theta` 下标签已确认的对象。它按固定的 `(基数, mask)`
+顺序遍历定律理论的闭集；对前提 `A`，先算定律闭包 `B`，再算证据上的 `B'` = `intent(extent(B))`。
+若 `B' == B` 则没有新蕴含；若 `extent(B)` 中有对象缺少 `B' \ B` 的某个属性，该蕴含进入 `refuted`
+并附该反例；若没有证据对象匹配前提，则进入 `open`。否则记录定律 `B -> B' \ B`，并以
+`by:"evidence"` 报告该蕴含。`--max-questions` 限制检查的前提数，还有剩余工作时追加
+`"stopped":"budget"`。只读状态下无法像参考实现那样把反例对象加入语境，所以否证不会缩小后续问题：
+只有记录下来的定律会。输出是一行确定性 JSON
+`{"status":...,"questions":...,"budget":...,"implications":[...],"refuted":[...],"open":[...],"closed_sets":...}`；
+`status` 与同一 `theta` 下 `state need` 的状态相同，`questions` 是 `open` 的条数，`closed_sets`
+是检查过的前提数（后来被定律消掉的前提仍计入），所有名字已排序。
+`--out` 把这一行写入文件而不打印。状态从不写入。
 
 ## LLM 适配器
 
@@ -166,7 +180,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 九道门（Lean/Rust/VSA/引用/claim/组件/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 124）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 140）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接

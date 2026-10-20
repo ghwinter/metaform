@@ -33,6 +33,12 @@
 //! predicate. With `--emit-request` it skips the enumeration and prints a ready-to-fill
 //! `metaform.propose/1` request instead (or `{"status":"<STATUS>","request":null}` when no new atom
 //! is needed), so a proposer can answer without inventing the request shape.
+//!
+//! `metaform explore --project . [--max-questions N] [--out <path>]` is the read-only attribute
+//! exploration: it walks the closed sets of the law theory, confirms an implication when the
+//! labelled evidence implies it and no object contradicts it, records a refutation with its
+//! counterexample object, and records an open question when no evidence object matches the premise.
+//! It prints one deterministic JSON line (or writes it to `--out`) and never saves the state.
 
 use std::io::{self, BufRead, Write};
 
@@ -288,6 +294,72 @@ fn cmd_suggest(args: &[String]) -> i32 {
     }
     let report = metaform::suggest::suggest(&st.explorer(), max_arity, max);
     println!("{}", metaform::suggest::to_json(&report));
+    0
+}
+
+/// Whether two paths name the same file. Used so `--out` cannot overwrite the state that the
+/// read-only command just loaded. A path that does not exist yet is compared by its canonical
+/// parent plus file name.
+fn same_path(a: &std::path::Path, b: &std::path::Path) -> bool {
+    fn normalize(p: &std::path::Path) -> std::path::PathBuf {
+        if let Ok(canonical) = p.canonicalize() {
+            return canonical;
+        }
+        let parent = p.parent().unwrap_or_else(|| std::path::Path::new("."));
+        let parent = parent.canonicalize().unwrap_or_else(|_| parent.to_path_buf());
+        parent.join(p.file_name().unwrap_or_default())
+    }
+    normalize(a) == normalize(b)
+}
+
+/// `metaform explore --project . [--max-questions N] [--out <path>]`.
+///
+/// Read-only attribute exploration. The evidence oracle is the set of objects with a confirmed
+/// label under the recommended `theta` (`strong`), the same `theta` whose state status is reported
+/// in `status`. The state is only read; `--out` writes the one JSON line to a file instead of
+/// stdout and touches nothing else.
+fn cmd_explore(args: &[String]) -> i32 {
+    let root = project_root(args).join(".metaform");
+    let Some(st) = load_state(&root.join("state.json"), "explore") else {
+        return 2;
+    };
+    let max = match parse_num(args, "--max-questions", metaform::explore::DEFAULT_BUDGET) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("metaform explore: {e}");
+            return 2;
+        }
+    };
+    if st.n > 64 {
+        eprintln!("metaform explore: at most 64 objects are supported (state has {})", st.n);
+        return 2;
+    }
+    let e = st.explorer();
+    let theta = e.recommended_theta();
+    let (sp, sn) = e.strong(theta);
+    let context = match metaform::explore::Context::from_explorer(&e, sp | sn) {
+        Ok(c) => c,
+        Err(msg) => {
+            eprintln!("metaform explore: {msg}");
+            return 2;
+        }
+    };
+    let report = context.run(max, e.status_with(theta));
+    let line = metaform::explore::to_json(&report);
+    let state_path = root.join("state.json");
+    match kv(args, "--out") {
+        Some(path) => {
+            if same_path(std::path::Path::new(&path), &state_path) {
+                eprintln!("metaform explore: --out must not overwrite the project state");
+                return 2;
+            }
+            if let Err(e) = std::fs::write(&path, format!("{line}\n")) {
+                eprintln!("metaform explore: cannot write `{path}`: {e}");
+                return 2;
+            }
+        }
+        None => println!("{line}"),
+    }
     0
 }
 
@@ -596,6 +668,10 @@ fn main() {
         Some("suggest") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
             std::process::exit(cmd_suggest(&v));
+        }
+        Some("explore") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            std::process::exit(cmd_explore(&v));
         }
         Some("score") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
