@@ -261,6 +261,16 @@ concrete operators are grown** (no published catalogue of "twenty thinking opera
 level an operator may be an element** (otherwise the operator library stays closed and the system can
 never learn a new way of thinking).
 
+Two of the five classes have no statable failure condition today, and §6.3 records that as a gap. Each has
+one, and it is a construction rather than a score. **Analogy is a partial functor:** a correspondence that
+preserves relations but not their composition is similarity, not a mapping — so its failure condition is a
+broken composite, and the quantity that measures it is a composition-preservation rate, not a weighted
+systematicity score (§5.5's missing "systematicity weights" are this rate). **Decomposition is a gluing
+condition:** pieces that are each consistent on their overlap and still do not assemble have failed for a
+reason no extra measurement repairs — a global obstruction, not a missing number. Neither class may be
+scored: a composite either survives the correspondence or it does not, and local consistency either glues or
+it does not. **[wager]**
+
 Two boundaries decide what may enter the kernel:
 
 1. **Only operations that are exactly decidable on a finite context may enter the kernel.** Similarity,
@@ -360,6 +370,17 @@ Three tables that may not be merged:
 Learning from failure is not learning the right thing. Memory without admission criteria turns one mistake
 into a habit used repeatedly.
 
+Three tables are not enough once a task runs past a few rounds, because none of them records what the
+vocabulary could not see. A fourth kind of entry, kept apart from the other three: **a coordinate with its
+witness.** A coordinate is an executable quantity that separates at least one pair of real candidates and is
+unchanged by changes that should not matter; it enters only together with the pair it separates. A witness
+enters only after a misjudgment: two candidates were indistinguishable under the then-current vocabulary, one
+of them was chosen, and the choice turned out wrong. The pair is the witness; the next coordinate is whatever
+measurable quantity separates that pair. Progress over a long task is counted in coordinates, not in lines,
+and a word no coordinate separates is reported as a word and deleted or replaced. What this forbids: a
+coordinate without a witness, a preference recorded as a coordinate, and a concept that outlives the object
+set it was adopted on without being re-checked against the current one. **[engineering]**
+
 ### 3.7 Interface
 
 The model is an external service, not the runtime. The protocol is a file: request (state summary,
@@ -388,7 +409,7 @@ reason for stopping. The record must replay, and the fingerprint must cover ever
 The record is not a log. It is the controller's training set and the only carrier of "what this failure
 told us".
 
-## 4. Ten laws
+## 4. Eleven laws
 
 In force when writing code. Each states what it forbids and what currently checks it.
 
@@ -404,9 +425,18 @@ In force when writing code. Each states what it forbids and what currently check
 | L8 | An operator with no scenario and no number is not delivered | an interface with no scenario | the components gate runs three proposers |
 | L9 | Docs are claims; a claim carries a command | a repository fact with no command | the claims gate: PASS / FAIL / NEED |
 | L10 | One falsifiable increment per round | three untested ideas in one round | the results file gains one numbered conclusion |
+| L11 | Invention is admitted with a held-out prediction | adopting a predicate because it separates the pair that motivated it | the validator refuses a candidate whose warrant names no unmeasured object |
 
 L2 and L9 are what separates this from architecture prose: one requires every step to be able to fail, the
 other requires every sentence to be able to be refuted.
+
+L11 is what makes L2 load-bearing rather than decorative. The kernel's own result is that a Boolean
+recombination inside the vocabulary cannot break a collision; a predicate that does break one is therefore
+not an invariant of the current representation. **Invention is always symmetry-breaking, and the capacity
+bound prices consistency, never the break.** So a candidate must name an object it was not built from and
+predict that object's label before the label is measured. A concept and a lookup table have the same
+extension on the objects they were built from; only the unmeasured object tells them apart. What this
+forbids: adoption on fit alone, and a warrant that is printed but never used to decide. **[theorem + engineering]**
 
 ## 5. Theory map
 
@@ -609,7 +639,10 @@ If a static feature suffices inside a module, that is a result too — and a mor
 
 Five parts of the protocol; a conclusion does not stand without all five:
 
-1. **Three arms present**: model alone, fixed toolchain, dynamic scheduling.
+1. **Four arms present**: model alone; the model with ordinary tools (read files, search the tree, run the
+   tests, read the compiler); fixed toolchain; dynamic scheduling. Beating the bare model is expected and is
+   not evidence. The arm that decides this gate is the tool-using model, because it is the strongest
+   baseline available without this engine; a gain measured only against the bare model is not a result.
 2. **Matched budget**: tokens, calls, and time are all accounted; a gain bought by calling the model more
    often does not count.
 3. **Ablation**: removing structure mapping, rule induction, counterexample feedback, and dynamic
@@ -695,6 +728,8 @@ Three decidable assertions, and only three:
 3. Which object to ask next (the minimum number of questions after merging equivalence classes).
 
 Every other output — explanation, analogy, insight — stays out of the evaluation.
+
+It is a meter, not a second mind, and its one act is to install a refusal in a medium that has none.
 
 ### 7.3 What it cannot promise
 
