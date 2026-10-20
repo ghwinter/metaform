@@ -48,9 +48,9 @@ Every tool returns text-only JSON. The server is started by the host as `metafor
 ```
 
 The first request is the host's legacy probe: a `-32601` error with no `result` member means the
-server predates modern discovery, so the host falls back to `initialize`. The server echoes
-`protocolVersion` when it is `2024-11-05`, `2025-03-26`, `2025-06-18`, or `2025-11-25`, and answers
-`2025-11-25` for any other value instead of pinning one revision.
+server predates modern discovery, so the host falls back to `initialize`. The server echoes any
+well-formed `protocolVersion` it is offered, including revisions newer than the one it was built
+against, and answers `2025-11-25` only when the client sends no usable string.
 
 ## Reading the output
 

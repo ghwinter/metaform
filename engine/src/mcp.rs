@@ -530,6 +530,68 @@ mod tests {
         serde_json::from_str(result_text(response)).expect("tool result text is JSON")
     }
 
+    fn skill_dir() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join(".dsh")
+            .join("skills")
+            .join("metaform")
+    }
+
+    fn exposed_tool_names() -> Vec<String> {
+        let resp = handle(&json!({"jsonrpc": "2.0", "id": 99, "method": "tools/list"})).unwrap();
+        resp["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn the_skill_documents_exactly_the_tools_the_server_exposes() {
+        // The skill is what the model reads; a tool renamed here and not there is a skill that
+        // tells the model to call something which no longer exists.
+        let exposed: std::collections::BTreeSet<String> = exposed_tool_names().into_iter().collect();
+        for file in ["SKILL.md", "SKILL.zh.md"] {
+            let path = skill_dir().join(file);
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+            let mut documented: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+            for chunk in text.split("mcp__metaform__").skip(1) {
+                let name: String = chunk
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
+                assert!(
+                    !name.is_empty(),
+                    "{file}: `mcp__metaform__` must be followed by a tool name"
+                );
+                documented.insert(name);
+            }
+            assert_eq!(
+                documented, exposed,
+                "{file} and tools/list disagree: documented {documented:?}, exposed {exposed:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_skill_frontmatter_has_the_fields_the_host_requires() {
+        let text = std::fs::read_to_string(skill_dir().join("SKILL.md")).unwrap();
+        let mut lines = text.lines();
+        assert_eq!(lines.next(), Some("---"), "frontmatter must open the file");
+        let head: Vec<&str> = lines.take_while(|l| *l != "---").collect();
+        assert!(
+            head.iter().any(|l| l.trim() == "name: metaform"),
+            "frontmatter needs a kebab-case name: {head:?}"
+        );
+        assert!(
+            head.iter().any(|l| l.trim().starts_with("description:")),
+            "frontmatter needs a description: {head:?}"
+        );
+    }
+
     fn initialize(params: Option<Value>) -> Value {
         let mut req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize"});
         if let Some(params) = params {
