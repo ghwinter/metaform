@@ -102,7 +102,7 @@ pub struct Prediction {
 }
 
 /// One candidate the validator accepted, with everything `apply` needs to adopt it.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Accepted {
     pub name: String,
     /// The extension the candidate covers. For a defined candidate this is the computed extension,
@@ -122,6 +122,12 @@ pub struct Accepted {
     /// because the candidate and this rival disagree on the predicted object; `apply` records the
     /// extension so `check-predictions` can count the discriminating bets.
     pub rival: Option<Vec<usize>>,
+    /// Optional confidence in this candidate, in [0, 1]. It orders abstention in the metrics and is
+    /// never used to validate the judgement itself.
+    pub score: Option<f64>,
+    /// Objects the candidate declines to classify. They must be unmeasured and outside the claimed
+    /// extension; a declined object is the abstention the risk-coverage curve needs.
+    pub abstain: Vec<usize>,
 }
 
 /// One candidate the validator rejected, with the ids it supplied (empty for a defined candidate).
@@ -137,7 +143,7 @@ pub struct Rejected {
 /// `accepted` / `rejected` are in response order. A whole-response rejection sets `whole_reject`
 /// and leaves the candidate lists empty; a `refused` answer sets `refused` and also has no
 /// candidates. Both are valid `Verdict`s: only the request itself can make validation fail.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Verdict {
     pub request_id: String,
     pub accepted: Vec<Accepted>,
@@ -226,6 +232,14 @@ impl Json {
     fn as_i64(&self) -> Option<i64> {
         match self {
             Json::Num(x) if x.is_finite() && x.fract() == 0.0 => Some(*x as i64),
+            _ => None,
+        }
+    }
+
+    /// Any finite number, used by the optional confidence score.
+    fn as_f64(&self) -> Option<f64> {
+        match self {
+            Json::Num(x) if x.is_finite() => Some(*x),
             _ => None,
         }
     }
@@ -945,6 +959,13 @@ fn accepted_json(candidate: &Accepted) -> String {
         out.push_str(",\"predict\":");
         out.push_str(&prediction_json(prediction));
     }
+    if let Some(score) = candidate.score {
+        out.push_str(&format!(",\"score\":{score}"));
+    }
+    if !candidate.abstain.is_empty() {
+        let ids: Vec<String> = candidate.abstain.iter().map(|x| x.to_string()).collect();
+        out.push_str(&format!(",\"abstain\":[{}]", ids.join(",")));
+    }
     out.push('}');
     out
 }
@@ -1119,6 +1140,70 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
             None => ids.values.iter().map(|&x| x as usize).collect(),
         };
         let splits = count_splits(req.n, req.pos, req.neg, &classes, ext);
+
+        // Optional confidence. It only orders abstention downstream; it never changes whether the
+        // candidate is admitted.
+        let score = match obj.get("score") {
+            None | Some(Json::Null) => None,
+            Some(value) => match value.as_f64() {
+                Some(x) if (0.0..=1.0).contains(&x) => Some(x),
+                _ => {
+                    rejected.push(Rejected {
+                        name: name.to_string(),
+                        ids: ids.values,
+                        reason: "bad_score".to_string(),
+                    });
+                    continue;
+                }
+            },
+        };
+
+        // Optional abstention. A declined object must be unmeasured (the evidence already has a
+        // label for it) and outside the extension the candidate claims.
+        let mut abstain: Vec<usize> = Vec::new();
+        let mut abstain_reason: Option<&str> = None;
+        match obj.get("abstain") {
+            None | Some(Json::Null) => {}
+            Some(Json::Arr(items)) => {
+                for item in items {
+                    let Some(raw) = item.as_i64() else {
+                        abstain_reason = Some("bad_abstain");
+                        break;
+                    };
+                    let Ok(id) = usize::try_from(raw) else {
+                        abstain_reason = Some("abstain_out_of_range");
+                        break;
+                    };
+                    if id >= req.n {
+                        abstain_reason = Some("abstain_out_of_range");
+                        break;
+                    }
+                    if req.pos & bit(id) != 0 || req.neg & bit(id) != 0 {
+                        abstain_reason = Some("abstain_measured_object");
+                        break;
+                    }
+                    if ext_ids.contains(&id) {
+                        abstain_reason = Some("abstain_overlaps_extension");
+                        break;
+                    }
+                    if abstain.contains(&id) {
+                        abstain_reason = Some("abstain_duplicate");
+                        break;
+                    }
+                    abstain.push(id);
+                }
+            }
+            Some(_) => abstain_reason = Some("bad_abstain"),
+        }
+        if let Some(reason) = abstain_reason {
+            rejected.push(Rejected {
+                name: name.to_string(),
+                ids: ids.values,
+                reason: reason.to_string(),
+            });
+            continue;
+        }
+
         accepted.push(Accepted {
             name: name.to_string(),
             ids: ext_ids,
@@ -1128,6 +1213,8 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
             definition: alt.definition,
             prediction,
             rival: rival.map(|mask| ids_of(mask, req.n)),
+            score,
+            abstain,
         });
     }
 
