@@ -79,6 +79,9 @@ metaform plan   --project . --pool .metaform/out/pool.txt # 覆盖 + 纯度 + �
 metaform report --project .                         # 生成 .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # 候选评分：覆盖/P-R/台账
 metaform mcp                                       # MCP 服务端（stdio），供 Agent 挂载
+metaform metrics verdict <rows.tsv>                # 答出项精度、未知率、selective accuracy、AURC
+metaform metrics bets <predictions.tsv>            # 已记录赌注中落在两规则分歧处的比例
+metaform metrics readings --vocab <tsv> --readings <tsv>  # 补集覆盖率与轴等价率
 metaform ops                                       # 五类算子调度对照：固定顺序 vs 跳过冗余（论文 §4）
 ```
 
@@ -248,7 +251,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 十道门（Lean/Rust/VSA/引用/claim/组件/secrets/证伪/双语/数字），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 189）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 193）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接

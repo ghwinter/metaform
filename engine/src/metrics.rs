@@ -1,0 +1,374 @@
+//! Metrics for judging a three-valued judge.
+//!
+//! Three subcommands, each over a plain file so the numbers can be recomputed without a model:
+//!
+//! - `verdict <rows.tsv>`: precision on answered items with a Wilson interval, the unknown rate, the
+//!   wrong-answered rate, selective accuracy at a coverage level, and AURC.
+//! - `bets <predictions.tsv>`: the divergence rate of recorded predictions, i.e. the share of bets
+//!   placed where the candidate and its rival disagree.
+//! - `readings --vocab <tsv> --readings <tsv>`: complement coverage and axis equivalence rate.
+//!
+//! These live in the engine rather than in a script because they must share the repository's build,
+//! its tests and its gates; a parallel implementation in another language drifts.
+
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::path::Path;
+
+use serde_json::json;
+
+/// Wilson score interval for a binomial proportion.
+fn wilson(k: usize, n: usize) -> (f64, f64) {
+    if n == 0 {
+        return (0.0, 0.0);
+    }
+    let z = 1.96_f64;
+    let p = k as f64 / n as f64;
+    let denom = 1.0 + z * z / n as f64;
+    let centre = (p + z * z / (2.0 * n as f64)) / denom;
+    let half = z * ((p * (1.0 - p) / n as f64) + z * z / (4.0 * (n as f64).powi(2))).sqrt() / denom;
+    ((centre - half).max(0.0), (centre + half).min(1.0))
+}
+
+#[derive(Debug, Clone)]
+struct Row {
+    system: String,
+    verdict: String,
+    truth: String,
+    score: Option<f64>,
+}
+
+fn read_table(path: &Path, required: &[&str]) -> Result<Vec<BTreeMap<String, String>>, String> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    let mut lines = text.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#'));
+    let header: Vec<&str> = lines
+        .next()
+        .ok_or_else(|| format!("{} is empty", path.display()))?
+        .split('\t')
+        .collect();
+    for name in required {
+        if !header.contains(name) {
+            return Err(format!("{} needs a `{name}` column", path.display()));
+        }
+    }
+    let mut rows = Vec::new();
+    for line in lines {
+        let cells: Vec<&str> = line.split('\t').collect();
+        let mut map = BTreeMap::new();
+        for (i, name) in header.iter().enumerate() {
+            map.insert(name.to_string(), cells.get(i).unwrap_or(&"").to_string());
+        }
+        rows.push(map);
+    }
+    Ok(rows)
+}
+
+fn verdict_rows(path: &Path) -> Result<Vec<Row>, String> {
+    read_table(path, &["system", "item", "verdict", "truth"])?
+        .into_iter()
+        .map(|m| {
+            let score = m
+                .get("score")
+                .filter(|s| !s.is_empty())
+                .map(|s| s.parse::<f64>())
+                .transpose()
+                .map_err(|e| format!("score is not a number: {e}"))?;
+            Ok(Row {
+                system: m["system"].clone(),
+                verdict: m["verdict"].clone(),
+                truth: m["truth"].clone(),
+                score,
+            })
+        })
+        .collect()
+}
+
+fn risk_curve(rows: &[Row]) -> (Vec<(f64, f64)>, f64) {
+    let mut ordered = rows.to_vec();
+    ordered.sort_by(|a, b| {
+        b.score
+            .unwrap_or(0.0)
+            .partial_cmp(&a.score.unwrap_or(0.0))
+            .unwrap()
+    });
+    let total = ordered.len();
+    let mut points = Vec::with_capacity(total);
+    let mut errors = 0usize;
+    for (i, row) in ordered.iter().enumerate() {
+        if row.verdict == "unknown" || row.verdict != row.truth {
+            errors += 1;
+        }
+        points.push(((i + 1) as f64 / total as f64, errors as f64 / (i + 1) as f64));
+    }
+    let aurc = points.iter().map(|(_, r)| r).sum::<f64>() / total as f64;
+    (points, aurc)
+}
+
+/// The verdict report, one entry per system.
+pub fn verdict_report(path: &Path) -> Result<serde_json::Value, String> {
+    let rows = verdict_rows(path)?;
+    let mut systems: BTreeMap<String, Vec<Row>> = BTreeMap::new();
+    for row in rows {
+        systems.entry(row.system.clone()).or_default().push(row);
+    }
+    let mut out = serde_json::Map::new();
+    for (system, sub) in systems {
+        let n = sub.len();
+        let answered: Vec<&Row> = sub.iter().filter(|r| r.verdict != "unknown").collect();
+        let correct = answered.iter().filter(|r| r.verdict == r.truth).count();
+        let (lo, hi) = wilson(correct, answered.len());
+        let (points, aurc) = risk_curve(&sub);
+        let at80 = (0.8 * n as f64).ceil() as usize;
+        let selective80 = points
+            .get(at80.saturating_sub(1))
+            .map(|(_, risk)| 1.0 - risk)
+            .unwrap_or(0.0);
+        out.insert(
+            system,
+            json!({
+                "n": n,
+                "answered": answered.len(),
+                "unknown_rate": round((n - answered.len()) as f64 / n as f64),
+                "precision_on_answered": round(correct as f64 / answered.len() as f64),
+                "precision_ci": [round(lo), round(hi)],
+                "wrong_answered_rate": round((answered.len() - correct) as f64 / n as f64),
+                "selective_accuracy_at_80": round(selective80),
+                "aurc": round(aurc),
+            }),
+        );
+    }
+    Ok(serde_json::Value::Object(out))
+}
+
+fn round(x: f64) -> f64 {
+    (x * 1000.0).round() / 1000.0
+}
+
+/// Bet divergence: rows whose predicted object is classified differently by candidate and rival.
+pub fn bets_report(path: &Path) -> Result<serde_json::Value, String> {
+    let rows = read_table(path, &["id", "predicted", "extension"])?;
+    let mut total = 0usize;
+    let mut divergent = 0usize;
+    for row in rows {
+        total += 1;
+        let rival = row.get("rival").cloned().unwrap_or_default();
+        if rival.trim().is_empty() {
+            continue;
+        }
+        let id = row["id"].trim();
+        let in_ext = row["extension"].split(',').any(|x| x.trim() == id);
+        let in_rival = rival.split(',').any(|x| x.trim() == id);
+        if in_ext != in_rival {
+            divergent += 1;
+        }
+    }
+    Ok(json!({
+        "bets": total,
+        "divergent": divergent,
+        "bet_divergence_rate": round(divergent as f64 / total.max(1) as f64),
+    }))
+}
+
+fn parse_extension(payload: &str, vocab: &BTreeMap<String, BTreeSet<usize>>) -> Result<BTreeSet<usize>, String> {
+    if let Some(rest) = payload.strip_prefix("ids:") {
+        return Ok(rest
+            .split(',')
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| s.trim().parse::<usize>())
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("bad id: {e}"))?);
+    }
+    let (op, names) = payload
+        .split_once(':')
+        .ok_or_else(|| format!("reading `{payload}` must be ids:..., all_of:..., or any_of:..."))?;
+    let names: Vec<&str> = names.split(',').filter(|n| !n.trim().is_empty()).collect();
+    let mut sets = Vec::new();
+    for name in &names {
+        let set = vocab
+            .get(name.trim())
+            .ok_or_else(|| format!("unknown predicate `{name}` in a reading"))?;
+        sets.push(set.clone());
+    }
+    match op {
+        "all_of" => {
+            let mut it = sets.into_iter();
+            let mut acc = it.next().ok_or("all_of needs operands")?;
+            for s in it {
+                acc = acc.intersection(&s).copied().collect();
+            }
+            Ok(acc)
+        }
+        "any_of" => Ok(sets.into_iter().flatten().collect()),
+        other => Err(format!("unknown reading kind `{other}`")),
+    }
+}
+
+/// Complement coverage and axis equivalence rate over a readings table.
+pub fn readings_report(vocab_path: &Path, readings_path: &Path) -> Result<serde_json::Value, String> {
+    let mut vocab = BTreeMap::new();
+    for row in read_table(vocab_path, &["name", "ids"])? {
+        let ids: BTreeSet<usize> = row["ids"]
+            .split(',')
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| s.trim().parse::<usize>())
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("bad id in vocabulary: {e}"))?;
+        vocab.insert(row["name"].clone(), ids);
+    }
+    let rows = read_table(readings_path, &["name", "payload", "stated"])?;
+    let mut stated = Vec::new();
+    let mut other = Vec::new();
+    for row in rows {
+        let ext = parse_extension(&row["payload"], &vocab)?;
+        let entry = (row["name"].clone(), ext);
+        if row["stated"] == "yes" {
+            stated.push(entry);
+        } else {
+            other.push(entry);
+        }
+    }
+    let total = other.len();
+    if total == 0 {
+        return Ok(json!({"readings": 0}));
+    }
+    let mut equivalent = serde_json::Map::new();
+    let mut complement = Vec::new();
+    for (name, ext) in &other {
+        match stated.iter().find(|(_, s)| s == ext) {
+            Some((stated_name, _)) => {
+                equivalent.insert(name.clone(), json!(stated_name));
+            }
+            None => complement.push(name.clone()),
+        }
+    }
+    Ok(json!({
+        "readings": total,
+        "stated": stated.len(),
+        "complement": complement.len(),
+        "complement_coverage": round(complement.len() as f64 / total as f64),
+        "axis_equivalence_rate": round(equivalent.len() as f64 / total as f64),
+        "equivalent_to": equivalent,
+        "complement_names": complement,
+    }))
+}
+
+pub fn cmd(args: &[String]) -> i32 {
+    let mut rest = args.iter().skip(1);
+    let sub = match rest.next() {
+        Some(s) => s.as_str(),
+        None => {
+            eprintln!("usage: metaform metrics verdict|bets|readings ...");
+            return 2;
+        }
+    };
+    let result = match sub {
+        "verdict" => rest
+            .next()
+            .ok_or_else(|| "usage: metrics verdict <rows.tsv>".to_string())
+            .and_then(|p| verdict_report(Path::new(p))),
+        "bets" => rest
+            .next()
+            .ok_or_else(|| "usage: metrics bets <predictions.tsv>".to_string())
+            .and_then(|p| bets_report(Path::new(p))),
+        "readings" => {
+            let args: Vec<&String> = rest.collect();
+            let vocab = args
+                .iter()
+                .position(|a| a.as_str() == "--vocab")
+                .and_then(|i| args.get(i + 1))
+                .ok_or_else(|| "usage: metrics readings --vocab <tsv> --readings <tsv>".to_string());
+            let readings = args
+                .iter()
+                .position(|a| a.as_str() == "--readings")
+                .and_then(|i| args.get(i + 1))
+                .ok_or_else(|| "usage: metrics readings --vocab <tsv> --readings <tsv>".to_string());
+            vocab.and_then(|v| readings.map(|r| (v, r))).and_then(|(v, r)| {
+                readings_report(Path::new(v), Path::new(r))
+            })
+        }
+        other => Err(format!("unknown metrics subcommand `{other}`")),
+    };
+    match result {
+        Ok(value) => {
+            println!("{}", value);
+            0
+        }
+        Err(message) => {
+            eprintln!("{message}");
+            2
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn temp(name: &str, body: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("metrics-{}-{}", std::process::id(), name));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("rows.tsv");
+        let mut f = std::fs::File::create(&path).unwrap();
+        f.write_all(body.as_bytes()).unwrap();
+        path
+    }
+
+    #[test]
+    fn wilson_brackets_the_point_estimate() {
+        let (lo, hi) = wilson(9, 10);
+        assert!(lo < 0.9 && hi > 0.9 && hi <= 1.0);
+        let (lo, hi) = wilson(0, 5);
+        assert_eq!(lo, 0.0);
+        assert!(hi > 0.0);
+    }
+
+    #[test]
+    fn verdict_report_separates_abstention_from_error() {
+        let path = temp(
+            "verdict",
+            "system\titem\tverdict\ttruth\tscore\n\
+             a\t1\tpos\tpos\t1\n\
+             a\t2\tneg\tneg\t1\n\
+             a\t3\tunknown\tneg\t0\n\
+             b\t1\tpos\tneg\t1\n\
+             b\t2\tpos\tneg\t1\n\
+             b\t3\tpos\tpos\t1\n",
+        );
+        let report = verdict_report(&path).unwrap();
+        assert_eq!(report["a"]["unknown_rate"], 0.333);
+        assert_eq!(report["a"]["precision_on_answered"], 1.0);
+        assert_eq!(report["b"]["unknown_rate"], 0.0);
+        assert_eq!(report["b"]["precision_on_answered"], 0.333);
+    }
+
+    #[test]
+    fn bets_without_a_rival_are_not_divergent() {
+        let path = temp(
+            "bets",
+            "id\tpredicted\textension\trival\n\
+             3\tpos\t3,4\t\n\
+             4\tneg\t3,4\t4\n",
+        );
+        let report = bets_report(&path).unwrap();
+        assert_eq!(report["bets"], 2);
+        assert_eq!(report["divergent"], 0);
+    }
+
+    #[test]
+    fn readings_separate_rewordings_from_new_angles() {
+        let vocab = temp("vocab", "name\tids\na\t0,1\nb\t1,2\nc\t2,3\n");
+        let readings = temp(
+            "readings",
+            "name\tpayload\tstated\n\
+             a\tall_of:a,b\tyes\n\
+             reword\tall_of:b,a\tno\n\
+             wider\tany_of:a,c\tno\n",
+        );
+        let report = readings_report(&vocab, &readings).unwrap();
+        assert_eq!(report["axis_equivalence_rate"], 0.5);
+        assert_eq!(report["complement_coverage"], 0.5);
+        assert_eq!(report["equivalent_to"]["reword"], "a");
+    }
+}

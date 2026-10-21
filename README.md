@@ -85,6 +85,9 @@ metaform plan   --project . --pool .metaform/out/pool.txt # coverage + purity + 
 metaform report --project .                         # generate .metaform/out/report.md
 metaform score  --project . --pool cands.txt --truth truth.txt   # candidate scoring: coverage/P-R/ledger
 metaform mcp                                       # MCP server (stdio) for agents to mount
+metaform metrics verdict <rows.tsv>                # precision on answered, unknown rate, selective accuracy, AURC
+metaform metrics bets <predictions.tsv>            # share of recorded bets placed where two rules disagree
+metaform metrics readings --vocab <tsv> --readings <tsv>  # complement coverage and axis equivalence rate
 metaform ops                                       # five-operator schedule comparison: fixed order vs skipping redundant steps (paper §4)
 ```
 
@@ -315,7 +318,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # ten gates (Lean/Rust/VSA/references/claims/components/secrets/falsification/bilingual/numbers), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 189)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 193)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

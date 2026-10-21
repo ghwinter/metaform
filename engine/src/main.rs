@@ -858,6 +858,10 @@ fn main() {
             let v: Vec<String> = std::env::args().skip(2).collect();
             std::process::exit(metaform::portfolio::run_cli(&v));
         }
+        Some("metrics") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            std::process::exit(metaform::metrics::cmd(&v));
+        }
         Some("mcp") => {
             mcp::serve();
             std::process::exit(0);
