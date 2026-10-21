@@ -747,6 +747,47 @@ Roadmap, in the order the table implies:
 4. **R3, blocked.** Cost-matched, cross-module real tasks. The protocol for them exists; the metered
    model access does not, and a run without a budget number is not a comparison.
 
+### 6.8 Breadth as an enumerated version space **[wager]**
+
+This subsection is speculative and lives on a branch until something in it is measured. It answers a
+narrowness that no amount of search fixes: asked to explain a case, a model produces one reading and
+does not report the others. Formally it returns a point in the space of readings consistent with the
+evidence, and never the space itself.
+
+Name the space. Given objects and the current vocabulary, the **version space** is every predicate
+consistent with the labels so far. Three quantities are computable today and none of them is produced
+by the model:
+
+- its size, which falls as labels arrive;
+- the colliding pairs, which are exactly the readings the current vocabulary has collapsed;
+- the smallest set of objects whose labels would halve it, which is the question to ask next.
+
+Different directions, angles and levels are not inspiration either; they are a product. Each axis
+below is a transformation of the reading, and the grid is finite:
+
+| Axis | Values | The question it opens |
+|---|---|---|
+| scope | one case / a class / the population | is this an instance or a rule |
+| granularity | token / clause / document / system | at which level does the failure live |
+| causal direction | cause / effect / common cause | is A causing B, or is C causing both |
+| time | state / trend / cycle | is this a moment or a process |
+| role | actor / observer / adversary | whose objective is being optimised |
+| criterion | correctness / cost / novelty / risk | by what is this judged good |
+
+Six axes and three values each is eighteen readings. The engine's job is not to invent them but to
+classify them: which readings are extensionally identical given the evidence (the angle did not
+actually change), which contradict a label (discard), and which remain alive (those are the other
+possibilities).
+
+Three numbers make "fuzzy to clear" measurable: the size of the version space after k labels, the
+number of the eighteen readings that collapse into one, and the number of times the engine has to say
+the vocabulary is insufficient -- that is, the number of new criteria the task genuinely needs.
+
+What this does not do: it does not add knowledge, and it does not rank the surviving readings. The
+axis grid is a checklist, and a checklist can be wrong about which axes matter. The wager is that a
+finite, explicit grid plus a measured version space beats an unbounded request to "think of other
+angles", because the former can be audited and the latter cannot.
+
 ## 7. Boundary
 
 ### 7.1 What it is not
