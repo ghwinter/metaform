@@ -556,8 +556,8 @@ clear what is actually built and what is only a name:
 |---|---|---|---|
 | association (recall) | vector retrieval, candidate generation | a component, empirically weak here | better contrastive encoding and a recall criterion |
 | induction | generation + representation | yes | no criterion for predicate invention |
-| abstraction | representation (least general generalisation) | partial | types and levels |
-| analogy | structure mapping | yes | systematicity weights; confidence in candidate inferences |
+| abstraction | representation (least general generalisation) | partial: the operation itself is missing | anti-unification, then types and levels (§6.7) |
+| analogy | structure mapping | yes | the composition-preservation rate defined in §3.2, in place of a weight |
 | decomposition | goal rewriting | untyped | a goal algebra, or the scheduler cannot reason about it |
 | composition | generation | partial | recombination must not break existing distinctions (a theorem supports this) |
 | counterexample | evidence | yes | noise tolerance bound |
@@ -709,6 +709,43 @@ Four engineering disciplines:
 3. The results file gains one numbered conclusion, or says explicitly that the round has none.
 4. The English document and the Chinese copy are in sync.
 5. One falsifiable increment, not three ideas.
+
+### 6.7 Component capability, and what each library actually sells
+
+A component is admitted for a capability, not for being well known. The question is never "is this
+library good" but "which row of §5.5 does it fill, and at what price". Read this table before adding
+a dependency or porting code.
+
+| Library | What it actually implements | Weight and licence | Evidence we hold | Verdict |
+|---|---|---|---|---|
+| torchhd | the full HDC operator set: bind, bundle, permute, associative memory, classifiers | ~24k lines, Python on PyTorch, MIT | our VSA retrieval is at or below chance on three families here (0.1 against 0.2 at k=2); capacity falls from 1.000 to 0.094 clean at 1024 pairs | reference for semantics only; do not port more operators |
+| hypervector | encode and bundle over FHRR angles; no unbind, no memory | ~1.9k lines, Rust, MIT | read and rejected earlier: the missing pieces are the ones that matter | rejected |
+| Cognitive-Rule-Engine | anti-unification with a normalisation choice and a score, plus a rule engine | ~31k lines, Python, MIT | our abstraction row is "partial"; the least general generalisation is exactly what is missing | port the anti-unify idea (mask copy), no dependency |
+| metagol | meta-interpretive learning over a compact Prolog | ~2.5k lines, Prolog, BSD-3 | needs a Prolog runtime; its search is over a supplied language bias | reference only |
+| Popper | the strongest current ILP search | very large tree, needs SWI-Prolog, MIT | our theta-subsumption covers the decidable slice; a stronger search under a wrong vocabulary is more confidently wrong | reference only |
+| conexp-clj | attribute exploration with the Duquenne-Guigues basis | ~19k lines, Clojure | our `explore` and `answer` now close the same loop | reference for completeness checks |
+| SME-clj, ANASIME | small readable structure-mapping implementations | ~1k lines each, Clojure and Python | our SME passes the golden geometry; the open question is systematicity, now stated as a composition-preservation rate (§3.2) | reference for differential tests |
+| scryer-prolog | embeddable Prolog in Rust | ~96k lines, Rust, BSD-3 | not used yet; the only candidate if rules must run in one binary | candidate, not admitted |
+| egg | e-graph equality saturation with explanations | ~11k lines, Rust, MIT, one git dependency | its equality is over terms; ours is over extensions, and the mask is already a complete normal form | rejected |
+
+Two rules follow from the table and are binding:
+
+- **A capability with no measured gain is not a capability.** The VSA operator set is complete and
+  still useless here; adding the rest of the library would not change the measurement, because the
+  failure is representational, not arithmetic.
+- **A port is justified by a missing row, not by a missing function.** Anti-unification fills the
+  abstraction row; a faster bind does not fill anything.
+
+Roadmap, in the order the table implies:
+
+1. **R0, done.** Kernel, protocol, held-out prediction, discriminating rival, coverage table, ten gates.
+2. **R1, now.** Fill the two rows the table says are thin: port anti-unification and state the
+   composition-preservation rate for analogy. Neither needs a dependency; both need a test.
+3. **R2.** Re-decide VSA on one experiment: contrastive encoding against the raw-trace fallback on the
+   same three families. If it does not beat the fallback, demote it to "available, off by default"
+   and stop spending on it.
+4. **R3, blocked.** Cost-matched, cross-module real tasks. The protocol for them exists; the metered
+   model access does not, and a run without a budget number is not a comparison.
 
 ## 7. Boundary
 
