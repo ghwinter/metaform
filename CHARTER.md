@@ -684,8 +684,10 @@ Three hard constraints:
   rewrite; too heavy a dependency means an interface only, not a place in the tree.
 - **A licence permitting it is not the architecture permitting it.** A zero-dependency kernel is an
   architectural constraint and does not bend because a library is convenient.
-- **One admission criterion.** At the same task and the same budget, end-to-end cost or hit rate must
-  improve; otherwise the component stays "available, off by default".
+- **One admission criterion.** On cases the component was not tuned on, its judgement must improve;
+  otherwise it stays "available, off by default". Cost is recorded and reported but never decisive:
+  token prices fall, so a component admitted for being cheaper is admitted for a property of the
+  market, not of the component.
 
 One measured fact supports the caution: the Rust ecosystem has usable pieces for vector symbols, rule
 learning, and Prolog, but nothing for structure mapping; so the clean rewrite priority falls exactly on
@@ -787,6 +789,32 @@ What this does not do: it does not add knowledge, and it does not rank the survi
 axis grid is a checklist, and a checklist can be wrong about which axes matter. The wager is that a
 finite, explicit grid plus a measured version space beats an unbounded request to "think of other
 angles", because the former can be audited and the latter cannot.
+
+### 6.9 What "smarter" is measured with
+
+The field already has settled metrics; do not invent them. Three tiers, separated by what they cost
+to compute:
+
+| Tier | Needs | Metrics |
+|---|---|---|
+| no labels | repeated independent judgements | paraphrase flip rate, self-consistency, semantic entropy, inter-judge alpha |
+| about a hundred labels | ground truth | risk-coverage and AURC, selective accuracy with intervals, the 3x3 confusion, conformal coverage |
+| a purpose-built suite | fifty to a hundred items | interpretation coverage, clarification quality -- did it ask the question that mattered |
+
+**Two protocol actions are missing, and without them the headline metric does not exist.** A candidate
+must be able to answer `unknown`, and every answer must carry a `score` that orders abstention.
+Without both, the coverage axis is empty and AURC is the average error of an arbitrary ordering --
+which is what the six-question batch measured: every arm had an unknown rate of zero, and the
+invention arm scored a *lower* AURC than the engine arm while being less accurate.
+
+**Not used here**: pass@k or pass^k on a single verdict, which reward luck; ECE as a headline, which
+is binning-dependent and unstable at this sample size; exact match or token F1 as evidence of clarity.
+
+**Numbers we have**, item level, 72 items per arm: the engine arm answers 0.972 correctly with an
+interval of [0.904, 0.992], the invention arm 0.958, the no-engine arm 1.000, all with zero
+abstention. The reading is that on that batch of decidable questions the baseline did not lose.
+
+Cost is handled by §6.5: recorded and reported, never decisive.
 
 ## 7. Boundary
 
