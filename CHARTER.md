@@ -816,6 +816,43 @@ abstention. The reading is that on that batch of decidable questions the baselin
 
 Cost is handled by §6.5: recorded and reported, never decisive.
 
+### 6.10 Closed world and open world **[wager]**
+
+A user describes a project in a vague paragraph, often as a list: "combine the abilities of these
+libraries, solve unclear goals, stop the AI from only using the words I already said". Three
+complaints recur in such a paragraph and they are one complaint:
+
+1. it thinks only on the elements I enumerated;
+2. it cannot reach what the context does not contain;
+3. it cannot see the problems in its own reasoning.
+
+The common cause is a closed-world assumption. A person's enumeration is a sample drawn from a set
+they have not stated; the model treats the enumeration as the set. The complement is then empty, and
+with an empty complement there is nothing to be surprised by.
+
+Formally: given stated elements E and a vocabulary V over objects O, the engine can compute
+
+- the **complement coverage**: which of the axis-generated readings (§6.8) have an extension not
+  equal to any element of E -- those are candidates for "what I did not say";
+- the **axis equivalence rate**: which of those readings have an extension identical to a stated
+  element, that is, the angle changed the words but not the distinctions;
+- the **bet divergence rate**: of the predictions recorded, how many were placed where two rules
+  disagree (the `rival` requirement in §4, L11). A prediction on which every candidate agrees is a
+  prediction that could not have failed, and it is counted as zero information.
+
+Three numbers, all computable without a model, and all descending as the conversation becomes more
+specific: a high complement coverage means the list was not the universe; a high equivalence rate
+means the "new angles" were rewordings; a low divergence rate means the bets were decorative.
+
+The third complaint is not a metric but a boundary. No checker can answer "is this the
+formalisation I meant": Lean cannot say whether the theorem is the one you wanted, the compiler
+cannot say whether the program is the one you wanted, and this engine cannot say whether the
+predicate is the one you wanted to invent. That layer is closed to every tool, which is why a
+person's one-word answer is a scarce input rather than an interaction-design choice.
+
+What this does not do: it does not add knowledge, and it cannot see outside the evidence. It can
+only make the difference between "stated" and "unstated" visible, and price the bets that cross it.
+
 ## 7. Boundary
 
 ### 7.1 What it is not
