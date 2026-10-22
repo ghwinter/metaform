@@ -1,0 +1,45 @@
+# Does the five-class typing actually separate the five operators?
+#
+# Tests are objects; the typing is the vocabulary. Each predicate is one coordinate the paper's
+# transition type actually reads: `rd`, `wr`, and the direction that has to be added to `wr` to
+# reach five classes.
+#
+#   0 Generate      induction / abduction / analogy     writes H up
+#   1 Close         deduction / consistency             writes H down
+#   2 Represent     vocabulary expansion                writes V (and so H)
+#   3 Evidence      counterexample search / asking      writes E
+#   4 Probe         ask a member whose label was inherited
+#   5 Control       metareasoning                       writes B
+#
+# The question is not whether the five are named differently -- they are. It is whether the *type*
+# separates them, because only then can the paper claim the type fixes the class.
+
+objects 6
+add reads_H 0 1 2 3 4
+add reads_E 0 1 2 3 4
+add reads_V 2
+add reads_B 5
+add writes_H 0 1 2
+add writes_E 3 4
+add writes_V 2
+add writes_B 5
+add dir_up 0
+add dir_down 1
+
+# Target: "is this step the one that probes an inherited label?"
+vote 4 3 0
+vote 0 0 3
+vote 1 0 3
+vote 2 0 3
+vote 3 0 3
+vote 5 0 3
+
+need            # expect INSUFFICIENT / PROPOSE, colliding pair (4, 3)
+explain         # the witness: 3 and 4 share every coordinate the type reads
+
+# The distinction that does exist between them is the warrant, not the type: `Probe` requires the
+# object never to have been asked directly and its class to have more than one member. Nothing in
+# `rd` / `wr` / direction says so. One atom is what it would take to make it a type.
+add checks_inherited 4
+
+need            # expect IDENTIFIED / STOP, colliding pairs none
