@@ -33,6 +33,10 @@ pub struct VoteSpec {
     pub no: u8,
 }
 
+/// The state file's format version. A file without the field predates versioning and is read as
+/// version 1; a file from the future is refused rather than half-understood.
+pub const SCHEMA_VERSION: u32 = 2;
+
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct State {
     pub n: usize,
@@ -58,7 +62,20 @@ impl State {
         if text.trim().is_empty() {
             return Ok(Self::default());
         }
-        let mut st: Self = serde_json::from_str(&text)
+        let value: serde_json::Value = serde_json::from_str(&text)
+            .map_err(|e| format!("cannot parse `{}`: {e}", path.display()))?;
+        // The version lives beside the payload rather than inside the struct: a missing field means
+        // a file written before versioning (version 1), and a file from the future is refused
+        // instead of being half-read by an older binary.
+        let version = value.get("schema").and_then(|v| v.as_u64()).map(|v| v as u32).unwrap_or(1);
+        if version > SCHEMA_VERSION {
+            return Err(format!(
+                "`{}` is schema {version}, newer than this binary understands ({SCHEMA_VERSION}); \
+                 refusing to read a file from the future",
+                path.display()
+            ));
+        }
+        let mut st: Self = serde_json::from_value(value)
             .map_err(|e| format!("cannot parse `{}`: {e}", path.display()))?;
         st.resolve()?;
         Ok(st)
@@ -68,7 +85,13 @@ impl State {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let text = serde_json::to_string_pretty(self).expect("serialization failed");
+        // The version is stamped at the boundary rather than trusted from the caller, so every file
+        // this binary writes says which format it is.
+        let mut value = serde_json::to_value(self).expect("serialization failed");
+        if let serde_json::Value::Object(map) = &mut value {
+            map.insert("schema".to_string(), serde_json::Value::from(SCHEMA_VERSION));
+        }
+        let text = serde_json::to_string_pretty(&value).expect("serialization failed");
         std::fs::write(path, text)
     }
 
