@@ -35,3 +35,4 @@ C22	a prediction that two competing rules agree on is refused	cargo test -p meta
 C23	the coverage command reports missing cells, supported implications and blocking requirements	cargo test -p metaform --test coverage	contains:test result: ok	verified
 C24	the secret scanner's self-test classifies every embedded sample correctly	python scripts/check-secrets.py --self-test	contains:ok	verified
 C25	only formal documents are tracked in this repository	python scripts/check-tracked.py	contains:ok	verified
+C26	no engine module imports a layer above it	python scripts/check-layers.py	contains:ok	verified

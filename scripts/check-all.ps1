@@ -109,6 +109,9 @@ $results += [pscustomobject]@{ Check = 'secrets'; Exit = [Math]::Max($secretsSel
 & $Python (Join-Path $PSScriptRoot 'check-tracked.py') | Out-Host
 $results += [pscustomobject]@{ Check = 'tracked'; Exit = $LASTEXITCODE }
 
+& $Python (Join-Path $PSScriptRoot 'check-layers.py') | Out-Host
+$results += [pscustomobject]@{ Check = 'layers'; Exit = $LASTEXITCODE }
+
 if (-not $SkipTheory) {
     Push-Location (Join-Path $root 'experiments')
     try {
