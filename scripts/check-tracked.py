@@ -2,7 +2,7 @@
 
 The repository keeps code, scripts, configuration, and documents that state what the system is and
 what it has measured. Research notes on other libraries, local facts about this machine, and
-conversation transcripts belong in `research/` or `tmp/`, which are not tracked -- a rule that is
+conversation transcripts belong in research/ or tmp/, which are not tracked -- a rule that is
 only prose will rot, so it is a gate.
 
 Allowed tracked markdown:

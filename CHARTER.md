@@ -17,7 +17,7 @@ reference.
 | **[evidence]** | this repository has run it and has numbers | scripts under `experiments/` reproduce them |
 | **[wager]** | belief without evidence | can only be cashed in or abandoned by later experiments |
 
-Authority: **code and the ten gates > this file > any note**. The charter obeys its own L9: every
+Authority: **code and the eleven gates > this file > any note**. The charter obeys its own L9: every
 checkable sentence it writes either has a check in the repository or is explicitly marked **[wager]**.
 
 One writing discipline: every principle states **what it forbids**. A principle without a prohibition is
@@ -706,7 +706,7 @@ Four engineering disciplines:
 
 ### 6.6 Definition of done for a round
 
-1. It builds, and the ten gates are green.
+1. It builds, and the eleven gates are green.
 2. The claims register is updated: a new fact has a command; a fact without one goes to NEED.
 3. The results file gains one numbered conclusion, or says explicitly that the round has none.
 4. The English document and the Chinese copy are in sync.
