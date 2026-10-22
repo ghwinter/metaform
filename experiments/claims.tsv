@@ -36,3 +36,4 @@ C23	the coverage command reports missing cells, supported implications and block
 C24	the secret scanner's self-test classifies every embedded sample correctly	python scripts/check-secrets.py --self-test	contains:ok	verified
 C25	only formal documents are tracked in this repository	python scripts/check-tracked.py	contains:ok	verified
 C26	no engine module imports a layer above it	python scripts/check-layers.py	contains:ok	verified
+C27	the clause inducer proposes an extension that covers positives and excludes negatives	cargo test -p metaform-components ilp_op	contains:test result: ok	verified

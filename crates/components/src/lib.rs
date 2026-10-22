@@ -11,8 +11,10 @@ pub mod scenarios;
 pub mod sme_op;
 pub mod systems;
 pub mod vsa_op;
+mod ilp_op;
 
 pub use probe_labels::ProbeLabels;
 pub use sme_op::SmeAnalogizer;
 pub use systems::Systems;
 pub use vsa_op::VsaRetriever;
+pub use ilp_op::IlpInducer;

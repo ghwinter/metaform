@@ -10,6 +10,7 @@ metaform = { path = "../../engine" }
 metaform-runtime = { path = "../runtime" }
 metaform-vsa = { path = "../vsa" }
 metaform-sme = { path = "../sme" }
+metaform-ilp = { path = "../ilp" }
 
 [[bin]]
 name = "runtime_smoke"

@@ -8,10 +8,13 @@
 //!
 //!   metaform propose --request <req.json> --response <response.json>
 //!
+//! `--ilp` adds the clause inducer: it learns the shortest clause that covers every labelled
+//! positive and no negative, and proposes its extension as one candidate.
+//!
 //! What the components do not do is decide. The response says what was proposed; whether it is well
 //! formed and whether it separates anything is for the kernel to say.
 
-use metaform_components::{SmeAnalogizer, Systems, VsaRetriever};
+use metaform_components::{IlpInducer, SmeAnalogizer, Systems, VsaRetriever};
 use metaform_runtime::state::State;
 use metaform::{Status};
 use metaform_runtime::experience::{class_of, Experience};
@@ -290,6 +293,12 @@ fn main() {
             }
             if flag(rest, "--probe") {
                 operators.push(Box::new(metaform_components::ProbeLabels::new(2)));
+            }
+            if flag(rest, "--ilp") {
+                operators.push(Box::new(IlpInducer {
+                    max_body: arg(rest, "--ilp-body").and_then(|v| v.parse().ok()).unwrap_or(3),
+                    ..IlpInducer::default()
+                }));
             }
             operators.push(Box::new(VsaRetriever {
                 dim: arg(rest, "--dim").and_then(|v| v.parse().ok()).unwrap_or(2048),

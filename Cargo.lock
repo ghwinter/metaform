@@ -50,6 +50,7 @@ name = "metaform-components"
 version = "0.6.0"
 dependencies = [
  "metaform",
+ "metaform-ilp",
  "metaform-runtime",
  "metaform-sme",
  "metaform-vsa",
