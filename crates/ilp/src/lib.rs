@@ -223,6 +223,13 @@ pub fn learn(
     let literals = candidate_literals(bg, max_vars);
     let all_positive = positives.iter().all(|_| true);
 
+    // A body cannot be longer than the literals available to fill it. Without this the enumeration
+    // below indexes past the literal list and panics, which a library API must never do.
+    let max_body = max_body.min(literals.len());
+    if max_body == 0 {
+        return None;
+    }
+
     for len in 1..=max_body {
         // Enumerate bodies of this length in a fixed order (indices strictly increasing).
         let mut idx: Vec<usize> = (0..len).collect();
@@ -695,6 +702,25 @@ pub fn separating_pattern(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_body_longer_than_the_available_literals_returns_none_instead_of_panicking() {
+        // Regression: the enumeration used to index past the literal list when the requested body
+        // length exceeded the number of candidate literals.
+        let bg = Background::new(vec![Signature { name: "unary".to_string(), arity: 1 }]);
+        let pos = vec![ground("p", &[0])];
+        let neg = vec![ground("p", &[1])];
+        let learned = learn("p", 1, &pos, &neg, &bg, 9, 1);
+        assert!(learned.is_none(), "an empty background cannot yield a clause");
+    }
+
+    #[test]
+    fn an_empty_background_returns_none() {
+        let bg = Background::default();
+        let pos = vec![ground("p", &[0])];
+        let neg = vec![ground("p", &[1])];
+        assert!(learn("p", 1, &pos, &neg, &bg, 3, 1).is_none());
+    }
 
     /// Two family chains: 0 -> 1 -> 2 -> 3 and 4 -> 5.
     fn family() -> Background {

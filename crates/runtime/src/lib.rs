@@ -303,5 +303,6 @@ mod tests {
 pub mod experience;
 pub mod file_proposer;
 pub mod record;
+pub mod pool;
 pub mod run;
 pub mod state;

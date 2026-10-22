@@ -19,6 +19,7 @@ use metaform_runtime::state::State;
 use metaform::{Status};
 use metaform_runtime::experience::{class_of, Experience};
 use metaform_runtime::file_proposer::FileProposer;
+use metaform_runtime::pool::collect;
 use metaform_runtime::run::{fingerprint, run, run_with_experience, Step};
 use metaform_runtime::{splits, status_with, validate, Operator};
 
@@ -148,7 +149,7 @@ fn main() {
     // spent a whole experiment running without the proposer it was told to use.
     let known = [
         "--state", "--out", "--systems", "--proposals", "--record", "--use-record", "--max-steps", "--probe",
-        "--dim", "--seed", "--limit", "--max-arity",
+        "--dim", "--seed", "--limit", "--max-arity", "--ilp", "--ilp-body", "--budget",
     ];
     for arg in rest {
         if arg.starts_with("--") && !known.contains(&arg.as_str()) {
@@ -260,6 +261,43 @@ fn main() {
                     class.objects, class.vocabulary, class.labelled, class.colliding
                 ),
             }
+            std::process::exit(0);
+        }
+        "pool" => {
+            // One round, every operator asked once, nothing adopted: the point is to see all the
+            // proposals a state attracts, not to make progress.
+            let ctx = state.as_ref().map(|s| s.context()).expect("pool needs a state");
+            let budget: usize = arg(rest, "--budget").and_then(|v| v.parse().ok()).unwrap_or(8);
+            let mut operators: Vec<Box<dyn Operator>> = Vec::new();
+            if let Some(systems_path) = arg(rest, "--systems").or_else(|| state.as_ref().and_then(|s| s.systems.clone())) {
+                match Systems::read(&systems_path) {
+                    Ok(systems) => operators.push(Box::new(SmeAnalogizer {
+                        base: systems.base,
+                        target: systems.target,
+                        readings: systems.readings,
+                    })),
+                    Err(e) => {
+                        eprintln!("cannot read the systems: {}", e);
+                        std::process::exit(2);
+                    }
+                }
+            }
+            if flag(rest, "--probe") {
+                operators.push(Box::new(metaform_components::ProbeLabels::new(2)));
+            }
+            if flag(rest, "--ilp") {
+                operators.push(Box::new(IlpInducer {
+                    max_body: arg(rest, "--ilp-body").and_then(|v| v.parse().ok()).unwrap_or(3),
+                    ..IlpInducer::default()
+                }));
+            }
+            operators.push(Box::new(VsaRetriever {
+                dim: arg(rest, "--dim").and_then(|v| v.parse().ok()).unwrap_or(2048),
+                seed: arg(rest, "--seed").and_then(|v| v.parse().ok()).unwrap_or(7),
+                max_arity: arg(rest, "--max-arity").and_then(|v| v.parse().ok()).unwrap_or(2),
+            }));
+            let round = collect(&ctx, &operators, budget);
+            println!("{}", round.to_json());
             std::process::exit(0);
         }
         "run" => {

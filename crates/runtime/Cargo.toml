@@ -7,3 +7,4 @@ description = "Operator protocol for metaform: proposal components behind the ex
 
 [dependencies]
 metaform = { path = "../../engine" }
+serde_json = "1.0"

@@ -65,6 +65,7 @@ name = "metaform-runtime"
 version = "0.6.0"
 dependencies = [
  "metaform",
+ "serde_json",
 ]
 
 [[package]]
