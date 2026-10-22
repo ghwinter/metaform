@@ -149,7 +149,7 @@ fn main() {
     // spent a whole experiment running without the proposer it was told to use.
     let known = [
         "--state", "--out", "--systems", "--proposals", "--record", "--use-record", "--max-steps", "--probe",
-        "--dim", "--seed", "--limit", "--max-arity", "--ilp", "--ilp-body", "--budget", "--rows",
+        "--dim", "--seed", "--limit", "--max-arity", "--ilp", "--ilp-body", "--budget", "--rows", "--truth",
     ];
     for arg in rest {
         if arg.starts_with("--") && !known.contains(&arg.as_str()) {
@@ -314,13 +314,27 @@ fn main() {
                         }
                     }
                 }
+                // The truth column may come from a file the components never saw. When it does, the
+                // table measures held-out behaviour; when it does not, it only shows how well each
+                // component reproduces the labels it was given, which is worth saying out loud.
+                let truth_state = arg(rest, "--truth").map(|path| match State::read(&path) {
+                    Ok(state) => state,
+                    Err(e) => {
+                        eprintln!("cannot read the truth: {}", e);
+                        std::process::exit(2);
+                    }
+                });
+                let (truth_pos, truth_neg) = match &truth_state {
+                    Some(state) => (state.pos, state.neg),
+                    None => (ctx.pos, ctx.neg),
+                };
                 let mut out = String::from("system\titem\tverdict\ttruth\tscore\n");
                 for (source, (_, ext)) in &best {
                     for object in 0..ctx.objects {
                         let verdict = if ext & (1u64 << object) != 0 { "pos" } else { "neg" };
-                        let truth = if ctx.pos & (1u64 << object) != 0 {
+                        let truth = if truth_pos & (1u64 << object) != 0 {
                             "pos"
-                        } else if ctx.neg & (1u64 << object) != 0 {
+                        } else if truth_neg & (1u64 << object) != 0 {
                             "neg"
                         } else {
                             continue;

@@ -1895,3 +1895,32 @@ honest part: twelve items cannot distinguish a perfect judge from one that is wr
 The chain is now: response -> rows -> verdict report, with `score` and `abstain` in the protocol and
 the arithmetic in the engine. What it still cannot do is order abstention by confidence, because no
 arm has ever emitted a score; the column exists, is validated, and is empty in every recorded run.
+
+## 27. Four components, one scenario, one yardstick (2026-10-23)
+
+The pool entry asks every operator once and keeps every candidate, so the four capability crates can
+finally be compared on the same objects with the same arithmetic. `--rows` writes the verdict table
+the metrics command consumes, and `--truth` separates the scoring labels from the evidence: when a
+truth file is given, the components never saw it.
+
+On a six-object scenario with two labelled positives, two labelled negatives and a withheld positive,
+three components converge on the same extension and score identically: ILP, SME and VSA all report
+precision 0.833 with an interval of [0.436, 0.970], and the label probe reports 0.667. All three miss
+the withheld object.
+
+The miss is the scenario's, not the components'. The evidence admits two hypotheses -- "red" covering
+the two labelled positives, and "warm" covering those two plus the withheld object -- and both cover
+every labelled positive and no labelled negative. Adding a third attribute that makes the withheld
+object learnable changes nothing, because the evidence is equally consistent with the narrower
+hypothesis and the tie-break prefers the smaller extension. Nothing in the labelled data identifies
+the withheld object, so 0.833 is the ceiling of that scenario rather than a property of any
+component.
+
+What this establishes: the four components now run through one path, one validator and one metric,
+with a truth file that is separate from the evidence. What it does not establish: any ranking among
+them. A scenario that ranks them has to make the hypotheses differ where the labels can see it, which
+means labelled objects with profiles that the withheld object shares only under one reading.
+
+Also recorded: the pool's "best candidate per component" is chosen by evidence-based splits, so the
+selection never touches the truth file; the tie-break then prefers the smaller extension, which is a
+choice and is named here as one.
