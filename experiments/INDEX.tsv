@@ -1,0 +1,32 @@
+file	status	what_runs_it	in_gate	in_claims	in_results
+adaptive_theta.py	orphan	nothing names it	0	0	0
+controller_runs.py	evidence	RESULTS quotes its output; nothing runs it	0	0	1
+domain_a.py	evidence	RESULTS quotes its output; nothing runs it	0	0	1
+domain_b.py	orphan	nothing names it	0	0	0
+domain_c.py	gate	check-all runs it	1	0	1
+domain_cost.py	orphan	nothing names it	0	0	0
+domain_more_data.py	orphan	nothing names it	0	0	0
+domain_prior.py	evidence	RESULTS quotes its output; nothing runs it	0	0	1
+e2e_verify.py	gate	check-all runs it	1	0	0
+engine.py	orphan	nothing names it	0	0	0
+greedy_cover.py	orphan	nothing names it	0	0	0
+ledger.py	evidence	RESULTS quotes its output; nothing runs it	0	0	1
+llm_arms.py	evidence	RESULTS quotes its output; nothing runs it	0	0	1
+llm_e2e.py	gate	check-all runs it	1	0	1
+llm_mock.py	evidence	RESULTS quotes its output; nothing runs it	0	0	1
+local_proposer.py	claim	a claim in claims.tsv runs it	0	1	1
+multi_seed.py	orphan	nothing names it	0	0	0
+noisy_loop.py	orphan	nothing names it	0	0	0
+noisy_oracle.py	orphan	nothing names it	0	0	0
+posterior_gate.py	orphan	nothing names it	0	0	0
+propose_loop.py	gate	check-all runs it	1	0	1
+proposer.py	claim	a claim in claims.tsv runs it	0	1	1
+proposer_arms.py	evidence	RESULTS quotes its output; nothing runs it	0	0	1
+proposer_quality.py	orphan	nothing names it	0	0	0
+q_stats.py	evidence	RESULTS quotes its output; nothing runs it	0	0	1
+real_domain.py	evidence	RESULTS quotes its output; nothing runs it	0	0	1
+selection_domain_c.py	gate	check-all runs it	1	0	0
+selfcalibrated_theta.py	orphan	nothing names it	0	0	0
+theory_audit.py	gate	check-all runs it	1	0	0
+verify_claims.py	gate	check-all runs it	1	0	0
+yield.py	claim	a claim in claims.tsv runs it	0	1	0

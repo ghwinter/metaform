@@ -47,3 +47,4 @@ C34	the atom that separates them buys 32 definable sets and merges nothing	targe
 C35	a predicate that is a Boolean combination of the vocabulary separates no colliding pair	target\debug\metaform.exe propose --request experiments\propose\request.json --response experiments\propose\recombination.json	contains:"splits":0	verified
 C36	a bet that every rule in its neighbourhood makes is refused	target\debug\metaform.exe propose --request experiments\propose\request.json --response experiments\propose\agrees_with_rival.json	contains:predict_not_discriminating	verified
 C37	every generated scenario carries a colliding class the task can ask about	python experiments/local_proposer.py instances --n 30 --seed 7 --out tmp/q_claim	contains:min 1	verified
+C38	a twenty-step chain needs p_eff >= 0.9947 for a 90% yield, and the measured arms give 0.778	python experiments/yield.py	contains:0.9947	verified
