@@ -180,6 +180,8 @@ fn prediction_is_accepted_and_echoed() {
             "name": "only0",
             "ids": [0],
             "splits": 1,
+            "separates": [[0, 1]],
+            "still_colliding": [],
             "warrant": "object 0 is the positive",
             "predict": {"id": 2, "label": "pos"}
         }]),
@@ -373,7 +375,8 @@ fn measured_request_accepts_a_prediction_free_candidate() {
     assert_eq!(verdict["rejected"], json!([]), "{verdict}");
     assert_eq!(
         verdict["accepted"],
-        json!([{"name": "only0", "ids": [0], "splits": 1}]),
+        json!([{"name": "only0", "ids": [0], "splits": 1,
+            "separates": [[0, 1]], "still_colliding": []}]),
         "a fully measured request needs no prediction: {verdict}"
     );
     assert!(
@@ -483,6 +486,8 @@ fn rival_that_disagrees_is_accepted_and_recorded() {
             "name": "only0",
             "ids": [0],
             "splits": 0,
+            "separates": [],
+            "still_colliding": [],
             "predict": {"id": 2, "label": "pos"}
         }]),
         "a disagreeing rival must be accepted: {verdict}"

@@ -212,6 +212,8 @@ fn proposed_new_atom_resolves_the_collision() {
             "name": "mid",
             "ids": [1],
             "splits": 1,
+            "separates": [[1, 2]],
+            "still_colliding": [],
             "warrant": "object 1 is the only object with this attribute",
             "falsifier": "object 2 also has it"
         }]),
@@ -344,6 +346,8 @@ fn three_colliding_pairs_recommend_new_atom() {
             "name": "only0",
             "ids": [0],
             "splits": 3,
+            "separates": [[0, 1], [0, 2], [0, 3]],
+            "still_colliding": [],
             "warrant": "object 0 is the positive",
             "falsifier": "any negative is 0"
         }]),

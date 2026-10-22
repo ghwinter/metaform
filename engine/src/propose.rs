@@ -20,7 +20,12 @@
 //!   8. a `rival` is parsed with the candidate's own rules; when both are present the prediction must
 //!      land on an object where the two extensions disagree, or `predict_not_discriminating`
 //!   9. `limit_exceeded` for both forms
-//!  10. accepted candidates report `splits`: how many evidence-colliding pairs they separate
+//!  10. accepted candidates report `splits`: how many evidence-colliding pairs they separate, and
+//!      the pairs themselves -- `separates` (what the candidate pulled apart) and `still_colliding`
+//!      (what is still colliding once the candidate's extension is added). A count says a candidate
+//!      failed; the pair says where. Measured on a 4B proposer, only the pair moves it: telling the
+//!      model "splits = 0" recovers 41% of failures, naming one object on each side recovers 66%
+//!      (p = 0.009), and an explanation of why a recombination cannot work recovers 47% (p = 0.58).
 //!
 //! A candidate is extensional (`ids`) or defined (`define: {"all_of": [...]}` / `{"any_of": [...]}`).
 //! A definition may only name predicates that already exist in the request vocabulary; the operands are
@@ -110,6 +115,14 @@ pub struct Accepted {
     pub ids: Vec<usize>,
     /// How many evidence-colliding pairs the extension separates.
     pub splits: usize,
+    /// The pairs the extension pulls apart, as `(positive, negative)` object ids. `splits` is the
+    /// length of this list; it is kept because callers compare the count.
+    pub separates: Vec<(usize, usize)>,
+    /// The pairs that are **still** colliding after adding this candidate: same class under the
+    /// request's vocabulary and same membership in the candidate. A candidate with `splits == 0`
+    /// leaves every colliding pair where it found it, and these are the pairs a proposer needs to
+    /// be told about -- a count says it failed, this says where.
+    pub still_colliding: Vec<(usize, usize)>,
     pub warrant: Option<String>,
     pub falsifier: Option<String>,
     /// `Some` when the candidate was defined (`all_of` / `any_of`); [`Accepted::ids`] is then its
@@ -872,8 +885,15 @@ fn checked_commitment(
     Ok((prediction, rival))
 }
 
-fn count_splits(n: usize, pos: Mask, neg: Mask, classes: &[Mask], ext: Mask) -> usize {
-    let mut total = 0;
+fn split_pairs(
+    n: usize,
+    pos: Mask,
+    neg: Mask,
+    classes: &[Mask],
+    ext: Mask,
+) -> (Vec<(usize, usize)>, Vec<(usize, usize)>) {
+    let mut separated = Vec::new();
+    let mut remaining = Vec::new();
     for class in classes {
         for a in 0..n {
             if class & bit(a) == 0 || pos & bit(a) == 0 {
@@ -884,12 +904,14 @@ fn count_splits(n: usize, pos: Mask, neg: Mask, classes: &[Mask], ext: Mask) -> 
                     continue;
                 }
                 if ((ext >> a) & 1) != ((ext >> b) & 1) {
-                    total += 1;
+                    separated.push((a, b));
+                } else {
+                    remaining.push((a, b));
                 }
             }
         }
     }
-    total
+    (separated, remaining)
 }
 
 /// Equivalence classes of the request's vocabulary over its objects.
@@ -939,13 +961,20 @@ fn prediction_json(prediction: &Prediction) -> String {
     )
 }
 
+fn pairs_json(p: &[(usize, usize)]) -> String {
+    let items: Vec<String> = p.iter().map(|(a, b)| format!("[{a},{b}]")).collect();
+    format!("[{}]", items.join(","))
+}
+
 fn accepted_json(candidate: &Accepted) -> String {
     let ids: Vec<String> = candidate.ids.iter().map(|x| x.to_string()).collect();
     let mut out = format!(
-        "{{\"name\":{},\"ids\":[{}],\"splits\":{}",
+        "{{\"name\":{},\"ids\":[{}],\"splits\":{},\"separates\":{},\"still_colliding\":{}",
         json_string(&candidate.name),
         ids.join(","),
-        candidate.splits
+        candidate.splits,
+        pairs_json(&candidate.separates),
+        pairs_json(&candidate.still_colliding)
     );
     if let Some(warrant) = &candidate.warrant {
         out.push_str(",\"warrant\":");
@@ -1139,7 +1168,8 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
             Some(_) => ids_of(ext, req.n),
             None => ids.values.iter().map(|&x| x as usize).collect(),
         };
-        let splits = count_splits(req.n, req.pos, req.neg, &classes, ext);
+        let (separates, still_colliding) = split_pairs(req.n, req.pos, req.neg, &classes, ext);
+        let splits = separates.len();
 
         // Optional confidence. It only orders abstention downstream; it never changes whether the
         // candidate is admitted.
@@ -1219,6 +1249,8 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
             name: name.to_string(),
             ids: ext_ids,
             splits,
+            separates,
+            still_colliding,
             warrant: obj.get("warrant").and_then(Json::as_str).map(str::to_string),
             falsifier: obj.get("falsifier").and_then(Json::as_str).map(str::to_string),
             definition: alt.definition,
@@ -1319,7 +1351,7 @@ mod tests {
         let got = output(REQ_VALID, RESP_VALID);
         let want = concat!(
             r#"{"protocol":"metaform.propose/1","request_id":"r-1","accepted":["#,
-            r#"{"name":"only0","ids":[0],"splits":1,"warrant":"object 0 is a positive","falsifier":"a negative class-mate"}"#,
+            r#"{"name":"only0","ids":[0],"splits":1,"separates":[[0,1]],"still_colliding":[],"warrant":"object 0 is a positive","falsifier":"a negative class-mate"}"#,
             r#"],"rejected":[],"refused":null}"#
         );
         assert_eq!(got, want);
@@ -1338,12 +1370,74 @@ mod tests {
         );
         let got = output(req, resp);
         let want = concat!(
-            r#"{"protocol":"metaform.propose/1","request_id":"r-2","accepted":[{"name":"c1","ids":[1],"splits":1}],"#,
+            r#"{"protocol":"metaform.propose/1","request_id":"r-2","accepted":[{"name":"c1","ids":[1],"splits":1,"separates":[[0,1]],"still_colliding":[]}],"#,
             r#""rejected":[{"name":"p0","ids":[2],"reason":"duplicate_name"},"#,
             r#"{"name":"c1","ids":[0],"reason":"duplicate_name"},"#,
             r#"{"name":"c2","ids":[5],"reason":"out_of_range"}],"refused":null}"#
         );
         assert_eq!(got, want);
+    }
+
+    #[test]
+    fn propose_names_the_pairs_a_candidate_leaves_colliding() {
+        // One class {0,1,2,3}: 0 is positive, 1 and 2 are negative, 3 is unlabelled. The candidate
+        // is {3}, so it separates nothing while (0,1) and (0,2) still collide. `splits: 0` says the
+        // candidate failed; `still_colliding` is what a proposer needs to be told, because it is one
+        // positive and one negative object that no value of the current vocabulary tells apart.
+        let req = r#"{"protocol":"metaform.propose/1","request_id":"r-leave","objects":4,"vocabulary":[],"evidence":{"pos":[0],"neg":[1,2]},"limit":8}"#;
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-leave","candidates":["#,
+            r#"{"name":"only3","ids":[3]}]}"#
+        );
+        let want = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-leave","accepted":["#,
+            r#"{"name":"only3","ids":[3],"splits":0,"separates":[],"still_colliding":[[0,1],[0,2]]}"#,
+            r#"],"rejected":[],"refused":null}"#
+        );
+        assert_eq!(output(req, resp), want);
+    }
+
+    #[test]
+    fn propose_splits_and_collisions_partition_the_colliding_pairs() {
+        // Contract between the three fields: `splits` counts `separates`, and the two lists together
+        // are exactly the request's colliding pairs, with no overlap. Recomputed here from the
+        // request alone, so an edit to either side of the split breaks the assertion.
+        let req_text = r#"{"protocol":"metaform.propose/1","request_id":"r-part","objects":5,"vocabulary":[{"name":"a","ids":[0,1,2,3]},{"name":"b","ids":[4]}],"evidence":{"pos":[0,1],"neg":[2,3]},"limit":8}"#;
+        let req = parse_request(req_text).expect("request must parse");
+        let classes = evidence_classes(&req);
+        let mut all = Vec::new();
+        for class in &classes {
+            for a in 0..req.n {
+                if class & bit(a) == 0 || req.pos & bit(a) == 0 {
+                    continue;
+                }
+                for b in 0..req.n {
+                    if class & bit(b) == 0 || req.neg & bit(b) == 0 {
+                        continue;
+                    }
+                    all.push((a, b));
+                }
+            }
+        }
+        assert_eq!(all.len(), 4, "the fixture must have four colliding pairs");
+
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-part","candidates":["#,
+            r#"{"name":"half","ids":[0]},{"name":"none","ids":[4]}]}"#
+        );
+        for candidate in evaluate(&req, resp).accepted {
+            assert_eq!(candidate.splits, candidate.separates.len());
+            let mut both: Vec<(usize, usize)> = candidate
+                .separates
+                .iter()
+                .chain(candidate.still_colliding.iter())
+                .copied()
+                .collect();
+            both.sort_unstable();
+            let mut sorted_all = all.clone();
+            sorted_all.sort_unstable();
+            assert_eq!(both, sorted_all, "{} did not partition the pairs", candidate.name);
+        }
     }
 
     const REQ_DEFINED: &str = r#"{"protocol":"metaform.propose/1","request_id":"r-3","objects":3,"vocabulary":[{"name":"a","ids":[0,1]},{"name":"b","ids":[0,2]}],"evidence":{"pos":[0],"neg":[1]},"limit":8}"#;
@@ -1358,7 +1452,7 @@ mod tests {
         );
         let want = concat!(
             r#"{"protocol":"metaform.propose/1","request_id":"r-3","accepted":["#,
-            r#"{"name":"p","ids":[0],"splits":0,"warrant":"a and b","falsifier":"exactly one operand"}"#,
+            r#"{"name":"p","ids":[0],"splits":0,"separates":[],"still_colliding":[],"warrant":"a and b","falsifier":"exactly one operand"}"#,
             r#"],"rejected":[],"refused":null}"#
         );
         assert_eq!(output(REQ_DEFINED, resp), want);
@@ -1374,7 +1468,7 @@ mod tests {
         );
         let want = concat!(
             r#"{"protocol":"metaform.propose/1","request_id":"r-4","accepted":["#,
-            r#"{"name":"q","ids":[0,1,2],"splits":0}"#,
+            r#"{"name":"q","ids":[0,1,2],"splits":0,"separates":[],"still_colliding":[]}"#,
             r#"],"rejected":[],"refused":null}"#
         );
         assert_eq!(output(req, resp), want);
@@ -1417,7 +1511,7 @@ mod tests {
         );
         let want = concat!(
             r#"{"protocol":"metaform.propose/1","request_id":"r-3","accepted":["#,
-            r#"{"name":"q","ids":[0],"splits":0}"#,
+            r#"{"name":"q","ids":[0],"splits":0,"separates":[],"still_colliding":[]}"#,
             r#"],"rejected":[{"name":"p","ids":[],"reason":"unknown_predicate"}],"refused":null}"#
         );
         assert_eq!(output(REQ_DEFINED, resp), want);
@@ -1543,7 +1637,7 @@ mod tests {
         );
         let want = concat!(
             r#"{"protocol":"metaform.propose/1","request_id":"r-p1","accepted":["#,
-            r#"{"name":"only0","ids":[0],"splits":1,"predict":{"id":2,"label":"pos"}}"#,
+            r#"{"name":"only0","ids":[0],"splits":1,"separates":[[0,1]],"still_colliding":[],"predict":{"id":2,"label":"pos"}}"#,
             r#"],"rejected":[],"refused":null}"#
         );
         assert_eq!(output(REQ_UNMEASURED, resp), want);
@@ -1556,7 +1650,7 @@ mod tests {
         );
         let want = concat!(
             r#"{"protocol":"metaform.propose/1","request_id":"r-p3","accepted":["#,
-            r#"{"name":"p","ids":[0],"splits":0,"predict":{"id":2,"label":"neg"}}"#,
+            r#"{"name":"p","ids":[0],"splits":0,"separates":[],"still_colliding":[],"predict":{"id":2,"label":"neg"}}"#,
             r#"],"rejected":[],"refused":null}"#
         );
         assert_eq!(output(req, resp), want);
@@ -1635,7 +1729,7 @@ mod tests {
         );
         let want = concat!(
             r#"{"protocol":"metaform.propose/1","request_id":"r-p2","accepted":["#,
-            r#"{"name":"only0","ids":[0],"splits":1}"#,
+            r#"{"name":"only0","ids":[0],"splits":1,"separates":[[0,1]],"still_colliding":[]}"#,
             r#"],"rejected":[],"refused":null}"#
         );
         assert_eq!(output(REQ_MEASURED, resp), want);
@@ -1664,7 +1758,7 @@ mod tests {
         );
         let want = concat!(
             r#"{"protocol":"metaform.propose/1","request_id":"r-1","accepted":["#,
-            r#"{"name":"only0","ids":[0],"splits":1}"#,
+            r#"{"name":"only0","ids":[0],"splits":1,"separates":[[0,1]],"still_colliding":[]}"#,
             r#"],"rejected":[],"refused":null}"#
         );
         assert_eq!(output(REQ_VALID, resp), want);

@@ -82,6 +82,8 @@ fn accepted_definition_is_visible_to_need() {
             "name": "p",
             "ids": [0],
             "splits": 0,
+            "separates": [],
+            "still_colliding": [],
             "warrant": "a and b",
             "falsifier": "object 1"
         }]),
