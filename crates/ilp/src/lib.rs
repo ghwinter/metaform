@@ -421,7 +421,6 @@ pub fn refine(clause: &Clause, bg: &Background, max_vars: u32) -> Vec<Clause> {
     let mut out: Vec<Clause> = Vec::new();
     let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     for sig in &bg.signature {
-        let uses = next + 1;
         let mut tuple = vec![0u32; sig.arity];
         loop {
             // The literal uses variables already in play, plus at most one fresh variable: the

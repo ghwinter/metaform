@@ -91,7 +91,7 @@ metaform metrics readings --vocab <tsv> --readings <tsv>  # complement coverage 
 metaform ops                                       # five-operator schedule comparison: fixed order vs skipping redundant steps (paper §4)
 ```
 
-The MCP server is registered host-side as `serverName` `metaform`, transport `stdio`, command `metaform`, args `["mcp"]`, `cwd` at the project root, `toolCallTimeoutMs` 60000, and `failOnStartupError` true; the model-visible names are `mcp__metaform__<tool>`. It echoes whatever well-formed `protocolVersion` the client offers, including revisions newer than the one it was built with, and answers `2035-11-25` only when the client sends none. `scripts/install-mcp.ps1` installs it to a stable prefix outside the repository, checks `--version` and the handshake, and registers the entry in each profile's patch layer, reporting the action per profile (`-NoRegister` prints the entry instead, `-DryRun` prints the plan); the skill lives at `.dsh/skills/metaform/SKILL.md`.
+The MCP server is registered host-side as `serverName` `metaform`, transport `stdio`, command `metaform`, args `["mcp"]`, `cwd` at the project root, `toolCallTimeoutMs` 60000, and `failOnStartupError` true; the model-visible names are `mcp__metaform__<tool>`. It echoes whatever well-formed `protocolVersion` the client offers, including revisions newer than the one it was built with, and answers `2055-11-25` only when the client sends none. `scripts/install-mcp.ps1` installs it to a stable prefix outside the repository, checks `--version` and the handshake, and registers the entry in each profile's patch layer, reporting the action per profile (`-NoRegister` prints the entry instead, `-DryRun` prints the plan); the skill lives at `.dsh/skills/metaform/SKILL.md`.
 
 The ledger is **append-only**: retracting means appending a `retracted` line with the same id; when
 folded, the later line wins.
@@ -316,9 +316,9 @@ code comments: no machine paths, no names of untracked material.
 ## Reproducing the three-part setup
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # ten gates (Lean/Rust/VSA/references/claims/components/secrets/falsification/bilingual/numbers), about 40 s
+pwsh -File scripts/check-all.ps1                     # eleven gates (lean/rust/vsa/align/refs/components/claims/secrets/checks/theory/experiments), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 203)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 205)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

@@ -1256,7 +1256,7 @@ pub fn validate_response(request_text: &str, response_text: &str) -> Result<Verd
 // ---------------------------------------------------------------------------
 
 /// Read both files, validate, print one line. Exit 2 only when the request itself cannot be used.
-fn run(request_path: &str, response_path: &str) -> i32 {
+fn cmd_run(request_path: &str, response_path: &str) -> i32 {
     let request_text = match std::fs::read_to_string(request_path) {
         Ok(text) => text,
         Err(e) => {
@@ -1288,7 +1288,7 @@ fn arg_value(args: &[String], flag: &str) -> Option<String> {
 /// `metaform propose --request <path> --response <path>`
 pub fn cmd(args: &[String]) -> i32 {
     match (arg_value(args, "--request"), arg_value(args, "--response")) {
-        (Some(request), Some(response)) => run(&request, &response),
+        (Some(request), Some(response)) => cmd_run(&request, &response),
         _ => {
             eprintln!("usage: metaform propose --request <request.json> --response <response.json>");
             2
@@ -1684,8 +1684,8 @@ mod tests {
         assert_eq!(first, second, "the same inputs must produce the same output string");
 
         // Run the CLI path twice as well: it must not create `.metaform/` or any side file.
-        assert_eq!(run(req_path.to_str().unwrap(), resp_path.to_str().unwrap()), 0);
-        assert_eq!(run(req_path.to_str().unwrap(), resp_path.to_str().unwrap()), 0);
+        assert_eq!(cmd_run(req_path.to_str().unwrap(), resp_path.to_str().unwrap()), 0);
+        assert_eq!(cmd_run(req_path.to_str().unwrap(), resp_path.to_str().unwrap()), 0);
         assert_eq!(file_names(&dir), before, "propose must not write any file");
         assert!(!dir.join(".metaform").exists(), "propose must not create a state directory");
 

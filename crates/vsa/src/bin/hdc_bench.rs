@@ -7,7 +7,7 @@
 
 use metaform_vsa::mbat::MBAT;
 use metaform_vsa::memory::{AssociativeMemory, ItemMemory};
-use metaform_vsa::{Hypervector, VSA};
+use metaform_vsa::Hypervector;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 

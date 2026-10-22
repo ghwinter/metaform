@@ -58,6 +58,43 @@
 //! validated counterexample, `define` as a law) and adopts a defined predicate in the state only for
 //! a `define` answer. Replaying the same answers file does not duplicate an entry.
 
+/// Results and protocol go to stdout; commentary goes to stderr through `tracing`.
+///
+/// The kernel library prints nothing at all: this binary is the only place that owns the two
+/// streams, which is what keeps `engine/src` free of I/O and lets the MCP server promise that every
+/// line on stdout is protocol.
+macro_rules! out {
+    ($($arg:tt)*) => {{
+        println!($($arg)*);
+    }};
+}
+
+macro_rules! note {
+    ($($arg:tt)*) => {{
+        tracing::info!($($arg)*);
+    }};
+}
+
+/// Install the stderr subscriber once, at startup. `METAFFORM_LOG` sets the level (off, error, warn,
+/// info, debug, trace); anything unparsable falls back to info rather than failing a run over a
+/// logging variable.
+fn init_telemetry() {
+    use tracing_subscriber::filter::LevelFilter;
+    let level = match std::env::var("METAFFORM_LOG").unwrap_or_default().to_ascii_lowercase().as_str() {
+        "off" => LevelFilter::OFF,
+        "error" => LevelFilter::ERROR,
+        "warn" => LevelFilter::WARN,
+        "debug" => LevelFilter::DEBUG,
+        "trace" => LevelFilter::TRACE,
+        _ => LevelFilter::INFO,
+    };
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(level)
+        .with_writer(std::io::stderr)
+        .with_target(false)
+        .try_init();
+}
+
 use std::io::{self, BufRead, Write};
 
 mod report;
@@ -118,7 +155,7 @@ fn free_reps(e: &Explorer) -> Vec<usize> {
 }
 
 fn explain(e: &Explorer) {
-    println!("--- equivalence classes ({}) ---", e.classes().len());
+    out!("--- equivalence classes ({}) ---", e.classes().len());
     for (i, c) in e.classes().iter().enumerate() {
         let members: Vec<String> = (0..e.n)
             .filter(|&x| c & bit(x) != 0)
@@ -134,16 +171,16 @@ fn explain(e: &Explorer) {
             })
             .collect();
         let mark = if (c & e.pos) != 0 && (c & e.neg) != 0 { "  <== collision" } else { "" };
-        println!("  [{i:2}] {}{}", members.join(" "), mark);
+        out!("  [{i:2}] {}{}", members.join(" "), mark);
     }
     let pairs = colliding_pairs(e);
     if pairs.is_empty() {
-        println!("colliding pairs: none");
+        out!("colliding pairs: none");
     } else {
         let shown: Vec<String> = pairs.iter().take(8).map(|(a, b)| format!("({a},{b})")).collect();
-        println!("colliding pairs: {}  {}", pairs.len(), shown.join(" "));
+        out!("colliding pairs: {}  {}", pairs.len(), shown.join(" "));
         if pairs.len() > 8 {
-            println!("  (showing only the first 8 pairs)");
+            out!("  (showing only the first 8 pairs)");
         }
     }
 }
@@ -184,8 +221,8 @@ fn status(e: &Explorer) {
         Status::Identified => "identified (extension fully determined)",
     };
     let free = e.classes().iter().filter(|c| (*c & (e.pos | e.neg)) == 0).count();
-    println!("status: {st}");
-    println!("open classes: {free}   capacity: 2^{} = {}", e.classes().len(), e.capacity());
+    out!("status: {st}");
+    out!("open classes: {free}   capacity: 2^{} = {}", e.classes().len(), e.capacity());
 }
 
 // ---------------- project directory and ledger subcommands ----------------
@@ -277,10 +314,10 @@ fn cmd_suggest(args: &[String]) -> i32 {
                         return 2;
                     }
                 }
-                None => println!("{request}"),
+                None => out!("{request}"),
             },
             // Nothing to fill: the state does not yet need a predicate outside the vocabulary.
-            None => println!(
+            None => out!(
                 "{{\"status\":\"{}\",\"request\":null}}",
                 metaform::suggest::status_str(status)
             ),
@@ -288,7 +325,7 @@ fn cmd_suggest(args: &[String]) -> i32 {
         return 0;
     }
     let report = metaform::suggest::suggest(&st.explorer(), max_arity, max);
-    println!("{}", metaform::suggest::to_json(&report));
+    out!("{}", metaform::suggest::to_json(&report));
     0
 }
 
@@ -411,7 +448,7 @@ fn cmd_explore(args: &[String]) -> i32 {
         }
         // With --emit-questions the machine-readable output is the questions file; the report line
         // is only printed when no questions file was requested.
-        None if emit_path.is_none() => println!("{line}"),
+        None if emit_path.is_none() => out!("{line}"),
         None => {}
     }
     0
@@ -489,7 +526,7 @@ fn cmd_coverage(args: &[String]) -> i32 {
     let report = metaform::coverage::analyze(&table);
     match format.as_str() {
         "text" => print!("{}", metaform::coverage::to_text(&report)),
-        _ => println!("{}", metaform::coverage::to_json(&report)),
+        _ => out!("{}", metaform::coverage::to_json(&report)),
     }
     0
 }
@@ -508,7 +545,7 @@ fn cmd_init(args: &[String]) -> i32 {
         let _ = std::fs::write(&led, ledger::HEADER);
     }
     let shown = root.display().to_string().replace('\\', "/");
-    println!("{{\"ok\":true,\"dir\":\"{shown}\"}}");
+    out!("{{\"ok\":true,\"dir\":\"{shown}\"}}");
     0
 }
 
@@ -538,7 +575,7 @@ fn cmd_ledger(args: &[String]) -> i32 {
                 reason,
             };
             ledger::append(&path, &e);
-            println!("{{\"ok\":true,\"id\":\"{id}\",\"case\":{case}}}");
+            out!("{{\"ok\":true,\"id\":\"{id}\",\"case\":{case}}}");
             0
         }
         "retract" => {
@@ -551,7 +588,7 @@ fn cmd_ledger(args: &[String]) -> i32 {
                     e.status = "retracted".into();
                     e.reason = reason;
                     ledger::append(&path, &e);
-                    println!("{{\"ok\":true,\"id\":\"{id}\",\"status\":\"retracted\"}}");
+                    out!("{{\"ok\":true,\"id\":\"{id}\",\"status\":\"retracted\"}}");
                     0
                 }
                 None => {
@@ -564,7 +601,7 @@ fn cmd_ledger(args: &[String]) -> i32 {
             let show_all = args.iter().any(|a| a == "--all");
             for e in ledger::fold(&ledger::read_all(&path)) {
                 if show_all || e.status == "active" {
-                    println!(
+                    out!(
                         "{}\t{}\t{}\t{}\t{}\t{:.2}\t{}\t{}",
                         e.id, e.case, e.status, e.by, e.round, e.reliability, e.answer, e.reason
                     );
@@ -577,10 +614,10 @@ fn cmd_ledger(args: &[String]) -> i32 {
             let ratio: f64 = kv(args, "--ratio").and_then(|s| s.parse().ok()).unwrap_or(0.7);
             let conf = ledger::conflicts(&ledger::read_all(&path), threshold, ratio);
             for (case, s) in &conf {
-                println!("CONFLICT case {case}: pos={:.2} neg={:.2}", s.pos, s.neg);
+                out!("CONFLICT case {case}: pos={:.2} neg={:.2}", s.pos, s.neg);
             }
             let items: Vec<String> = conf.keys().map(|c| c.to_string()).collect();
-            println!("{{\"conflicts\":[{}]}}", items.join(","));
+            out!("{{\"conflicts\":[{}]}}", items.join(","));
             0
         }
         "cases" => {
@@ -588,7 +625,7 @@ fn cmd_ledger(args: &[String]) -> i32 {
             let ratio: f64 = kv(args, "--ratio").and_then(|s| s.parse().ok()).unwrap_or(0.7);
             let v = ledger::confirmed_cases(&ledger::read_all(&path), threshold, ratio);
             let items: Vec<String> = v.iter().map(|x| x.to_string()).collect();
-            println!("{{\"cases\":[{}]}}", items.join(","));
+            out!("{{\"cases\":[{}]}}", items.join(","));
             0
         }
         other => {
@@ -607,7 +644,7 @@ fn cmd_state(args: &[String]) -> i32 {
             let n: usize = kv(args, "--n").and_then(|s| s.parse().ok()).unwrap_or(0);
             let st = state::State { n, ..Default::default() };
             let _ = st.save(&path);
-            println!("{{\"ok\":true,\"n\":{n},\"file\":\"{}\"}}", path.display().to_string().replace('\\', "/"));
+            out!("{{\"ok\":true,\"n\":{n},\"file\":\"{}\"}}", path.display().to_string().replace('\\', "/"));
             0
         }
         "add" => {
@@ -641,7 +678,7 @@ fn cmd_state(args: &[String]) -> i32 {
                 }
                 let ids = st.predicates.last().map(|p| p.ids.clone()).unwrap_or_default();
                 let _ = st.save(&path);
-                println!("{{\"ok\":true,\"name\":\"{name}\",\"ids\":{}}}", state::ids_json(&ids));
+                out!("{{\"ok\":true,\"name\":\"{name}\",\"ids\":{}}}", state::ids_json(&ids));
             } else {
                 let ids: Vec<usize> = kv(args, "--ids")
                     .unwrap_or_default()
@@ -654,7 +691,7 @@ fn cmd_state(args: &[String]) -> i32 {
                     definition: None,
                 });
                 let _ = st.save(&path);
-                println!("{{\"ok\":true,\"name\":\"{name}\",\"ids\":{}}}", state::ids_json(&ids));
+                out!("{{\"ok\":true,\"name\":\"{name}\",\"ids\":{}}}", state::ids_json(&ids));
             }
             0
         }
@@ -682,9 +719,9 @@ fn cmd_state(args: &[String]) -> i32 {
                     reason: kv(args, "--reason").unwrap_or_default(),
                 };
                 ledger::append(&lpath, &e);
-                println!("{{\"ok\":true,\"id\":{id},\"yes\":{yes},\"no\":{no},\"ledger\":\"{lid}\"}}");
+                out!("{{\"ok\":true,\"id\":{id},\"yes\":{yes},\"no\":{no},\"ledger\":\"{lid}\"}}");
             } else {
-                println!("{{\"ok\":true,\"id\":{id},\"yes\":{yes},\"no\":{no}}}");
+                out!("{{\"ok\":true,\"id\":{id},\"yes\":{yes},\"no\":{no}}}");
             }
             0
         }
@@ -693,14 +730,14 @@ fn cmd_state(args: &[String]) -> i32 {
                 return 2;
             };
             let theta: Option<u8> = kv(args, "--theta").and_then(|s| s.parse().ok());
-            println!("{}", state::need_json(&st.explorer(), theta));
+            out!("{}", state::need_json(&st.explorer(), theta));
             0
         }
         "show" => {
             let Some(st) = load_state(&path, "state show") else {
                 return 2;
             };
-            println!("{}", serde_json::to_string_pretty(&st).unwrap_or_default());
+            out!("{}", serde_json::to_string_pretty(&st).unwrap_or_default());
             0
         }
         other => {
@@ -724,7 +761,7 @@ fn cmd_plan(args: &[String]) -> i32 {
         .and_then(|path| std::fs::read_to_string(path).ok())
         .map(|text| plan::parse_pool(&text));
     let p = plan::build(&e, &rows, theta, pool.as_deref());
-    println!("{}", plan::to_json(&p));
+    out!("{}", plan::to_json(&p));
     0
 }
 
@@ -742,7 +779,7 @@ fn cmd_report(args: &[String]) -> i32 {
     let path = out.join("report.md");
     match std::fs::write(&path, md) {
         Ok(_) => {
-            println!("{}", path.display().to_string().replace('\\', "/"));
+            out!("{}", path.display().to_string().replace('\\', "/"));
             0
         }
         Err(e) => {
@@ -778,24 +815,25 @@ fn cmd_score(args: &[String]) -> i32 {
         ledger::confirmed_cases(&rows_ledger, 0.5, 0.7).into_iter().collect();
 
     let rows = score::score(&cands, &truth, &pairs, &confirmed);
-    println!("{}", score::to_json(&rows));
+    out!("{}", score::to_json(&rows));
     0
 }
 
 fn main() {
+    init_telemetry();
     match std::env::args().nth(1).as_deref() {
         // Answered here rather than falling through to the script runner, which would try to open
         // `--version` as a file and panic. An installed binary is checked with these two flags.
         Some("-V" | "--version") => {
-            println!("metaform {}", env!("CARGO_PKG_VERSION"));
+            out!("metaform {}", env!("CARGO_PKG_VERSION"));
             return;
         }
         Some("-h" | "--help") => {
-            println!("metaform {}", env!("CARGO_PKG_VERSION"));
-            println!("usage: metaform <command> [options]  (no argument: interactive script)");
-            println!("commands: init, state, ledger, plan, report, score, ops, portfolio, mcp,");
-            println!("          suggest, explore, coverage, answer, apply, check-predictions, propose");
-            println!("MCP: metaform mcp  (newline-delimited JSON-RPC over stdio)");
+            out!("metaform {}", env!("CARGO_PKG_VERSION"));
+            out!("usage: metaform <command> [options]  (no argument: interactive script)");
+            out!("commands: init, state, ledger, plan, report, score, ops, portfolio, mcp,");
+            out!("          suggest, explore, coverage, answer, apply, check-predictions, propose");
+            out!("MCP: metaform mcp  (newline-delimited JSON-RPC over stdio)");
             return;
         }
         Some("init") => {
@@ -851,12 +889,16 @@ fn main() {
             std::process::exit(predictions::cmd(&v));
         }
         Some("ops") => {
-            println!("{}", metaform::operators::demo_json());
+            out!("{}", metaform::operators::demo_json());
             std::process::exit(0);
         }
         Some("portfolio") => {
             let v: Vec<String> = std::env::args().skip(2).collect();
             std::process::exit(metaform::portfolio::run_cli(&v));
+        }
+        Some("check") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            std::process::exit(metaform::check::cmd(&v));
         }
         Some("metrics") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
@@ -882,7 +924,7 @@ fn main() {
             "objects" => {
                 let n: usize = rest[0].parse().expect("objects needs a number");
                 *e = Some(Explorer::new(n, Vocabulary::default()));
-                println!("scenario created: {n} objects");
+                out!("scenario created: {n} objects");
             }
             "add" | "score" => {
                 let ex = e.as_mut().expect("run objects first");
@@ -891,10 +933,10 @@ fn main() {
                 if cmd == "score" {
                     let pairs = colliding_pairs(ex);
                     let split = pairs.iter().filter(|(a, b)| ((mask >> a) & 1) != ((mask >> b) & 1)).count();
-                    println!("score {name}: splits {split}/{} colliding pairs", pairs.len());
+                    out!("score {name}: splits {split}/{} colliding pairs", pairs.len());
                 } else {
                     ex.propose(Predicate::new(name, mask));
-                    println!("predicate added (vocabulary has {} entries)", ex.vocab.len());
+                    out!("predicate added (vocabulary has {} entries)", ex.vocab.len());
                 }
             }
             "pos" | "neg" => {
@@ -906,14 +948,14 @@ fn main() {
                         ex.answer(x, member);
                     }
                 }
-                println!("labeling done: pos {} / neg {}", ex.pos.count_ones(), ex.neg.count_ones());
+                out!("labeling done: pos {} / neg {}", ex.pos.count_ones(), ex.neg.count_ones());
             }
             "ask" => {
                 let ex = e.as_ref().expect("run objects first");
                 let theta: u8 = rest.first().and_then(|s| s.parse().ok()).unwrap_or(3);
                 match ex.next_question_with(theta) {
-                    Some(x) => println!("suggested question: object {x} (theta={theta}; after answering, write pos/vote)"),
-                    None => println!("no object left to ask (status: {:?})", ex.status_with(theta)),
+                    Some(x) => out!("suggested question: object {x} (theta={theta}; after answering, write pos/vote)"),
+                    None => out!("no object left to ask (status: {:?})", ex.status_with(theta)),
                 }
             }
             "status" => status(e.as_ref().expect("run objects first")),
@@ -924,7 +966,7 @@ fn main() {
                 let yes: u8 = rest.get(1).and_then(|s| s.parse().ok()).unwrap_or(1);
                 let no: u8 = rest.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
                 ex.answer_votes(x, yes, no);
-                println!("vote recorded: obj {x} = ({yes}, {no})");
+                out!("vote recorded: obj {x} = ({yes}, {no})");
             }
             "need" => {
                 let ex = e.as_ref().expect("run objects first");
@@ -945,7 +987,7 @@ fn main() {
                 let pending = ex.pending(theta);
                 let eps_hat = ex.implied_epsilon();
                 let theta_rec = ex.recommended_theta();
-                println!(
+                out!(
                     "{{\"status\":\"{st}\",\"action\":\"{action}\",\"theta\":{theta},\"epsilon_hat\":{eps_hat:.2},\"theta_rec\":{theta_rec},\"classes\":{},\"free_classes\":{},\"colliding_pairs\":{},\"pending\":{},\"unverified\":{},\"suggested_labels\":{}}}",
                     ex.classes().len(),
                     free.len(),
@@ -974,7 +1016,7 @@ fn main() {
                 match rest.first() {
                     Some(path) => {
                         std::fs::write(path, &text).expect("cannot write the pool file");
-                        println!("generated {} candidates → {path}", cands.len());
+                        out!("generated {} candidates → {path}", cands.len());
                     }
                     None => print!("{text}"),
                 }
@@ -995,7 +1037,7 @@ fn main() {
                     let mask = match ids_to_mask(&parts[1..], ex.n) {
                         Ok(m) => m,
                         Err(e) => {
-                            println!("pool file error: {e}");
+                            out!("pool file error: {e}");
                             return true;
                         }
                     };
@@ -1020,7 +1062,7 @@ fn main() {
                         break;
                     }
                     let (name, mask) = pool.remove(idx);
-                    println!("cover: {name} splits {covered}/{} pairs", pairs.len());
+                    out!("cover: {name} splits {covered}/{} pairs", pairs.len());
                     pairs.retain(|(a, b)| ((mask >> a) & 1) == ((mask >> b) & 1));
                     chosen.push(name);
                 }
@@ -1028,7 +1070,7 @@ fn main() {
                     "[{}]",
                     chosen.iter().map(|s| format!("\"{s}\"")).collect::<Vec<_>>().join(",")
                 );
-                println!(
+                out!(
                     "{{\"chosen\":{chosen_json},\"covered\":{},\"total\":{},\"remaining\":{}}}",
                     total - pairs.len(),
                     total,
@@ -1040,7 +1082,7 @@ fn main() {
                 let k: usize = rest.first().and_then(|s| s.parse().ok()).unwrap_or(4);
                 let mut reps = free_reps(ex);
                 reps.truncate(k);
-                println!(
+                out!(
                     "{{\"round\":{k},\"suggested_labels\":{},\"free_classes\":{}}}",
                     json_ids(&reps),
                     free_reps(ex).len()
@@ -1049,10 +1091,10 @@ fn main() {
             "explain" => explain(e.as_ref().expect("run objects first")),
             "capacity" => {
                 let ex = e.as_ref().expect("run objects first");
-                println!("2^{} = {}", ex.classes().len(), ex.capacity());
+                out!("2^{} = {}", ex.classes().len(), ex.capacity());
             }
             "quit" => return false,
-            other => println!("unknown command: {other}"),
+            other => note!("unknown command: {other}"),
         }
         true
     };
@@ -1067,7 +1109,7 @@ fn main() {
             }
         }
         None => {
-            println!("metaform: type a command and press Enter (quit to exit)");
+            note!("metaform: type a command and press Enter (quit to exit)");
             let stdin = io::stdin();
             for line in stdin.lock().lines() {
                 let line = line.unwrap_or_default();

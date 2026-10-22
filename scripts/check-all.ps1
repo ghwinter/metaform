@@ -1,17 +1,19 @@
 <#
 .SYNOPSIS
-    Run all ten assertion-bearing checks with one command: Lean formalization, Rust kernel tests, theorem falsification, bilingual alignment, and paper-number regression.
+    Run all eleven assertion-bearing checks with one command: Lean formalization, Rust kernel tests, theorem falsification, bilingual alignment, and paper-number regression.
 
 .DESCRIPTION
     - check-lean: fail on any warning
     - check-rust: the pass count must equal the expected value, and ignored must be 0
     - check-rust (VSA manifest): the same, for the hyperdimensional component's own tests
-    - check-components.ps1: the proposal components build, and three proposers are judged by one validator
+    - align-papers.py: the two papers keep the same structure and the same numbers
     - check-references.py: no path, file name or link that the repository does not contain
+    - check-components.ps1: the proposal components build, and three proposers are judged by one validator
     - check-claims.py: every claim about the repository still has a command that supports it
     - check-secrets.py: tracked files and tmp carry no API-key-shaped strings, and its self-test passes
-    - llm_e2e.py: the propose protocol accepts valid candidates and refuses malformed ones
-    - verify_claims.py: key numbers in the paper must match measured values within tolerance
+    - metaform check all: the print, layer and tracked-document rules, in the binary itself
+    - theory_audit.py: the theorems still hold against the engine, and the engine against them
+    - verify_claims.py and the end-to-end loops: the paper's numbers and both loop scripts still reproduce
 
     If any check fails, the whole run fails.
 
@@ -21,8 +23,23 @@
 .PARAMETER SkipExperiments
     Skip the Python regression (about 3 s).
 
+.PARAMETER SkipAlign
+    Skip the bilingual alignment check.
+
+.PARAMETER SkipReferences
+    Skip the reference check.
+
+.PARAMETER SkipComponents
+    Skip the components check.
+
+.PARAMETER SkipClaims
+    Skip the claims register.
+
+.PARAMETER SkipTheory
+    Skip the theorem falsification run.
+
 .PARAMETER RustExpected
-    Expected Rust pass count (default 203).
+    Expected Rust pass count (default 205).
 
 .PARAMETER Python
     Python interpreter path. Defaults to $env:METAFORM_PYTHON, then to `python` on PATH.
@@ -32,8 +49,11 @@ param(
     [switch]$SkipLean,
     [switch]$SkipExperiments,
     [switch]$SkipAlign,
+    [switch]$SkipReferences,
+    [switch]$SkipComponents,
+    [switch]$SkipClaims,
     [switch]$SkipTheory,
-    [int]$RustExpected = 203,
+    [int]$RustExpected = 205,
     [int]$VsaExpected = 19,
     [string]$Python = $env:METAFORM_PYTHON
 )
@@ -106,11 +126,8 @@ $secretsSelf = $LASTEXITCODE
 $secretsScan = $LASTEXITCODE
 $results += [pscustomobject]@{ Check = 'secrets'; Exit = [Math]::Max($secretsSelf, $secretsScan) }
 
-& $Python (Join-Path $PSScriptRoot 'check-tracked.py') | Out-Host
-$results += [pscustomobject]@{ Check = 'tracked'; Exit = $LASTEXITCODE }
-
-& $Python (Join-Path $PSScriptRoot 'check-layers.py') | Out-Host
-$results += [pscustomobject]@{ Check = 'layers'; Exit = $LASTEXITCODE }
+& (Join-Path $root 'target\debug\metaform.exe') check all | Out-Host
+$results += [pscustomobject]@{ Check = 'checks'; Exit = $LASTEXITCODE }
 
 if (-not $SkipTheory) {
     Push-Location (Join-Path $root 'experiments')
@@ -145,7 +162,7 @@ if (-not $SkipExperiments) {
             $adapter = $LASTEXITCODE
             & $Python propose_loop.py | Out-Host
             $loop = $LASTEXITCODE
-            $results += [pscustomobject]@{ Check = 'experiments'; Exit = [Math]::Max([Math]::Max([Math]::Max($claims, $selection), $e2e), $adapter) }
+            $results += [pscustomobject]@{ Check = 'experiments'; Exit = [Math]::Max([Math]::Max([Math]::Max($claims, $selection), [Math]::Max($e2e, $adapter)), $loop) }
         }
         finally { Pop-Location }
     }

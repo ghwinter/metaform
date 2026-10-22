@@ -58,6 +58,7 @@ pub mod apply;
 /// Minimal MCP stdio server.
 pub mod mcp;
 pub mod metrics;
+pub mod check;
 
 /// Bitmask over a set of objects. Enough for up to 64 objects; switch to `bitvec` if you need more.
 pub type Mask = u64;

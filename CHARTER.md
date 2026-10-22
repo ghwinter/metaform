@@ -17,7 +17,7 @@ reference.
 | **[evidence]** | this repository has run it and has numbers | scripts under `experiments/` reproduce them |
 | **[wager]** | belief without evidence | can only be cashed in or abandoned by later experiments |
 
-Authority: **code and the twelve gates > this file > any note**. The charter obeys its own L9: every
+Authority: **code and the eleven gates > this file > any note**. The charter obeys its own L9: every
 checkable sentence it writes either has a check in the repository or is explicitly marked **[wager]**.
 
 One writing discipline: every principle states **what it forbids**. A principle without a prohibition is
@@ -706,7 +706,7 @@ Four engineering disciplines:
 
 ### 6.6 Definition of done for a round
 
-1. It builds, and the twelve gates are green.
+1. It builds, and the eleven gates are green.
 2. The claims register is updated: a new fact has a command; a fact without one goes to NEED.
 3. The results file gains one numbered conclusion, or says explicitly that the round has none.
 4. The English document and the Chinese copy are in sync.
@@ -740,7 +740,7 @@ Two rules follow from the table and are binding:
 
 Roadmap, in the order the table implies:
 
-1. **R0, done.** Kernel, protocol, held-out prediction, discriminating rival, coverage table, ten gates.
+1. **R0, done.** Kernel, protocol, held-out prediction, discriminating rival, coverage table, the gate set.
 2. **R1, now.** Fill the two rows the table says are thin: port anti-unification and state the
    composition-preservation rate for analogy. Neither needs a dependency; both need a test.
 3. **R2.** Re-decide VSA on one experiment: contrastive encoding against the raw-trace fallback on the
@@ -867,7 +867,7 @@ Four tiers, and an import may only point inward:
 | interface | CLI, MCP, report rendering | kernel and runtime |
 | components | capability crates: VSA, SME, ILP | kernel types only |
 
-`scripts/check-layers.py` enforces the direction over the engine's files and fails on a module with
+`metaform check layers` enforces the direction over the engine's files and fails on a module with
 no declared tier, so adding a file forces the author to place it. That is the only kind of layering
 rule that survives: the one that turns red.
 

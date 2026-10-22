@@ -34,8 +34,9 @@ C21	two operand sets with one extension are reported as one candidate	cargo test
 C22	a prediction that two competing rules agree on is refused	cargo test -p metaform --test predict	contains:test result: ok	verified
 C23	the coverage command reports missing cells, supported implications and blocking requirements	cargo test -p metaform --test coverage	contains:test result: ok	verified
 C24	the secret scanner's self-test classifies every embedded sample correctly	python scripts/check-secrets.py --self-test	contains:ok	verified
-C25	only formal documents are tracked in this repository	python scripts/check-tracked.py	contains:ok	verified
-C26	no engine module imports a layer above it	python scripts/check-layers.py	contains:ok	verified
+C25	only formal documents are tracked in this repository	target\debug\metaform.exe check tracked	contains:ok	verified
+C26	no engine module imports a layer above it	target\debug\metaform.exe check layers	contains:ok	verified
 C27	the clause inducer proposes an extension that covers positives and excludes negatives	cargo test -p metaform-components ilp_op	contains:test result: ok	verified
 C28	one round pools every operator and merges candidates with identical extensions	cargo test -p metaform-runtime pool	contains:test result: ok	verified
 C29	a body longer than the available literals returns none instead of panicking	cargo test -p metaform-ilp longer_than_the_available	contains:test result: ok	verified
+C30	the kernel does not print and every other print site is counted	target\debug\metaform.exe check prints	contains:ok	verified
