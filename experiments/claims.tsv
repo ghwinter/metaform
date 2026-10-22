@@ -44,3 +44,5 @@ C31	adding a Boolean combination buys no expressive power	target\debug\metaform.
 C32	a merge that keeps every definable set can still erase a labelled collision	target\debug\metaform.exe translate --input experiments\translation\quotient.json	contains:collapsed	verified
 C33	the five-class typing does not separate a probe from an ordinary evidence step	target\debug\metaform.exe engine\scenarios\typing.demo	contains:[[4,3]]	verified
 C34	the atom that separates them buys 32 definable sets and merges nothing	target\debug\metaform.exe translate --input experiments\translation\typing_gain.json	contains:"new_sets":32	verified
+C35	a predicate that is a Boolean combination of the vocabulary separates no colliding pair	target\debug\metaform.exe propose --request experiments\propose\request.json --response experiments\propose\recombination.json	contains:"splits":0	verified
+C36	a bet that every rule in its neighbourhood makes is refused	target\debug\metaform.exe propose --request experiments\propose\request.json --response experiments\propose\agrees_with_rival.json	contains:predict_not_discriminating	verified

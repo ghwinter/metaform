@@ -1,0 +1,4 @@
+{"protocol":"metaform.propose/1","request_id":"prime-1",
+ "candidates":[
+  {"name":"odd","ids":[1,3,5,7],"warrant":"the positives 3 and 5 are odd; the negatives 0,4,6 are even","falsifier":"an odd object labelled negative","predict":{"id":2,"label":"neg"}},
+  {"name":"even_and_big","ids":[4,6],"warrant":"the negatives 4 and 6 are even and big","falsifier":"a positive that is even and big","predict":{"id":2,"label":"neg"}}]}

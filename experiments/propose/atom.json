@@ -1,0 +1,3 @@
+{"protocol":"metaform.propose/1","request_id":"prime-1",
+ "candidates":[{"name":"has_no_proper_divisor","ids":[2,3,5,7],
+   "warrant":"3 and 5 are the shown positives; 2 is the smallest object not shown and is not a product of two objects greater than 1, while 4 and 6 are","falsifier":"an object the evidence does not cover that is a product of two integers greater than 1 yet labelled positive","predict":{"id":2,"label":"pos"}}]}
