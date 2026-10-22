@@ -149,7 +149,7 @@ fn main() {
     // spent a whole experiment running without the proposer it was told to use.
     let known = [
         "--state", "--out", "--systems", "--proposals", "--record", "--use-record", "--max-steps", "--probe",
-        "--dim", "--seed", "--limit", "--max-arity", "--ilp", "--ilp-body", "--budget",
+        "--dim", "--seed", "--limit", "--max-arity", "--ilp", "--ilp-body", "--budget", "--rows",
     ];
     for arg in rest {
         if arg.starts_with("--") && !known.contains(&arg.as_str()) {
@@ -297,6 +297,44 @@ fn main() {
                 max_arity: arg(rest, "--max-arity").and_then(|v| v.parse().ok()).unwrap_or(2),
             }));
             let round = collect(&ctx, &operators, budget);
+            if let Some(rows_path) = arg(rest, "--rows") {
+                // One row set per component, on the same objects and the same truth: the state's
+                // own labels. A component's verdict is its best pooled candidate, where best means
+                // most splits, then the lowest extension number, so the choice is deterministic.
+                use std::collections::BTreeMap;
+                let mut best: BTreeMap<String, (usize, u64)> = BTreeMap::new();
+                for row in &round.pool {
+                    if !row.usable {
+                        continue;
+                    }
+                    for source in &row.sources {
+                        let entry = best.entry(source.clone()).or_insert((row.splits, row.extension));
+                        if (row.splits, std::cmp::Reverse(row.extension)) > (entry.0, std::cmp::Reverse(entry.1)) {
+                            *entry = (row.splits, row.extension);
+                        }
+                    }
+                }
+                let mut out = String::from("system\titem\tverdict\ttruth\tscore\n");
+                for (source, (_, ext)) in &best {
+                    for object in 0..ctx.objects {
+                        let verdict = if ext & (1u64 << object) != 0 { "pos" } else { "neg" };
+                        let truth = if ctx.pos & (1u64 << object) != 0 {
+                            "pos"
+                        } else if ctx.neg & (1u64 << object) != 0 {
+                            "neg"
+                        } else {
+                            continue;
+                        };
+                        out.push_str(&format!("{source}\t{object}\t{verdict}\t{truth}\t\n"));
+                    }
+                }
+                if let Err(e) = std::fs::write(&rows_path, out) {
+                    eprintln!("cannot write {}: {}", rows_path, e);
+                    std::process::exit(2);
+                }
+                println!("{}", round.to_json());
+                std::process::exit(0);
+            }
             println!("{}", round.to_json());
             std::process::exit(0);
         }
