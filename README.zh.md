@@ -71,6 +71,7 @@ metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # 一步式：直接给状态与建议
 metaform apply  --project . --request request.json --response response.json # 校验并采纳被接受的候选，只写一次状态
 metaform check-predictions --project .            # 只读：把记录下来的留出预测与当前强标签对账
+metaform translate  --input <spec.json|->          # 只读：这次换词是丢失、是换说法、还是真的增产
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # 只读：试过哪些布尔候选，以及为何都分不开
 metaform explore    --project . [--max-questions 1000] [--laws <path>] [--emit-questions <path>] [--out <path>] # 只读：证据确认的蕴含、带反例的否证、待问的开放问题
 metaform answer     --project . --questions <q.json> --answers <a.json> [--laws <path>] # 把专家回答记为定律（define 会采纳谓词），下次 explore 从它们出发

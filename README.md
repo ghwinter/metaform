@@ -77,6 +77,7 @@ metaform state vote  --project . --id 0 --yes 3 --no 0
 metaform state need  --project .                  # one-shot: status and recommendations directly
 metaform apply  --project . --request request.json --response response.json # validate + adopt accepted candidates with one state write
 metaform check-predictions --project .            # read-only: score recorded held-out predictions against the state's strong labels
+metaform translate  --input <spec.json|->          # read-only: is this vocabulary change a loss, a rewording, or a real gain
 metaform suggest    --project . [--max-arity 2] [--max 20] [--emit-request [--out <path>]] # read-only: Boolean candidates tried, and why none separates
 metaform explore    --project . [--max-questions 1000] [--laws <path>] [--emit-questions <path>] [--out <path>] # read-only: implications confirmed by evidence, refuted with a counterexample, or open
 metaform answer     --project . --questions <q.json> --answers <a.json> [--laws <path>] # record expert answers as laws (and adopt a define), so the next explore starts from them

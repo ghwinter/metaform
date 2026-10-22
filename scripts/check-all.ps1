@@ -53,7 +53,7 @@ param(
     [switch]$SkipComponents,
     [switch]$SkipClaims,
     [switch]$SkipTheory,
-    [int]$RustExpected = 205,
+    [int]$RustExpected = 214,
     [int]$VsaExpected = 19,
     [string]$Python = $env:METAFORM_PYTHON
 )
@@ -80,10 +80,19 @@ if (-not $ok) {
 
 # Every gate that runs a binary expects a fresh one in the workspace target.
 Push-Location $root
+$native = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 try {
-    cargo build --workspace --bins --quiet
+    # cargo writes warnings to stderr, and $ErrorActionPreference is Stop, so an unredirected
+    # native write aborts the whole run on a warning that says nothing about correctness.
+    # Lowering the preference for this call is the only thing PowerShell 5.1 honours: a redirect
+    # alone still raises NativeCommandError before it applies. The exit code is the judgment here.
+    cargo build --workspace --bins --quiet 2>$null
     $build = $LASTEXITCODE
-} finally { Pop-Location }
+} finally {
+    $ErrorActionPreference = $native
+    Pop-Location
+}
 if ($build -ne 0) {
     Write-Host '[check-all] cargo build failed'
     exit 1

@@ -43,10 +43,17 @@ if (-not $LlmProposals) { $LlmProposals = Join-Path $root 'experiments\llm_propo
 # The script runs binaries, not just tests; build them first so it cannot pick up an old artifact
 # from a directory that a previous layout left behind.
 Push-Location $root
+$native = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 try {
-    cargo build --workspace --bins --quiet
+    # A warning on cargo's stderr is not a failure, but under Stop PowerShell 5.1 turns an
+    # unredirected native write into a terminating NativeCommandError. The exit code decides.
+    cargo build --workspace --bins --quiet 2>$null
     $build = $LASTEXITCODE
-} finally { Pop-Location }
+} finally {
+    $ErrorActionPreference = $native
+    Pop-Location
+}
 if ($build -ne 0) {
     Write-Host '[components] cargo build failed'
     exit 1

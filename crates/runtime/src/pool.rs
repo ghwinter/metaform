@@ -16,7 +16,7 @@
 //!      name, so two runs over the same input produce identical bytes.
 
 use metaform::Mask;
-use crate::{splits, validate, Candidate, Context, OpStatus, Operator};
+use crate::{splits, validate, Context, OpStatus, Operator};
 
 /// One operator's run, whether or not it produced anything.
 #[derive(Clone, Debug)]
@@ -179,7 +179,8 @@ fn ids(mask: Mask) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use metaform::{bit, Status, Vocabulary};
+    use crate::Candidate;
+    use metaform::{bit, Vocabulary};
 
     struct Stub {
         name: &'static str,

@@ -53,6 +53,17 @@
 //! answers, and the blocking requirements still unanswered. A requirement named with a trailing
 //! `!` is blocking. It never writes a file.
 //!
+//! `metaform translate --input <spec.json|-> [--max-classes N]` is the read-only judgment on a
+//! *change of vocabulary*: it takes two theories and a map on their objects, and reports whether the
+//! change is `lossy` (with a witness: a merged pair an old atom separates, or an old atom the new
+//! vocabulary can no longer define), `wording_only` (faithful, and every new definable set was
+//! already definable), or `genuine` (faithful, with a count of the sets that were not). Adding an
+//! atom — what `Op::Represent` does in place — is the case where the object map is the identity, so
+//! the kernel's representation step is one row of a table whose other rows it cannot yet express.
+//! With `pos` / `neg` it also reports `collapsed`: a fibre holding one positive and one negative
+//! object, which loses no definable set and destroys the only proof that the vocabulary was
+//! insufficient.
+//!
 //! `metaform answer --project . --questions <q.json> --answers <a.json> [--laws <path>]` records
 //! the expert's answers in `.metaform/laws.tsv` (`yes` as a law, `no` as a refutation with a
 //! validated counterexample, `define` as a law) and adopts a defined predicate in the state only for
@@ -832,7 +843,8 @@ fn main() {
             out!("metaform {}", env!("CARGO_PKG_VERSION"));
             out!("usage: metaform <command> [options]  (no argument: interactive script)");
             out!("commands: init, state, ledger, plan, report, score, ops, portfolio, mcp,");
-            out!("          suggest, explore, coverage, answer, apply, check-predictions, propose");
+            out!("          suggest, explore, coverage, answer, apply, check-predictions, propose,");
+            out!("          translate");
             out!("MCP: metaform mcp  (newline-delimited JSON-RPC over stdio)");
             return;
         }
@@ -887,6 +899,19 @@ fn main() {
         Some("check-predictions") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
             std::process::exit(predictions::cmd(&v));
+        }
+        Some("translate") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            match metaform::morphism::run(&v) {
+                Ok(line) => {
+                    out!("{line}");
+                    std::process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("metaform translate: {e}");
+                    std::process::exit(2);
+                }
+            }
         }
         Some("ops") => {
             out!("{}", metaform::operators::demo_json());

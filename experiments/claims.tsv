@@ -40,3 +40,5 @@ C27	the clause inducer proposes an extension that covers positives and excludes 
 C28	one round pools every operator and merges candidates with identical extensions	cargo test -p metaform-runtime pool	contains:test result: ok	verified
 C29	a body longer than the available literals returns none instead of panicking	cargo test -p metaform-ilp longer_than_the_available	contains:test result: ok	verified
 C30	the kernel does not print and every other print site is counted	target\debug\metaform.exe check prints	contains:ok	verified
+C31	adding a Boolean combination buys no expressive power	target\debug\metaform.exe translate --input experiments\translation\recombination.json	contains:wording_only	verified
+C32	a merge that keeps every definable set can still erase a labelled collision	target\debug\metaform.exe translate --input experiments\translation\quotient.json	contains:collapsed	verified

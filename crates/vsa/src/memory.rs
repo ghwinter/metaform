@@ -11,7 +11,7 @@ use crate::mbat::MBAT;
 use crate::Hypervector;
 use crate::VSA;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 
 /// A named codebook of random vectors.
 #[derive(Clone, Debug)]
@@ -198,6 +198,7 @@ pub fn derive_seed(dim: u64, name: &str) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::Rng;
 
     #[test]
     fn cleanup_recovers_a_clean_vector() {

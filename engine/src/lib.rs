@@ -34,6 +34,9 @@ pub mod coverage;
 /// Portfolio identification: several vocabularies, exactly one of which is sufficient (paper Theorem 2).
 pub mod portfolio;
 
+/// Vocabulary change as a morphism: fidelity, gain, and the collision a merge can hide.
+pub mod morphism;
+
 /// Evidence ledger: append-only TSV rows folded by id.
 pub mod ledger;
 

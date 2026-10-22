@@ -19,7 +19,7 @@ use std::process::Command;
 const KERNEL: &[&str] = &["lib.rs", "state.rs", "operators.rs", "propose.rs", "metrics.rs", "coverage.rs"];
 const RUNTIME: &[&str] = &[
     "suggest.rs", "explore.rs", "apply.rs", "answer.rs", "laws.rs", "predictions.rs", "plan.rs",
-    "ledger.rs", "portfolio.rs", "report.rs", "score.rs",
+    "ledger.rs", "portfolio.rs", "report.rs", "score.rs", "morphism.rs",
 ];
 const INTERFACE: &[&str] = &["main.rs", "mcp.rs", "check.rs"];
 
