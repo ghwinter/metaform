@@ -163,8 +163,41 @@ def to_request(sc: dict, request_id: str) -> dict:
     }
 
 
-def render(sc: dict, request: dict, round_no: int, first: dict | None) -> str:
-    """The prompt. Short on purpose: a 2B model has to be able to follow it."""
+def witness_pair(sc: dict) -> tuple[int, int] | None:
+    """One pair T2 says the vocabulary cannot separate: same signature, opposite labels.
+
+    This is the definition `runtime::colliding_pairs` computes, recomputed here because
+    `metaform propose` reports only a count (`splits`) and never the pair itself. That the protocol
+    has no field for the witness is a gap in the product, not a convenience here: the whole claim is
+    that the engine can name a pair, and the round-2 prompt had no way to quote one.
+    """
+    n = sc["objects"]
+    vocab = [(a["name"], mask_of(a["ids"])) for a in sc["vocabulary"]]
+    pos, neg = mask_of(sc["pos"]), mask_of(sc["neg"])
+    for c in classes(n, vocab):
+        p = [x for x in range(n) if (c >> x) & 1 and (pos >> x) & 1]
+        q = [x for x in range(n) if (c >> x) & 1 and (neg >> x) & 1]
+        if p and q:
+            return (p[0], q[0])
+    return None
+
+
+def render(sc: dict, request: dict, round_no: int, first: dict | None,
+           feedback: str = "diagnosis") -> str:
+    """The prompt. Short on purpose: a 2B model has to be able to follow it.
+
+    `feedback` decides what round 2 is told, and it exists so the measurement has a control:
+
+      diagnosis  the engine's verdict, with the reason (this is the treatment)
+      placebo    "rejected, try a different predicate" and no reason at all
+      pairs      the verdict plus the specific pair that has to be separated
+      none       the round-1 prompt again, byte for byte
+
+    Without `placebo`, a recovery rate cannot be attributed to the engine: a second sample from the
+    same model already changes the answer, and at a fixed q0 the expected recovery from resampling
+    alone is not zero. The contrast that means something is diagnosis minus placebo, not diagnosis
+    minus zero.
+    """
     vocab = "; ".join(f"{a['name']} = {{{', '.join(map(str, a['ids']))}}}"
                       for a in request["vocabulary"])
     lines = [
@@ -186,25 +219,50 @@ def render(sc: dict, request: dict, round_no: int, first: dict | None) -> str:
         "",
         "`predict` is a bet on one unmeasured object; it is required.",
     ]
-    if round_no == 2 and first is not None:
-        lines += [
-            "",
-            "Your previous answer was REJECTED by the checker.",
-            f"  you proposed: ids = {first.get('ids')}",
-            f"  the checker said: splits = {first.get('splits')} (it separated {first.get('splits')} of the pairs)",
-            "  reason: a set built only from the known predicates cannot separate any pair, because it",
-            "          takes the same value on both objects of every pair. A splits of 0 means exactly that.",
-            "Propose a DIFFERENT predicate, using a distinction the known predicates do not encode.",
-        ]
+    if round_no == 2 and first is not None and feedback != "none":
+        lines += ["", "Your previous answer was REJECTED by the checker."]
+        if feedback == "diagnosis":
+            lines += [
+                f"  you proposed: ids = {first.get('ids')}",
+                f"  the checker said: splits = {first.get('splits')} (it separated {first.get('splits')} of the pairs)",
+                "  reason: a set built only from the known predicates cannot separate any pair, because it",
+                "          takes the same value on both objects of every pair. A splits of 0 means exactly that.",
+                "Propose a DIFFERENT predicate, using a distinction the known predicates do not encode.",
+            ]
+        elif feedback == "pairs":
+            w = witness_pair(sc)
+            if w is None:
+                lines += ["Propose a DIFFERENT predicate."]
+            else:
+                a, b = w
+                lines += [
+                    f"  it separated 0 pairs.",
+                    f"  objects {a} and {b} take the same value on every known predicate, and they have",
+                    f"  different labels: object {a} is positive, object {b} is negative. Your set must",
+                    f"  contain exactly one of them.",
+                    "Propose a predicate that puts one of those two objects in and the other out.",
+                ]
+        else:
+            lines += ["Propose a DIFFERENT predicate."]
     return "\n".join(lines)
 
 
-def call_endpoint(url: str, model: str, prompt: str, timeout: int, grammar: str | None) -> str:
+def call_endpoint(url: str, model: str, prompt: str, timeout: int, grammar: str | None,
+                  max_tokens: int = 512) -> str:
+    """One completion, with the thinking channel turned off where the template allows it.
+
+    A thinking model writes into `reasoning_content` and leaves `content` empty once the budget
+    runs out. Scored as-is that is a protocol violation, so the metric would report the model
+    cannot write JSON when what happened is that it thought for 300 tokens. `enable_thinking` is
+    the Qwen3.x switch; templates that ignore it are unaffected. The fallback to
+    `reasoning_content` covers servers that emit it anyway.
+    """
     body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
-        "max_tokens": 300,
+        "max_tokens": max_tokens,
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     if grammar:
         body["grammar"] = grammar
@@ -215,7 +273,8 @@ def call_endpoint(url: str, model: str, prompt: str, timeout: int, grammar: str 
     )
     with urllib.request.urlopen(req, timeout=timeout) as r:
         out = json.load(r)
-    return out["choices"][0]["message"]["content"]
+    msg = out["choices"][0]["message"]
+    return (msg.get("content") or "").strip() or (msg.get("reasoning_content") or "").strip()
 
 
 def mock_answer(sc: dict, rng: random.Random, recombination_bias: float) -> dict:
@@ -282,17 +341,30 @@ def judge(engine: Path, request: dict, candidate: dict | None, request_path: Pat
 
 
 def parse_candidate(raw: str) -> dict | None:
-    """The model's answer, salvaged from whatever prose it wrapped the JSON in."""
-    start, end = raw.find("{"), raw.rfind("}")
-    if start < 0 or end <= start:
-        return None
-    try:
-        obj = json.loads(raw[start:end + 1])
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(obj, dict) or not isinstance(obj.get("ids"), list):
-        return None
-    return obj
+    """The model's answer, salvaged from whatever prose it wrapped the JSON in.
+
+    Every balanced `{...}` span is tried in order, rather than the first-brace-to-last-brace
+    slice: a model that restates the expected shape in prose before answering would otherwise be
+    parsed as one span running from its example to its answer, which is not JSON.
+    """
+    for i, ch in enumerate(raw):
+        if ch != "{":
+            continue
+        depth = 0
+        for j in range(i, len(raw)):
+            if raw[j] == "{":
+                depth += 1
+            elif raw[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        obj = json.loads(raw[i:j + 1])
+                    except json.JSONDecodeError:
+                        break
+                    if isinstance(obj, dict) and isinstance(obj.get("ids"), list):
+                        return obj
+                    break
+    return None
 
 
 def cmd_instances(args) -> int:
@@ -324,7 +396,7 @@ def cmd_prompt(args) -> int:
         prompts.append({
             "id": sc["id"],
             "round": args.round,
-            "prompt": render(sc, sc["request"], args.round, first.get(sc["id"])),
+            "prompt": render(sc, sc["request"], args.round, first.get(sc["id"]), args.feedback),
         })
     Path(args.out).write_text(json.dumps(prompts, indent=1), encoding="utf-8")
     print(f"prompts: {len(prompts)} written to {args.out} (round {args.round})")
@@ -347,7 +419,8 @@ def cmd_answer(args) -> int:
             raw = json.dumps(cand)
         else:
             try:
-                raw = call_endpoint(args.endpoint, args.model, p["prompt"], args.timeout, args.grammar)
+                raw = call_endpoint(args.endpoint, args.model, p["prompt"], args.timeout,
+                                    args.grammar, args.max_tokens)
             except OSError as e:
                 raise SystemExit(
                     f"cannot reach {args.endpoint}: {e}\n"
@@ -396,21 +469,28 @@ def cmd_score(args) -> int:
         rows.append(row)
 
     n = len(rows)
-    parsed = sum(1 for r in rows if r["r1_parsed"])
-    zero1 = [r for r in rows if r["r1_zero"]]
-    q0 = len(zero1) / n if n else 0.0
+    # q0 is a share of the answers the engine could judge at all. An answer that would not parse is
+    # a protocol failure, not a recombination, and folding it into this denominator reports "the
+    # model cannot write JSON" as "the model recombines", which are different findings with
+    # different fixes.
+    parsed_rows = [r for r in rows if r["r1_parsed"]]
+    zero1 = [r for r in parsed_rows if r["r1_zero"]]
+    q0 = len(zero1) / len(parsed_rows) if parsed_rows else 0.0
 
     print(f"instances            {n}")
-    print(f"json parsed (round 1) {parsed}/{n}  ({parsed / n:.0%})")
-    print(f"q0  splits==0         {len(zero1)}/{n}  ({q0:.0%})")
-    print(f"mean splits round 1   {sum(r['r1_splits'] for r in rows) / n:.2f}")
+    print(f"json parsed (round 1) {len(parsed_rows)}/{n}  ({len(parsed_rows) / n:.0%})")
+    print(f"q0  splits==0         {len(zero1)}/{len(parsed_rows)}  ({q0:.0%}) of parsed")
+    print(f"mean splits round 1   {sum(r['r1_splits'] for r in parsed_rows) / len(parsed_rows):.2f}"
+          if parsed_rows else "mean splits round 1   n/a")
     if second:
-        recovered = [r for r in zero1 if r.get("r2_splits", 0) > 0]
+        recovered = [r for r in zero1 if r.get("r2_parsed") and r.get("r2_splits", 0) > 0]
         q1 = (len(zero1) - len(recovered)) / len(zero1) if zero1 else 0.0
         print(f"q1  still 0 after feedback  {len(zero1) - len(recovered)}/{len(zero1)}  ({q1:.0%})")
         print(f"engine contribution   q0 - q1 = {q0 - q1:+.2f}  "
               f"({len(recovered)} of {len(zero1)} bad answers fixed by one message)")
-        print(f"mean splits round 2   {sum(r.get('r2_splits', 0) for r in rows) / n:.2f}")
+        r2 = [r for r in rows if r.get("r2_parsed")]
+        if r2:
+            print(f"mean splits round 2   {sum(r['r2_splits'] for r in r2) / len(r2):.2f}")
     tail = Path(args.tsv)
     tail.write_text("id\tr1_splits\tr1_zero\tr1_reason\tr2_splits\tr2_zero\tr2_reason\n"
                     + "".join(f"{r['id']}\t{r['r1_splits']}\t{int(r['r1_zero'])}\t{r['r1_reason']}\t"
@@ -436,6 +516,8 @@ def main() -> int:
     p.add_argument("--instances", required=True)
     p.add_argument("--round", type=int, default=1, choices=[1, 2])
     p.add_argument("--first", help="round-1 answers, so round 2 can quote the rejection")
+    p.add_argument("--feedback", default="diagnosis", choices=["diagnosis", "pairs", "placebo", "none"],
+                   help="what round 2 is told: the engine's reason, the witness pair, a bare rejection, or nothing")
     p.add_argument("--show", action="store_true")
     p.add_argument("--out", required=True)
     p.set_defaults(fn=cmd_prompt)
@@ -450,6 +532,8 @@ def main() -> int:
     p.add_argument("--timeout", type=int, default=180)
     p.add_argument("--grammar", default=None,
                    help="a GBNF grammar file passed to llama.cpp, to remove JSON failures from the metric")
+    p.add_argument("--max-tokens", type=int, default=768,
+                   help="completion budget; a reasoning model needs room before its JSON")
     p.add_argument("--seed", type=int, default=11)
     p.add_argument("--out", required=True)
     p.set_defaults(fn=cmd_answer)

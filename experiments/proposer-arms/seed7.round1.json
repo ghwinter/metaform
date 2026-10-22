@@ -1,0 +1,560 @@
+[
+ {
+  "id": "q00",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [3],\n  \"warrant\": \"3 is in p2 but not in any positive or negative.\",\n  \"falsifier\": \"If 3 is positive, then it must also be negative.\",\n  \"predict\": {\"id\": 2, \"label\": \"neg\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    3
+   ],
+   "warrant": "3 is in p2 but not in any positive or negative.",
+   "falsifier": "If 3 is positive, then it must also be negative.",
+   "predict": {
+    "id": 2,
+    "label": "neg"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q01",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [3],\n  \"warrant\": \"Object 3 must be positive because it shares a value with a positive object on every known predicate.\",\n  \"falsifier\": \"If object 3 is negative, then it would share a value with a negative object on every known predicate.\",\n  \"predict\": {\"id\": 3, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    3
+   ],
+   "warrant": "Object 3 must be positive because it shares a value with a positive object on every known predicate.",
+   "falsifier": "If object 3 is negative, then it would share a value with a negative object on every known predicate.",
+   "predict": {
+    "id": 3,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q02",
+  "round": 1,
+  "raw": "```json\n{\"name\": \"p3\", \"ids\": [2, 5, 8, 9], \"warrant\": \"p3 is true for objects 2, 5, 8, 9, which are positive, and false for object 0, which is negative. Object 7's label is unknown, but since p3 is false for 7, we predict 7 to be negative.\", \"falsifier\": \"[0, 3, 4, 6]\"}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    2,
+    5,
+    8,
+    9
+   ],
+   "warrant": "p3 is true for objects 2, 5, 8, 9, which are positive, and false for object 0, which is negative. Object 7's label is unknown, but since p3 is false for 7, we predict 7 to be negative.",
+   "falsifier": "[0, 3, 4, 6]"
+  },
+  "parsed": true
+ },
+ {
+  "id": "q03",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [2],\n  \"warrant\": \"p3 is true for object 2 because it shares a unique signature with positive object 2 that is not present in any negative object.\",\n  \"falsifier\": \"p3 is false for object 5, which would refute the claim that p3 uniquely separates positive object 2 from negative objects.\",\n  \"predict\": {\"id\": 1, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    2
+   ],
+   "warrant": "p3 is true for object 2 because it shares a unique signature with positive object 2 that is not present in any negative object.",
+   "falsifier": "p3 is false for object 5, which would refute the claim that p3 uniquely separates positive object 2 from negative objects.",
+   "predict": {
+    "id": 1,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q04",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [6],\n  \"warrant\": \"The object labeled as 6 must have a unique characteristic that separates it from the others.\",\n  \"falsifier\": \"An observation showing that the object labeled as 6 shares a signature with both positive and negative objects would refute it.\",\n  \"predict\": {\"id\": 1, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    6
+   ],
+   "warrant": "The object labeled as 6 must have a unique characteristic that separates it from the others.",
+   "falsifier": "An observation showing that the object labeled as 6 shares a signature with both positive and negative objects would refute it.",
+   "predict": {
+    "id": 1,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q05",
+  "round": 1,
+  "raw": "```json\n{\"name\": \"p3\", \"ids\": [3], \"warrant\": \"3 is not in any positive or negative set\", \"falsifier\": \"3 is positive\", \"predict\": {\"id\": 3, \"label\": \"pos\"}}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    3
+   ],
+   "warrant": "3 is not in any positive or negative set",
+   "falsifier": "3 is positive",
+   "predict": {
+    "id": 3,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q06",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [3, 6, 8, 9],\n  \"warrant\": \"The predicate p3 is true for unmeasured objects 3, 6, 8, and 9, and false for object 5, which is not measured.\",\n  \"falsifier\": \"If an unmeasured object belongs to the set {3, 6, 8, 9}, then it satisfies p3; otherwise, it does not.\",\n  \"predict\": {\"id\": 3, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    3,
+    6,
+    8,
+    9
+   ],
+   "warrant": "The predicate p3 is true for unmeasured objects 3, 6, 8, and 9, and false for object 5, which is not measured.",
+   "falsifier": "If an unmeasured object belongs to the set {3, 6, 8, 9}, then it satisfies p3; otherwise, it does not.",
+   "predict": {
+    "id": 3,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q07",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [0, 2, 4],\n  \"warrant\": \"p3 distinguishes 0, 2, 4 from 1, 3, 5, 7, 8, 9. 0, 2, 4 belong to p0 but not p2; 1, 3, 5, 7, 8, 9 belong to p2 but not p0.\",\n  \"falsifier\": \"0, 2, 4 belong to p2.\",\n  \"predict\": {\"id\": 0, \"label\": \"neg\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    0,
+    2,
+    4
+   ],
+   "warrant": "p3 distinguishes 0, 2, 4 from 1, 3, 5, 7, 8, 9. 0, 2, 4 belong to p0 but not p2; 1, 3, 5, 7, 8, 9 belong to p2 but not p0.",
+   "falsifier": "0, 2, 4 belong to p2.",
+   "predict": {
+    "id": 0,
+    "label": "neg"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q08",
+  "round": 1,
+  "raw": "```json\n{\"name\": \"p3\", \"ids\": [3], \"warrant\": \"3 is the only object that is not in any of the known predicates but is in the positives\", \"falsifier\": \"3 is positive\", \"predict\": {\"id\": 3, \"label\": \"pos\"}}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    3
+   ],
+   "warrant": "3 is the only object that is not in any of the known predicates but is in the positives",
+   "falsifier": "3 is positive",
+   "predict": {
+    "id": 3,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q09",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [1, 2, 8],\n  \"warrant\": \"Positive objects 1, 2, and 8 are marked as positive, while object 3 is not measured. Adding object 3 to the positives would create a contradiction with the known negatives.\",\n  \"falsifier\": \"p2(3) = True, but 3 is negative.\",\n  \"predict\": {\"id\": 3, \"label\": \"neg\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    1,
+    2,
+    8
+   ],
+   "warrant": "Positive objects 1, 2, and 8 are marked as positive, while object 3 is not measured. Adding object 3 to the positives would create a contradiction with the known negatives.",
+   "falsifier": "p2(3) = True, but 3 is negative.",
+   "predict": {
+    "id": 3,
+    "label": "neg"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q10",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [2, 7],\n  \"warrant\": \"p3 is true for 2 and 7 because 2 and 7 are both negative and not in any positive set\",\n  \"falsifier\": \"2 is positive or 7 is positive\",\n  \"predict\": {\"id\": 1, \"label\": \"neg\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    2,
+    7
+   ],
+   "warrant": "p3 is true for 2 and 7 because 2 and 7 are both negative and not in any positive set",
+   "falsifier": "2 is positive or 7 is positive",
+   "predict": {
+    "id": 1,
+    "label": "neg"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q11",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [2],\n  \"warrant\": \"Object 2 is unique among the negatives as it shares no predicates with them.\",\n  \"falsifier\": \"If object 2 had the same predicates as any negative object, this would refute the prediction.\",\n  \"predict\": {\"id\": 2, \"label\": \"neg\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    2
+   ],
+   "warrant": "Object 2 is unique among the negatives as it shares no predicates with them.",
+   "falsifier": "If object 2 had the same predicates as any negative object, this would refute the prediction.",
+   "predict": {
+    "id": 2,
+    "label": "neg"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q12",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [0, 5],\n  \"warrant\": \"0 belongs to pos and 5 belongs to pos\",\n  \"falsifier\": \"1, 3, 8 belong to pos\",\n  \"predict\": {\"id\": 2, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    0,
+    5
+   ],
+   "warrant": "0 belongs to pos and 5 belongs to pos",
+   "falsifier": "1, 3, 8 belong to pos",
+   "predict": {
+    "id": 2,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q13",
+  "round": 1,
+  "raw": "```json\n{\"name\": \"p3\", \"ids\": [5], \"warrant\": \"5 is only positive and thus shares its signature only with positives.\", \"falsifier\": \"[0, 2, 7, 8, 9]\", \"predict\": {\"id\": 6, \"label\": \"pos\"}}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    5
+   ],
+   "warrant": "5 is only positive and thus shares its signature only with positives.",
+   "falsifier": "[0, 2, 7, 8, 9]",
+   "predict": {
+    "id": 6,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q14",
+  "round": 1,
+  "raw": "```json\n{\"name\": \"p3\", \"ids\": [0, 2, 4, 8], \"warrant\": \"Objects 0, 2, 4, and 8 are negative.\", \"falsifier\": \"An object with id 0 is positive.\", \"predict\": {\"id\": 0, \"label\": \"neg\"}}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    0,
+    2,
+    4,
+    8
+   ],
+   "warrant": "Objects 0, 2, 4, and 8 are negative.",
+   "falsifier": "An object with id 0 is positive.",
+   "predict": {
+    "id": 0,
+    "label": "neg"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q15",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [5],\n  \"warrant\": \"5 is a positive because it shares no values with any negative in the known predicates.\",\n  \"falsifier\": \"If 5 were negative, it would share values with at least one negative in the known predicates.\",\n  \"predict\": {\"id\": 1, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    5
+   ],
+   "warrant": "5 is a positive because it shares no values with any negative in the known predicates.",
+   "falsifier": "If 5 were negative, it would share values with at least one negative in the known predicates.",
+   "predict": {
+    "id": 1,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q16",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [3],\n  \"warrant\": \"Object 3 is the only one not in any positive or negative set that shares the same values with both positive and negative objects on known predicates.\",\n  \"falsifier\": \"If any other object shares the same values with both positive and negative objects on known predicates, then the predicate p3 is invalid.\",\n  \"predict\": {\"id\": 0, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    3
+   ],
+   "warrant": "Object 3 is the only one not in any positive or negative set that shares the same values with both positive and negative objects on known predicates.",
+   "falsifier": "If any other object shares the same values with both positive and negative objects on known predicates, then the predicate p3 is invalid.",
+   "predict": {
+    "id": 0,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q17",
+  "round": 1,
+  "raw": "```json\n{\"name\": \"p3\", \"ids\": [6], \"warrant\": \"6 is positive and 6 is not measured, thus it can separate positive from negative\", \"falsifier\": \"observation of object 6 being negative\", \"predict\": {\"id\": 0, \"label\": \"pos\"}}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    6
+   ],
+   "warrant": "6 is positive and 6 is not measured, thus it can separate positive from negative",
+   "falsifier": "observation of object 6 being negative",
+   "predict": {
+    "id": 0,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q18",
+  "round": 1,
+  "raw": "```json\n{\"name\": \"p3\", \"ids\": [3], \"warrant\": \"Object 3 is the only one in the negatives that is not in the positives or vice versa.\", \"falsifier\": \"Object 3 is not in the negatives.\", \"predict\": {\"id\": 0, \"label\": \"neg\"}}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    3
+   ],
+   "warrant": "Object 3 is the only one in the negatives that is not in the positives or vice versa.",
+   "falsifier": "Object 3 is not in the negatives.",
+   "predict": {
+    "id": 0,
+    "label": "neg"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q19",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [6],\n  \"warrant\": \"Object 6 is not in any positive or negative set, nor in any known predicate.\",\n  \"falsifier\": \"Object 6 is observed with a positive label.\",\n  \"predict\": {\"id\": 1, \"label\": \"neg\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    6
+   ],
+   "warrant": "Object 6 is not in any positive or negative set, nor in any known predicate.",
+   "falsifier": "Object 6 is observed with a positive label.",
+   "predict": {
+    "id": 1,
+    "label": "neg"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q20",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [3],\n  \"warrant\": \"3 is in p2 but not in any positive or negative set\",\n  \"falsifier\": \"3 belongs to pos or neg\",\n  \"predict\": {\"id\": 0, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    3
+   ],
+   "warrant": "3 is in p2 but not in any positive or negative set",
+   "falsifier": "3 belongs to pos or neg",
+   "predict": {
+    "id": 0,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q21",
+  "round": 1,
+  "raw": "```json\n{\"name\": \"p3\", \"ids\": [0, 1, 4, 6], \"warrant\": \"p3 is true for 0 and 6, which are negatives, and 1 and 4, which are positives. Not 2 and 7 are negatives. 3 is measured and cannot be predicted.\", \"falsifier\": \"0 or 6 labeled as pos or 1 or 4 labeled as neg\", \"predict\": {\"id\": 2, \"label\": \"pos\"}}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    0,
+    1,
+    4,
+    6
+   ],
+   "warrant": "p3 is true for 0 and 6, which are negatives, and 1 and 4, which are positives. Not 2 and 7 are negatives. 3 is measured and cannot be predicted.",
+   "falsifier": "0 or 6 labeled as pos or 1 or 4 labeled as neg",
+   "predict": {
+    "id": 2,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q22",
+  "round": 1,
+  "raw": "```json\n{\"name\": \"p3\", \"ids\": [2], \"warrant\": \"2 is positive and shares the same values as some negatives on known predicates\", \"falsifier\": \"0, 1, 3, 5, 7, 8\", \"predict\": {\"id\": 4, \"label\": \"pos\"}}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    2
+   ],
+   "warrant": "2 is positive and shares the same values as some negatives on known predicates",
+   "falsifier": "0, 1, 3, 5, 7, 8",
+   "predict": {
+    "id": 4,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q23",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [3],\n  \"warrant\": \"3 is neither in p0 nor p1, and it is not in the positives or negatives, so it must be neg.\",\n  \"falsifier\": \"3 is positive\",\n  \"predict\": {\"id\": 3, \"label\": \"neg\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    3
+   ],
+   "warrant": "3 is neither in p0 nor p1, and it is not in the positives or negatives, so it must be neg.",
+   "falsifier": "3 is positive",
+   "predict": {
+    "id": 3,
+    "label": "neg"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q24",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [2],\n  \"warrant\": \"object 2 is different from all positives and negatives on the known predicates.\",\n  \"falsifier\": \"[1, 2, 3, 4, 5, 6, 7, 8]\",\n  \"predict\": {\"id\": 1, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    2
+   ],
+   "warrant": "object 2 is different from all positives and negatives on the known predicates.",
+   "falsifier": "[1, 2, 3, 4, 5, 6, 7, 8]",
+   "predict": {
+    "id": 1,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q25",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [3],\n  \"warrant\": \"3 is neither positive nor negative as it is not in any of the known predicates and does not share values with positives and negatives.\",\n  \"falsifier\": \"An observation that shows 3 as positive or negative would refute it.\",\n  \"predict\": {\"id\": 2, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    3
+   ],
+   "warrant": "3 is neither positive nor negative as it is not in any of the known predicates and does not share values with positives and negatives.",
+   "falsifier": "An observation that shows 3 as positive or negative would refute it.",
+   "predict": {
+    "id": 2,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q26",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [5],\n  \"warrant\": \"Object 5 is not 0, 3, or 4, and it is not 0, 1, 2, or 6. It is the only number that satisfies this new predicate.\",\n  \"falsifier\": \"[0, 1, 2, 4, 6, 9]\",\n  \"predict\": {\"id\": 2, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    5
+   ],
+   "warrant": "Object 5 is not 0, 3, or 4, and it is not 0, 1, 2, or 6. It is the only number that satisfies this new predicate.",
+   "falsifier": "[0, 1, 2, 4, 6, 9]",
+   "predict": {
+    "id": 2,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q27",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [0, 2, 8],\n  \"warrant\": \"p3 is true for positives and false for negatives\",\n  \"falsifier\": \"[1, 3, 5, 6, 7, 9]\",\n  \"predict\": {\"id\": 5, \"label\": \"neg\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    0,
+    2,
+    8
+   ],
+   "warrant": "p3 is true for positives and false for negatives",
+   "falsifier": "[1, 3, 5, 6, 7, 9]",
+   "predict": {
+    "id": 5,
+    "label": "neg"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q28",
+  "round": 1,
+  "raw": "```json\n{\n  \"name\": \"p3\",\n  \"ids\": [0, 2, 6],\n  \"warrant\": \"0 is not in p0, 2 is not in p2, and 6 is not in p1, while 6 is positive\",\n  \"falsifier\": \"p3 is false for object 0\",\n  \"predict\": {\"id\": 2, \"label\": \"pos\"}\n}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    0,
+    2,
+    6
+   ],
+   "warrant": "0 is not in p0, 2 is not in p2, and 6 is not in p1, while 6 is positive",
+   "falsifier": "p3 is false for object 0",
+   "predict": {
+    "id": 2,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ },
+ {
+  "id": "q29",
+  "round": 1,
+  "raw": "```json\n{\"name\": \"p3\", \"ids\": [0], \"warrant\": \"p3 is true for 0 because it has 2 as a positive and not a negative.\", \"falsifier\": \"0 is a negative\", \"predict\": {\"id\": 0, \"label\": \"pos\"}}\n```",
+  "candidate": {
+   "name": "p3",
+   "ids": [
+    0
+   ],
+   "warrant": "p3 is true for 0 because it has 2 as a positive and not a negative.",
+   "falsifier": "0 is a negative",
+   "predict": {
+    "id": 0,
+    "label": "pos"
+   }
+  },
+  "parsed": true
+ }
+]
