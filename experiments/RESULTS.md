@@ -1879,3 +1879,19 @@ tokens and a nine-second exit. A run that dies before reporting any step is a pr
 credential failure, not a measurement, and the runner marked each one `complete:false` rather than
 reporting a zero. The repetition therefore stands at one pair, and the ratio in the previous section
 should be read as a single observation until a working key produces the rest.
+
+## 26. The verdict chain closes: a blind response becomes a curve (2026-10-22)
+
+`metrics rows` turns a request, a response and a truth file into the verdict table the report
+consumes: an object in the candidate's extension is positive, an object it abstained on is unknown
+and the abstention wins over the extension, and objects the truth does not label are skipped. A
+single candidate score is copied to every row because the protocol carries one number per candidate,
+not a probability per object.
+
+Run end to end on the two blind responses already in the ledger, both report precision 1.000 on
+answered items with a Wilson interval of [0.757, 1.000], unknown rate 0, AURC 0. The interval is the
+honest part: twelve items cannot distinguish a perfect judge from one that is wrong one time in four.
+
+The chain is now: response -> rows -> verdict report, with `score` and `abstain` in the protocol and
+the arithmetic in the engine. What it still cannot do is order abstention by confidence, because no
+arm has ever emitted a score; the column exists, is validated, and is empty in every recorded run.

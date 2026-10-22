@@ -253,6 +253,127 @@ pub fn readings_report(vocab_path: &Path, readings_path: &Path) -> Result<serde_
     }))
 }
 
+/// Turn one request/response/truth triple into the verdict table `verdict` consumes.
+///
+/// The response is a predicate over the object set, not a per-object verdict, so the rows are
+/// derived: an object in the extension is `pos`, an object the candidate abstained on is `unknown`
+/// (and takes priority over the extension), and everything else is `neg`. The candidate's score, if
+/// it carries one, is copied to every row of that candidate -- a single number orders the candidate's
+/// claims together and is not a per-object probability.
+pub fn rows_report(
+    request_path: &Path,
+    response_path: &Path,
+    truth_path: &Path,
+    system: &str,
+) -> Result<String, String> {
+    let request: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(request_path)
+            .map_err(|e| format!("cannot read {}: {e}", request_path.display()))?,
+    )
+    .map_err(|e| format!("{}: {e}", request_path.display()))?;
+    let response: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(response_path)
+            .map_err(|e| format!("cannot read {}: {e}", response_path.display()))?,
+    )
+    .map_err(|e| format!("{}: {e}", response_path.display()))?;
+    let truth: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(truth_path)
+            .map_err(|e| format!("cannot read {}: {e}", truth_path.display()))?,
+    )
+    .map_err(|e| format!("{}: {e}", truth_path.display()))?;
+
+    let n = request["objects"]
+        .as_u64()
+        .ok_or("request has no `objects`")? as usize;
+    let mut vocab: BTreeMap<String, BTreeSet<usize>> = BTreeMap::new();
+    for pred in request["vocabulary"].as_array().ok_or("request has no vocabulary")? {
+        let name = pred["name"].as_str().ok_or("predicate without a name")?;
+        let ids: BTreeSet<usize> = pred["ids"]
+            .as_array()
+            .ok_or("predicate without ids")?
+            .iter()
+            .filter_map(|v| v.as_u64().map(|x| x as usize))
+            .collect();
+        vocab.insert(name.to_string(), ids);
+    }
+
+    let candidate = response["candidates"]
+        .as_array()
+        .and_then(|c| c.first())
+        .ok_or("response has no candidate")?;
+    let extension: BTreeSet<usize> = if candidate["ids"].is_array() {
+        candidate["ids"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_u64().map(|x| x as usize))
+            .collect()
+    } else {
+        let define = candidate["define"].as_object().ok_or("candidate has neither ids nor define")?;
+        let (op, names) = if let Some(ops) = define.get("all_of") {
+            ("all_of", ops)
+        } else {
+            ("any_of", define.get("any_of").ok_or("define has no operator")?)
+        };
+        let names = names.as_array().ok_or("definition has no operands")?;
+        let mut sets = Vec::new();
+        for name in names {
+            let name = name.as_str().ok_or("operand is not a name")?;
+            sets.push(vocab.get(name).ok_or(format!("unknown predicate `{name}`"))?.clone());
+        }
+        match op {
+            "all_of" => {
+                let mut it = sets.into_iter();
+                let mut acc = it.next().ok_or("all_of with no operands")?;
+                for s in it {
+                    acc = acc.intersection(&s).copied().collect();
+                }
+                acc
+            }
+            _ => sets.into_iter().flatten().collect(),
+        }
+    };
+    let abstain: BTreeSet<usize> = candidate["abstain"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_u64().map(|x| x as usize)).collect())
+        .unwrap_or_default();
+    let score = candidate["score"].as_f64();
+
+    let positives: BTreeSet<usize> = truth["positives"]
+        .as_array()
+        .ok_or("truth has no positives")?
+        .iter()
+        .filter_map(|v| v.as_u64().map(|x| x as usize))
+        .collect();
+    let negatives: BTreeSet<usize> = truth["negatives"]
+        .as_array()
+        .ok_or("truth has no negatives")?
+        .iter()
+        .filter_map(|v| v.as_u64().map(|x| x as usize))
+        .collect();
+
+    let score_cell = score.map(|s| s.to_string()).unwrap_or_default();
+    let mut out = String::from("system\titem\tverdict\ttruth\tscore\n");
+    for id in 0..n {
+        let verdict = if abstain.contains(&id) {
+            "unknown"
+        } else if extension.contains(&id) {
+            "pos"
+        } else {
+            "neg"
+        };
+        let actual = if positives.contains(&id) {
+            "pos"
+        } else if negatives.contains(&id) {
+            "neg"
+        } else {
+            continue;
+        };
+        out.push_str(&format!("{system}\t{id}\t{verdict}\t{actual}\t{score_cell}\n"));
+    }
+    Ok(out.trim_end().to_string())
+}
+
 pub fn cmd(args: &[String]) -> i32 {
     let mut rest = args.iter().skip(1);
     let sub = match rest.next() {
@@ -287,11 +408,31 @@ pub fn cmd(args: &[String]) -> i32 {
                 readings_report(Path::new(v), Path::new(r))
             })
         }
+        "rows" => {
+            let args: Vec<&String> = rest.collect();
+            let value = |flag: &str| {
+                args.iter()
+                    .position(|a| a.as_str() == flag)
+                    .and_then(|i| args.get(i + 1))
+                    .map(|s| s.as_str())
+            };
+            match (value("--request"), value("--response"), value("--truth")) {
+                (Some(r), Some(p), Some(t)) => {
+                    let system = value("--system").unwrap_or("arm");
+                    rows_report(Path::new(r), Path::new(p), Path::new(t), system)
+                        .map(serde_json::Value::String)
+                }
+                _ => Err("usage: metrics rows --request <json> --response <json> --truth <json> [--system <name>]".to_string()),
+            }
+        }
         other => Err(format!("unknown metrics subcommand `{other}`")),
     };
     match result {
         Ok(value) => {
-            println!("{}", value);
+            match value {
+                serde_json::Value::String(text) => println!("{text}"),
+                other => println!("{other}"),
+            }
             0
         }
         Err(message) => {
@@ -354,6 +495,36 @@ mod tests {
         let report = bets_report(&path).unwrap();
         assert_eq!(report["bets"], 2);
         assert_eq!(report["divergent"], 0);
+    }
+
+    #[test]
+    fn rows_turn_a_response_into_verdicts_with_abstention_first() {
+        let dir = std::env::temp_dir().join(format!("metrics-rows-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let request = dir.join("request.json");
+        let response = dir.join("response.json");
+        let truth = dir.join("truth.json");
+        std::fs::write(
+            &request,
+            r#"{"objects":4,"vocabulary":[{"name":"a","ids":[0,2]}],
+                "evidence":{"pos":[0],"neg":[1]}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &response,
+            r#"{"candidates":[{"name":"c","define":{"any_of":["a"]},"abstain":[2],"score":0.5}]}"#,
+        )
+        .unwrap();
+        std::fs::write(&truth, r#"{"positives":[0],"negatives":[1,2,3]}"#).unwrap();
+
+        let text = rows_report(&request, &response, &truth, "arm").unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines[0], "system\titem\tverdict\ttruth\tscore");
+        assert!(lines.contains(&"arm\t0\tpos\tpos\t0.5"), "{text}");
+        assert!(lines.contains(&"arm\t1\tneg\tneg\t0.5"), "{text}");
+        // The abstention wins over the definition, which would otherwise call object 2 positive.
+        assert!(lines.contains(&"arm\t2\tunknown\tneg\t0.5"), "{text}");
+        assert!(lines.contains(&"arm\t3\tneg\tneg\t0.5"), "{text}");
     }
 
     #[test]

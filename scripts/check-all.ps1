@@ -22,7 +22,7 @@
     Skip the Python regression (about 3 s).
 
 .PARAMETER RustExpected
-    Expected Rust pass count (default 198).
+    Expected Rust pass count (default 199).
 
 .PARAMETER Python
     Python interpreter path. Defaults to $env:METAFORM_PYTHON, then to `python` on PATH.
@@ -33,7 +33,7 @@ param(
     [switch]$SkipExperiments,
     [switch]$SkipAlign,
     [switch]$SkipTheory,
-    [int]$RustExpected = 198,
+    [int]$RustExpected = 199,
     [int]$VsaExpected = 19,
     [string]$Python = $env:METAFORM_PYTHON
 )
