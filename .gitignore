@@ -79,10 +79,6 @@ crates/*/Cargo.lock
 # output path intentional if the broad tmp rule is ever narrowed.
 tmp/metrics/
 
-# Conversation dumps and internal notes.
-1.md
-1-digest.md
-2.md
-3.md
-reasoning_engine_research_map.md
-HANDOFF.md
+# Conversation dumps and internal notes. One directory rule, so moving a note
+# does not need an edit here; the files sat at the root until 2026-10-23.
+/notes/
