@@ -6,8 +6,8 @@ what matters is not either number but their product over the chain.
 
     p_eff = p + (1 - p) * d * r          d = 1 when every step is judged
 
-`yield(N) = p_eff ** N`. This prints it from the rows files, so the numbers in `framework.md` are
-computed rather than transcribed.
+`yield(N) = p_eff ** N`. This prints it from the rows files, so the numbers quoted in the framework
+note (untracked, at the repository root) are computed rather than transcribed.
 
     python experiments/yield.py
 """
