@@ -211,8 +211,8 @@ fn apply_records_predictions_once_and_is_idempotent() {
     assert_eq!(first["skipped"], json!([]), "{first}");
 
     let want = concat!(
-        "request_id\tname\tid\tpredicted\textension\trival\n",
-        "predict-record\tonly0\t2\tpos\t0\t\n"
+        "request_id\tname\tid\tpredicted\textension\trival\tscore\n",
+        "predict-record\tonly0\t2\tpos\t0\t\t\n"
     );
     assert_eq!(
         std::fs::read_to_string(predictions_file(&dir)).expect("read predictions"),
@@ -492,8 +492,8 @@ fn rival_that_disagrees_is_accepted_and_recorded() {
     assert_eq!(applied["applied"], json!(1), "{applied}");
     // The rival column is the rival's extension: the candidate covers 0, the rival covers 0 and 2.
     let want = concat!(
-        "request_id\tname\tid\tpredicted\textension\trival\n",
-        "predict-rival-record\tonly0\t2\tpos\t0\t0,2\n"
+        "request_id\tname\tid\tpredicted\textension\trival\tscore\n",
+        "predict-rival-record\tonly0\t2\tpos\t0\t0,2\t\n"
     );
     assert_eq!(
         std::fs::read_to_string(predictions_file(&dir)).expect("read predictions"),
@@ -507,6 +507,27 @@ fn rival_that_disagrees_is_accepted_and_recorded() {
 /// (c) Backward compatibility: a candidate that names no rival is still accepted on a request with
 /// an unmeasured object, and its row exists with an empty trailing rival column.
 #[test]
+fn a_scored_prediction_records_its_score() {
+    let dir = unmeasured_fixture("score-column");
+    let project = dir.to_str().expect("utf-8 path");
+    let request = write(&dir, "request.json", &request("predict-score"));
+    let response = write(
+        &dir,
+        "response.json",
+        &response(
+            "predict-score",
+            r#"{"name":"only0","ids":[0],"score":0.5,"predict":{"id":2,"label":"pos"}}"#,
+        ),
+    );
+
+    let verdict = propose(&request, &response);
+    assert_eq!(verdict["rejected"], json!([]), "{verdict}");
+    let applied = apply(project, &request, &response);
+    assert_eq!(applied["applied"], json!(1), "{applied}");
+    let record = std::fs::read_to_string(dir.join(".metaform").join("predictions.tsv"))
+        .expect("predictions file");
+    assert!(record.ends_with("predict-score\tonly0\t2\tpos\t0\t\t0.5\n"), "{record}");
+}
 fn candidate_without_a_rival_records_an_empty_rival_column() {
     let dir = unmeasured_fixture("rival-empty");
     let project = dir.to_str().expect("utf-8 path");
@@ -536,8 +557,8 @@ fn candidate_without_a_rival_records_an_empty_rival_column() {
     let applied = apply(project, &request, &response);
     assert_eq!(applied["applied"], json!(1), "{applied}");
     let want = concat!(
-        "request_id\tname\tid\tpredicted\textension\trival\n",
-        "predict-no-rival\tonly0\t2\tpos\t0\t\n"
+        "request_id\tname\tid\tpredicted\textension\trival\tscore\n",
+        "predict-no-rival\tonly0\t2\tpos\t0\t\t\n"
     );
     assert_eq!(
         std::fs::read_to_string(predictions_file(&dir)).expect("read predictions"),

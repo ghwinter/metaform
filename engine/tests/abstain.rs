@@ -62,6 +62,14 @@ fn abstaining_on_an_object_the_candidate_claims_is_refused() {
 }
 
 #[test]
+fn abstaining_without_a_score_is_refused() {
+    let out = verdict(
+        r#"{"protocol":"metaform.propose/1","request_id":"r-abstain",
+            "candidates":[{"name":"c","ids":[0],"abstain":[3],"predict":{"id":2,"label":"pos"}}]}"#,
+    );
+    assert!(out.contains("missing_score_for_abstention"), "{out}");
+}
+#[test]
 fn a_response_without_the_new_fields_is_unchanged() {
     let out = verdict(
         r#"{"protocol":"metaform.propose/1","request_id":"r-abstain",

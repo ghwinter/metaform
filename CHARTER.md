@@ -853,6 +853,38 @@ person's one-word answer is a scarce input rather than an interaction-design cho
 What this does not do: it does not add knowledge, and it cannot see outside the evidence. It can
 only make the difference between "stated" and "unstated" visible, and price the bets that cross it.
 
+### 6.11 The engine is the first example of what it asks for
+
+If a project is meant to build good architecture with this engine in the loop, the engine has to be
+one. The claim is not taste; it is a set of properties that can be checked.
+
+Four tiers, and an import may only point inward:
+
+| Tier | Holds | May use |
+|---|---|---|
+| kernel | types and pure decisions: masks, state, protocol validation, metrics arithmetic | nothing above it |
+| runtime | operators, controller, records: suggest, explore, apply, answer, laws, predictions, plan | kernel |
+| interface | CLI, MCP, report rendering | kernel and runtime |
+| components | capability crates: VSA, SME, ILP | kernel types only |
+
+`scripts/check-layers.py` enforces the direction over the engine's files and fails on a module with
+no declared tier, so adding a file forces the author to place it. That is the only kind of layering
+rule that survives: the one that turns red.
+
+Two further properties follow from the same principle, and they are about maturity rather than
+minimalism:
+
+- **A facility or an entity, never both.** A component that owns a queue and also exposes synchronous
+  calls will be used both ways and will deadlock in one of them. Allocation and formatting are
+  facilities; schedulers, mailboxes and drivers are entities.
+- **Nothing enters the tree as a prototype.** A capability ships with its tests, its gate, its
+  documentation in both languages, and a claim row if a reader can re-run it. A sketch that only
+  works on the author's machine is not a smaller version of the feature; it is a different thing
+  that will be defended later.
+
+What this forbids: an import that points outward, a module with no tier, a component that is both a
+facility and an entity, and a feature whose only evidence is that it ran once.
+
 ## 7. Boundary
 
 ### 7.1 What it is not

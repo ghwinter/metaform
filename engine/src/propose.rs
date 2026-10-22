@@ -1203,6 +1203,17 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
             });
             continue;
         }
+        // An abstention without a score cannot be placed on a coverage curve: the evaluation would
+        // have to invent the order in which the candidate would have answered. Decline is allowed;
+        // declining silently is not.
+        if !abstain.is_empty() && score.is_none() {
+            rejected.push(Rejected {
+                name: name.to_string(),
+                ids: ids.values,
+                reason: "missing_score_for_abstention".to_string(),
+            });
+            continue;
+        }
 
         accepted.push(Accepted {
             name: name.to_string(),

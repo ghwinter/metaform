@@ -35,11 +35,14 @@ use crate::bit;
 use crate::propose::{self, Accepted};
 
 /// The header line of `.metaform/predictions.tsv`.
-pub const HEADER: &str = "request_id\tname\tid\tpredicted\textension\trival";
+pub const HEADER: &str = "request_id\tname\tid\tpredicted\textension\trival\tscore";
 
 /// The header written before the `rival` column existed. It still has to be skipped as a header, not
 /// read as a malformed data row.
 const LEGACY_HEADER: &str = "request_id\tname\tid\tpredicted\textension";
+
+/// The header written before the `score` column existed.
+const RIVAL_HEADER: &str = "request_id\tname\tid\tpredicted\textension\trival";
 
 /// The extension as a deterministic comma-separated id list (ascending, no duplicates).
 fn extension(ids: &[usize]) -> String {
@@ -112,7 +115,7 @@ pub fn record(path: &Path, request_id: &str, candidates: &[Accepted]) -> std::io
             continue;
         }
         rows.push(format!(
-            "{request_id}\t{}\t{}\t{}\t{}\t{}",
+            "{request_id}\t{}\t{}\t{}\t{}\t{}\t{}",
             candidate.name,
             prediction.id,
             prediction.label.as_str(),
@@ -123,7 +126,10 @@ pub fn record(path: &Path, request_id: &str, candidates: &[Accepted]) -> std::io
                 .rival
                 .as_deref()
                 .map(extension)
-                .unwrap_or_default()
+                .unwrap_or_default(),
+            // The score is empty when the candidate carried none; an abstention cannot be recorded
+            // without one, so a non-empty abstain always has a number beside it.
+            candidate.score.map(|s| s.to_string()).unwrap_or_default()
         ));
     }
     if rows.is_empty() {
@@ -160,9 +166,9 @@ struct Record {
 /// Read the record. A missing file is an empty record; a malformed row is skipped, because the file
 /// is a derived record and only rows written by [`record`] are guaranteed to be well formed.
 ///
-/// A row may carry four fields (request, name, id, label), five (plus the extension), or six (plus
-/// the rival). A missing trailing column is read as empty, so a file written by any earlier version
-/// keeps loading.
+/// A row may carry four fields (request, name, id, label), five (plus the extension), six (plus the
+/// rival), or seven (plus the score). A missing trailing column is read as empty, so a file written
+/// by any earlier version keeps loading.
 fn read_records(path: &Path) -> std::io::Result<Vec<Record>> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
@@ -171,7 +177,7 @@ fn read_records(path: &Path) -> std::io::Result<Vec<Record>> {
     };
     let mut out = Vec::new();
     for line in text.lines() {
-        if line.trim().is_empty() || line == HEADER || line == LEGACY_HEADER {
+        if line.trim().is_empty() || line == HEADER || line == LEGACY_HEADER || line == RIVAL_HEADER {
             continue;
         }
         let fields: Vec<&str> = line.split('\t').collect();
