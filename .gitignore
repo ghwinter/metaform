@@ -1,14 +1,18 @@
-# Default deny. Everything is ignored unless it is inside a directory, or is a
-# file, named in the allow list below. Adding a source file to an allowed
-# directory needs no edit here; adding a new directory does.
+# Default deny. Everything is ignored unless it is a directory, or is a file,
+# named in the allow list below. Adding a source file to an allowed directory
+# needs no edit here; adding a new directory does.
 *
 !*/
 
 # ---------------------------------------------------------------------------
-# Allow list: the directories and files that make up the repository.
-# Only what is executable or checkable is tracked: the kernel and the
-# components, the gates and their inputs, the proofs, the evidence, the paper,
-# the charter. Notes live outside the history until the engine is stable.
+# Allow list: what this repository is. Source code, the formalization, the
+# paper, and the four documents that say what the code claims.
+#
+# Nothing else is tracked. The working tree is deliberately bigger than this:
+# gates, experiment runs, notes and agent configuration all live beside the
+# code and are used by it, but they are inputs and outputs of a session rather
+# than the thing being versioned. A clone rebuilds them from the code; a diff
+# in them is not a change to the product.
 # ---------------------------------------------------------------------------
 !/.gitattributes
 !/Cargo.lock
@@ -23,29 +27,52 @@
 !/environment.json
 !/crates/**
 !/engine/**
-!/experiments/**
 !/paper/**
 !/proofs/**
-!/scripts/**
-!/.dsh/**
 
 # ---------------------------------------------------------------------------
-# Ignored even inside an allowed directory: build products, machine-local
-# configuration, untracked inputs, and files removed from tracking on purpose.
-# A later match wins, so these override the allow list above.
+# Working directories that are never tracked. The default deny already covers
+# them; they are listed so that the decision is written down rather than
+# inferred from the absence of an exception.
 # ---------------------------------------------------------------------------
+
+# Gate scripts, experiment runs and the evidence they produce. Run locally,
+# cited by path in RESULTS, versioned by the commit that runs them.
+experiments/
+scripts/
+
+# Agent configuration: skills, MCP wiring, session memory.
+.dsh/
+.workbuddy/
+
+# Notes and design drafts; the offline corpus is other people's material.
+/notes/
+research/
 .library/
 .local/
 .repo/
+
+# Demo state written by `metaform init` at the repository root.
 .metaform/
+
+# Release staging and metered-run output.
 dist/
 tmp/
-engine/target/
+
+# ---------------------------------------------------------------------------
+# Ignored even inside an allowed directory: build products, machine-local
+# configuration, generated files. A later match wins.
+# ---------------------------------------------------------------------------
 /target/
+engine/target/
 crates/*/target/
-research/
+crates/*/Cargo.lock
+
 proofs/.lake/
-experiments/lean_oracle/
+proofs/lakefile.toml
+proofs/lake-manifest.json
+proofs/lean-toolchain
+
 **/__pycache__/
 *.pyc
 *.pdf
@@ -57,28 +84,3 @@ experiments/lean_oracle/
 engine/last-test.log
 crates/*/last-test.log
 proofs/last-check.log
-scripts/local.ps1
-
-# Served the local corpus, which is not tracked.
-scripts/download-library.ps1
-scripts/extract-archives.ps1
-scripts/extract-pdf-text.ps1
-scripts/verify-library.ps1
-scripts/library-manifest.json
-
-# Lake scaffolding for the borrowed project: regenerated, never tracked.
-proofs/lakefile.toml
-proofs/lake-manifest.json
-proofs/lean-toolchain
-
-# Run output of the experiments: state files, responses, working directories.
-experiments/tmp/
-crates/*/Cargo.lock
-
-# Metered-run metrics. tmp/ already ignores this; the explicit rule keeps the
-# output path intentional if the broad tmp rule is ever narrowed.
-tmp/metrics/
-
-# Conversation dumps and internal notes. One directory rule, so moving a note
-# does not need an edit here; the files sat at the root until 2026-10-23.
-/notes/

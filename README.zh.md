@@ -16,6 +16,10 @@
 | `engine/` | Rust 内核 + `metaform` 命令行（`engine/scenarios/` 里有示例脚本） |
 | `scripts/` | 断言门、对齐与引用检查、Lean/Rust 封装、打包 |
 
+克隆拿到的是 `crates/`、`engine/`、`paper/`、`proofs/` 四类，加上四份文档。
+`experiments/` 与 `scripts/` 是工作目录：它们在代码旁边运行、被按路径引用，但不入库，
+所以新的克隆只有代码与主张，门禁要自己重建。什么算受跟踪，以 `.gitignore` 顶部的允许清单为准。
+
 总纲 `CHARTER.zh.md`（英文版 `CHARTER.md`）写清问题、十三条带证伪条件的命题、
 运行时的六个位置、十条定律与路线。若本 README 与总纲在设计原则上冲突，以总纲为准；若两者与代码或门禁冲突，
 以代码与门禁为准。
@@ -23,7 +27,8 @@
 ## 引用规则
 
 受跟踪的文件只能指向仓库里存在的东西。`scripts/check-references.py` 会在这些情况下失败：绝对路径；
-git 未跟踪的反引号路径或 markdown 链接（生成的产物与 `local.ps1` 引导副本除外）；对未跟踪语料或
+指不到任何东西的反引号路径或 markdown 链接（生成的产物、`local.ps1` 引导副本，以及
+`scripts/`、`experiments/`、`.dsh/` 三个不入库的工作目录除外）；对未跟踪语料或
 对话的裸提及；以及两篇论文里出现的代码标识符、文件名、URL，或没有对应文献条目的引用。论文只通过
 文末参考文献接触外部工作，这是常规做法；把定理映射到 Lean 声明的那张表放在
 `proofs/mechanization.md`，不再放进论文。

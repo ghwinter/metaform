@@ -15,6 +15,11 @@ From now on, edit only `paper/en/main.tex`, then sync `paper/zh/main.tex`.
 | `engine/` | Rust kernel + `metaform` command line (`engine/scenarios/` holds example scripts) |
 | `scripts/` | Assertion gates, alignment and reference checks, Lean/Rust wrappers, bundle builder |
 
+What a clone carries is `crates/`, `engine/`, `paper/` and `proofs/` plus the four documents.
+`experiments/` and `scripts/` are working directories: they run beside the code and are cited by
+path, but they are not versioned, so a fresh clone has the code and the claims and must rebuild the
+gates. The allow list at the top of `.gitignore` is the authoritative answer to what is tracked.
+
 The charter, `CHARTER.md` (Chinese copy `CHARTER.zh.md`), states the problem, the
 thirteen claims each with a falsifier, the six positions of the runtime, the ten laws, and the route. If
 this README and the charter disagree on a design principle, the charter wins; if either disagrees with the
@@ -22,8 +27,9 @@ code or the gates, the code and the gates win.
 
 ## Reference rules
 A tracked file may only point at something the repository contains. `scripts/check-references.py`
-fails on an absolute path, on a backticked path or a markdown link that git does not track (generated
-artifacts and the `local.ps1` bootstrap copy excepted), on a bare mention of the untracked corpus or
+fails on an absolute path, on a backticked path or a markdown link that nothing answers to (generated
+artifacts, the `local.ps1` bootstrap copy, and the three untracked working directories `scripts/`,
+`experiments/`, `.dsh/` excepted), on a bare mention of the untracked corpus or
 conversation, and, inside either paper, on a code identifier, a file name, a URL, or a citation
 without a bibliography entry. The paper reaches external work only through the bibliography at the
 end, which is the usual convention; the table that maps theorems to Lean declarations lives in

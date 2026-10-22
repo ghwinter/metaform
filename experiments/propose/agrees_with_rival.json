@@ -1,5 +1,0 @@
-{"protocol":"metaform.propose/1","request_id":"prime-1",
- "candidates":[{"name":"has_no_proper_divisor","ids":[2,3,5,7],
-   "warrant":"no divisor other than 1 and itself","falsifier":"a composite labelled positive",
-   "rival":{"ids":[1,3,5,7]},
-   "predict":{"id":7,"label":"pos"}}]}
