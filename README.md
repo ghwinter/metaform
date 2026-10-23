@@ -256,11 +256,13 @@ candidates per call, the engine pays for the queries.
 
 ## Components
 
-The kernel is not the whole tool. The proposers sit behind the operator protocol, each algorithm in
-its own crate, and none of them may change the state:
+The measure is one crate and the proposers are others. Each algorithm gets its own crate, none of them
+may change the state, and the dependency arrows point one way -- `cargo` refuses the import that points up,
+which is why the layering does not need a hand-maintained list:
 
 | crate | what it proposes | how |
 |---|---|---|
+| `crates/kernel` | nothing: it is the measure | the vocabulary, the equivalence classes it induces, the status they license |
 | `crates/vsa` | predicates whose vector similarity to a positive/negative contrast is high | MBAT binding and bundling, `retrieve` |
 | `crates/sme` | predicates inferred by mapping one relational system onto another | structure mapping, `analogize` |
 | `crates/ilp` | clauses whose extension covers the positives and no negative | relational learning, `ilp_demo` |
@@ -325,7 +327,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # eleven gates (lean/rust/vsa/align/refs/components/claims/secrets/checks/theory/experiments), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 225)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 213; the kernel's 12 are a separate manifest)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

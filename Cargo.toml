@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "engine",
+    "crates/kernel",
     "crates/runtime",
     "crates/components",
     "crates/vsa",

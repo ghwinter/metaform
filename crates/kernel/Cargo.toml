@@ -1,0 +1,9 @@
+[package]
+name = "metaform-kernel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The measure itself: a vocabulary, the equivalence classes it induces, and the status those classes license"
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }

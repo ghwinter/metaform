@@ -14,6 +14,7 @@ name = "metaform"
 path = "src/main.rs"
 
 [dependencies]
+metaform-kernel = { path = "../crates/kernel" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 tracing = "0.1.44"

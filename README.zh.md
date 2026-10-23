@@ -210,10 +210,12 @@ label 不是 `pos` / `neg` 是 `prediction_bad_label`。不带 `object_ids` 的�
 
 ## 组件
 
-内核不是全部。算子协议后面有三个组件，各自一个 crate，**都无权改状态**：
+度量自己是一个 crate，提议者是另外几个。每个算法一个 crate，**都无权改状态**，依赖箭头只朝一个方向——
+指向上方的 import 会被 `cargo` 拒绝，所以分层不需要一张手工维护的表：
 
 | crate | 提议什么 | 方式 |
 |---|---|---|
+| `crates/kernel` | 不提议任何东西：它就是那个度量 | 词表、它诱导的等价类、这些类允许的状态 |
 | `crates/vsa` | 与"正负对比向量"相似度高的谓词 | MBAT 绑定/捆绑，`retrieve` |
 | `crates/sme` | 通过结构映射推出的谓词 | 结构映射，`analogize` |
 | `crates/ilp` | 扩展覆盖正例且不覆盖负例的子句 | 关系学习，`ilp_demo` |
@@ -257,7 +259,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 十一道门（lean/rust/vsa/align/refs/components/claims/secrets/checks/theory/experiments），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 225）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 213；kernel 的 12 个另算一个 manifest）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接
