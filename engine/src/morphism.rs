@@ -330,6 +330,15 @@ struct Side {
 
 impl Side {
     fn theory(&self) -> Result<Theory, String> {
+        // `Theory::new` asserts this, and an assert is a panic. The CLI could afford one; the MCP
+        // tool cannot -- a single spec with `objects: 100` would take the server process down and the
+        // host would read it as a crashed tool, not as a rejected request.
+        if self.objects > 64 {
+            return Err(format!(
+                "a theory has at most 64 objects (Mask is u64), got {}",
+                self.objects
+            ));
+        }
         let mut atoms = Vec::new();
         for (name, ids) in &self.atoms {
             let mut ext = 0u64;
@@ -388,7 +397,16 @@ pub fn run(args: &[String]) -> Result<String, String> {
     } else {
         std::fs::read_to_string(&path).map_err(|e| format!("cannot read `{path}`: {e}"))?
     };
-    let spec: Spec = serde_json::from_str(&text).map_err(|e| format!("invalid spec: {e}"))?;
+    analyse_spec(&text, max_classes)
+}
+
+/// Analyse one spec and return the report line. Shared by the CLI and the MCP tool.
+///
+/// One implementation on purpose: an MCP caller is a model, and a model must not reach a code path
+/// the command line does not have. When the two drift, the tool answers questions the tests never
+/// asked.
+pub fn analyse_spec(text: &str, max_classes: usize) -> Result<String, String> {
+    let spec: Spec = serde_json::from_str(text).map_err(|e| format!("invalid spec: {e}"))?;
 
     let from = spec.from.theory()?;
     let n = from.objects;

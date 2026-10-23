@@ -20,6 +20,7 @@
 //!   suggest_emit_request build the ready-to-fill `metaform.propose/1` request
 //!   apply_response       validate and adopt a `metaform.propose/1` response
 //!   check_predictions    score recorded held-out predictions
+//!   translate            judge a change of vocabulary: wording_only / lossy / genuine / undecided
 //!   explore_questions    run attribute exploration and return the open questions
 //!   answer_questions     append expert answers as laws/refutations (replay-safe)
 //!
@@ -30,7 +31,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
-use crate::{answer, apply, explore, laws, ledger, plan, predictions, state, suggest};
+use crate::{answer, apply, explore, laws, ledger, morphism, plan, predictions, state, suggest};
 
 /// The protocol revisions this server was built against, kept as the table the echo test walks.
 /// Negotiation itself echoes whatever well-formed revision the client offers, so this list is not
@@ -267,6 +268,21 @@ fn tool_answer_questions(args: &Value) -> Result<String, String> {
     answer::apply_text(&project, None, &questions, answers)
 }
 
+/// `translate`: the same analysis as `metaform translate`, reached over the wire.
+///
+/// `spec` is accepted as an object or as JSON text, because a model that has the spec in its head will
+/// write the object, and a model that read one out of a file will paste the text. Both become the same
+/// string before `analyse_spec` sees them, so there is exactly one parser.
+fn tool_translate(args: &Value) -> Result<String, String> {
+    let spec = args.get("spec").ok_or("missing spec")?;
+    let text = match spec {
+        Value::String(text) => text.clone(),
+        other => other.to_string(),
+    };
+    let max = arg_usize(args, "max_classes", morphism::MAX_CLASSES)?;
+    morphism::analyse_spec(&text, max)
+}
+
 fn tools() -> Value {
     json!([
         {
@@ -346,6 +362,21 @@ fn tools() -> Value {
             }
         },
         {
+            "name": "translate",
+            "description": "Read-only: judge one change of vocabulary and return {kind, new_sets, sets, from, to, fibres}, plus a witness when the change is lossy and {collapsed} when pos/neg are given. kind is wording_only (the new vocabulary says nothing new), lossy (it lost an atom, or merged two objects an atom separated), genuine (it says something new) or undecided (the class count exceeded max_classes).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "spec": {
+                        "description": "The spec as an object, or as JSON text: {from:{objects,atoms}, to:{...}, map:[...], pos:[...], neg:[...]}. `to` omitted derives the coarsest quotient along `map`; `map` omitted is the identity.",
+                        "type": ["object", "string"]
+                    },
+                    "max_classes": {"type": "integer", "description": "Class count above which the answer is undecided; defaults to 20"}
+                },
+                "required": ["spec"]
+            }
+        },
+        {
             "name": "explore_questions",
             "description": "Read-only: run attribute exploration over the current state and laws, returning {status,questions:[{id,premise,conclusion,text}]}.",
             "inputSchema": {
@@ -382,6 +413,7 @@ fn call_tool(name: &str, args: &Value) -> Result<String, String> {
         "suggest_emit_request" => tool_suggest_emit_request(args),
         "apply_response" => tool_apply_response(args),
         "check_predictions" => tool_check_predictions(args),
+        "translate" => tool_translate(args),
         "explore_questions" => tool_explore_questions(args),
         "answer_questions" => tool_answer_questions(args),
         other => Err(format!("unknown tool: {other}")),
@@ -658,7 +690,48 @@ mod tests {
     }
 
     #[test]
-    fn tools_list_exposes_exactly_ten_tools() {
+    fn translate_round_trips() {
+        // A wording-only change: the second theory just renames the atom, so nothing new is sayable.
+        let spec = json!({
+            "from": {"objects": 2, "atoms": {"a": [0]}},
+            "to": {"objects": 2, "atoms": {"b": [0]}},
+            "map": [0, 1]
+        });
+        let out = result_json(&call("translate", json!({"spec": spec.clone()})));
+        assert_eq!(out["kind"], "wording_only", "{out}");
+        assert_eq!(out["new_sets"], 0, "{out}");
+
+        // The same spec as text must reach the same answer: one parser, two spellings.
+        let out = result_json(&call("translate", json!({"spec": spec.to_string()})));
+        assert_eq!(out["kind"], "wording_only", "{out}");
+
+        // A lossy change: the map merges 0 and 1, which `a` separates.
+        let out = result_json(&call(
+            "translate",
+            json!({
+                "spec": {
+                    "from": {"objects": 2, "atoms": {"a": [0]}},
+                    "map": [0, 0]
+                }
+            }),
+        ));
+        assert_eq!(out["kind"], "lossy", "{out}");
+        assert_eq!(out["witness"]["kind"], "merged", "{out}");
+    }
+
+    #[test]
+    fn translate_refuses_more_than_sixty_four_objects_instead_of_panicking() {
+        // `Mask` is u64 and `Theory::new` asserts the bound. Over the wire an assert is a crash: the
+        // host reports a dead tool rather than a rejected request, and every other session on the
+        // server goes with it.
+        let response = call("translate", json!({"spec": {"from": {"objects": 65}}}));
+        assert_eq!(response["result"]["isError"], true, "{response}");
+        let text = result_text(&response);
+        assert!(text.contains("at most 64 objects"), "{text}");
+    }
+
+    #[test]
+    fn tools_list_exposes_exactly_eleven_tools() {
         let req = json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"});
         let resp = handle(&req).unwrap();
         let names: Vec<String> = resp["result"]["tools"]
@@ -678,6 +751,7 @@ mod tests {
                 "suggest_emit_request",
                 "apply_response",
                 "check_predictions",
+                "translate",
                 "explore_questions",
                 "answer_questions",
             ]
