@@ -46,6 +46,9 @@ pub mod apply;
 pub mod mcp;
 pub mod metrics;
 pub mod check;
+/// `check` subcommands that assert something about repository files: `text`, `count`, `fresh`,
+/// `absent`, `members`.
+pub mod inspect;
 
 /// Read the value of a `--flag value` pair, if present.
 pub fn kv(args: &[String], key: &str) -> Option<String> {

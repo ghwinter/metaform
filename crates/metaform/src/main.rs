@@ -907,7 +907,7 @@ fn main() {
             out!("usage: metaform <command> [options]  (no argument: interactive script)");
             out!("commands: init, state, ledger, plan, report, score, ops, portfolio, mcp,");
             out!("          suggest, explore, coverage, answer, apply, check-predictions, propose,");
-            out!("          translate");
+            out!("          translate, check");
             out!("MCP: metaform mcp  (newline-delimited JSON-RPC over stdio)");
             return;
         }

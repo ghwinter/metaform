@@ -45,6 +45,19 @@
 //! combined with bitwise AND (`all_of`) or OR (`any_of`) and intersected with the object mask. The
 //! resulting extension then follows the same acceptance path as an `ids` candidate.
 //!
+//! Rule 12 -- legality. A request may declare `"legality": {"consistent": true, "must_place": [...]}`,
+//! and then a candidate has to be a *rule*, not a patch:
+//!
+//!   - `consistent`: the extension contains every positive and no negative, so a candidate cannot
+//!     contradict the evidence it was given (`legality_inconsistent`);
+//!   - `must_place`: the extension puts at least one of these objects in and at least one out, so it
+//!     decides the unmeasured region instead of restating the measured one (`legality_no_placement`).
+//!
+//! The second clause is what makes `{"ids": [7]}` -- the singleton that separated every pair involving
+//! object 7 in the loose world of the long-chain experiment -- inadmissible, without changing the
+//! meaning of a request that does not ask for it. A request without `legality` keeps every pre-rule-12
+//! verdict, which is why the field is optional and not a protocol bump.
+//!
 //! L11 -- invention is admitted with a held-out prediction. On a request that carries `object_ids`, the
 //! objects in that list and not in `evidence` are *unmeasured*: their labels are the held-out test a
 //! candidate has to name before adoption. A candidate may carry
@@ -544,6 +557,73 @@ impl<'a> Parser<'a> {
 // Request
 // ---------------------------------------------------------------------------
 
+/// What a request can demand of a candidate beyond "it parses": that it be a rule rather than a patch
+/// on the objects it was shown. Both clauses are optional, and a request that omits `legality`
+/// behaves exactly as it did before the field existed.
+#[derive(Clone, Debug, Default)]
+struct Legality {
+    /// The extension must contain every positive and no negative.
+    consistent: bool,
+    /// The extension must put at least one of these objects in and at least one out.
+    must_place: Vec<usize>,
+}
+
+impl Legality {
+    /// Rule 12, applied to a candidate's extension.
+    fn check(&self, req: &Request, ext: Mask) -> Result<(), &'static str> {
+        if self.consistent {
+            if req.pos & !ext != 0 {
+                return Err("legality_inconsistent");
+            }
+            if ext & req.neg != 0 {
+                return Err("legality_inconsistent");
+            }
+        }
+        if !self.must_place.is_empty() {
+            let inside = self.must_place.iter().filter(|&&o| ext & bit(o) != 0).count();
+            // Both zero and all would pass a check written as "at least one in": a candidate that
+            // excludes the whole unmeasured region has still decided nothing about it.
+            if inside == 0 || inside == self.must_place.len() {
+                return Err("legality_no_placement");
+            }
+        }
+        Ok(())
+    }
+}
+
+fn parse_legality(value: &Json, n: usize) -> Result<Legality, String> {
+    let Json::Obj(_) = value else {
+        return Err("`legality` must be an object".into());
+    };
+    let mut legality = Legality::default();
+    match value.get("consistent") {
+        None | Some(Json::Null) => {}
+        Some(Json::Bool(b)) => legality.consistent = *b,
+        Some(_) => return Err("`legality.consistent` must be a boolean".into()),
+    }
+    match value.get("must_place") {
+        None | Some(Json::Null) => {}
+        Some(Json::Arr(items)) => {
+            for id in items {
+                let Some(x) = id.as_i64() else {
+                    return Err("`legality.must_place` must hold integers".into());
+                };
+                if x < 0 || x as usize >= n {
+                    return Err(format!("`legality.must_place` names {x}, outside 0..{n}"));
+                }
+                legality.must_place.push(x as usize);
+            }
+        }
+        Some(_) => return Err("`legality.must_place` must be an array".into()),
+    }
+    if !legality.consistent && legality.must_place.is_empty() {
+        // A legality object that asks for nothing is a typo, not a no-op: accepting it would let a
+        // experiment believe it had turned the rule on when it had not.
+        return Err("`legality` sets neither `consistent` nor `must_place`".into());
+    }
+    Ok(legality)
+}
+
 /// A parsed `metaform.propose/1` request. Everything the validator needs is already masked to `n` objects.
 struct Request {
     request_id: String,
@@ -551,6 +631,8 @@ struct Request {
     /// The objects the request declares; `suggest --emit-request` lists `0..n`. An absent field is
     /// the pre-L11 shape and declares no unmeasured object, so old requests keep their verdicts.
     object_ids: Vec<usize>,
+    /// Rule 12: what a candidate has to be beyond parseable. `None` is the pre-rule-12 request.
+    legality: Option<Legality>,
     /// Current vocabulary, in request order. Only names and extensions matter here.
     vocab: Vec<(String, Mask)>,
     pos: Mask,
@@ -657,10 +739,16 @@ fn parse_request(text: &str) -> Result<Request, String> {
         Some(_) => return Err("`evidence` must be an object".into()),
     }
 
+    let legality = match root.get("legality") {
+        None | Some(Json::Null) => None,
+        Some(value) => Some(parse_legality(value, n)?),
+    };
+
     Ok(Request {
         request_id,
         n,
         object_ids,
+        legality,
         vocab,
         pos,
         neg,
@@ -1256,6 +1344,18 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
                 continue;
             }
         };
+        // Rule 12: legality. A request that asks for a rule rather than a patch rejects the
+        // candidate here, before it can be admitted; a request without the field skips this.
+        if let Some(legality) = &req.legality {
+            if let Err(reason) = legality.check(req, ext) {
+                rejected.push(Rejected {
+                    name: name.to_string(),
+                    ids: ids.values,
+                    reason: reason.to_string(),
+                });
+                continue;
+            }
+        }
         if accepted.len() >= req.limit {
             rejected.push(Rejected {
                 name: name.to_string(),
@@ -1428,6 +1528,52 @@ mod tests {
             r#"{"name":"c2","ids":[5],"reason":"out_of_range"}],"refused":null}"#
         );
         assert_eq!(got, want);
+    }
+
+    #[test]
+    fn rule_12_rejects_a_candidate_that_is_not_a_rule() {
+        // Six objects, one visible class, evidence 0,1 positive and 2 negative. The request asks for
+        // a rule: it must agree with the evidence and it must place the unmeasured objects 3,4,5 --
+        // some in, some out. A candidate that patches the objects it was shown cannot pass.
+        let req = r#"{"protocol":"metaform.propose/1","request_id":"r-legal","objects":6,"vocabulary":[],"evidence":{"pos":[0,1],"neg":[2]},"legality":{"consistent":true,"must_place":[3,4,5]},"limit":8}"#;
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-legal","candidates":["#,
+            r#"{"name":"rule","ids":[0,1,3]},"#,
+            r#"{"name":"drops_a_positive","ids":[0,3]},"#,
+            r#"{"name":"contradicts_the_evidence","ids":[0,1,2]},"#,
+            r#"{"name":"restates_the_evidence","ids":[0,1]},"#,
+            r#"{"name":"takes_the_whole_region","ids":[0,1,3,4,5]}]}"#
+        );
+        let got = output(req, resp);
+        assert!(got.contains(r#""accepted":[{"name":"rule""#), "{got}");
+        assert_eq!(got.matches("legality_inconsistent").count(), 2, "{got}");
+        assert_eq!(got.matches("legality_no_placement").count(), 2, "{got}");
+    }
+
+    #[test]
+    fn rule_12_is_off_unless_the_request_asks_for_it() {
+        // The same candidates against the same request without `legality`: every one of them is
+        // admitted, which is the pre-rule-12 behaviour and the reason the field is optional. If this
+        // ever fails, an old request changed its verdict without anyone editing it.
+        let req = r#"{"protocol":"metaform.propose/1","request_id":"r-nolegal","objects":6,"vocabulary":[],"evidence":{"pos":[0,1],"neg":[2]},"limit":8}"#;
+        let resp = concat!(
+            r#"{"protocol":"metaform.propose/1","request_id":"r-nolegal","candidates":["#,
+            r#"{"name":"drops_a_positive","ids":[0,3]},"#,
+            r#"{"name":"restates_the_evidence","ids":[0,1]}]}"#
+        );
+        let got = output(req, resp);
+        assert!(!got.contains("legality_"), "{got}");
+        assert_eq!(got.matches(r#""name":"#).count(), 2, "{got}");
+    }
+
+    #[test]
+    fn a_legality_object_that_asks_for_nothing_is_rejected() {
+        // `{"legality":{}}` is a typo in an experiment, and accepting it would let the experiment
+        // believe it had turned rule 12 on when it had not.
+        let req = r#"{"protocol":"metaform.propose/1","request_id":"r-empty","objects":3,"vocabulary":[],"evidence":{"pos":[0],"neg":[1]},"legality":{},"limit":8}"#;
+        let resp = r#"{"protocol":"metaform.propose/1","request_id":"r-empty","candidates":[]}"#;
+        let err = validate_response(req, resp).expect_err("an empty legality must not parse");
+        assert!(err.contains("neither"), "{err}");
     }
 
     #[test]

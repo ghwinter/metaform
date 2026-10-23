@@ -6,7 +6,8 @@
 
 # ---------------------------------------------------------------------------
 # Allow list: what this repository is. Source code, the formalization, the
-# paper, and the four documents that say what the code claims.
+# paper, the manual under `docs/`, and the four documents that say what the code
+# claims.
 #
 # Nothing else is tracked. The working tree is deliberately bigger than this:
 # gates, experiment runs, notes and agent configuration all live beside the
@@ -28,6 +29,7 @@
 !/crates/**
 !/paper/**
 !/proofs/**
+!/docs/**
 
 # ---------------------------------------------------------------------------
 # Working directories that are never tracked. The default deny already covers
@@ -50,6 +52,11 @@ research/
 .library/
 .local/
 .repo/
+
+# Model weights and the local inference runtime. Downloaded, not built: 2.5 GB of weights and a
+# prebuilt llama.cpp. They are what the experiments are run against, so they are named here rather
+# than buried in tmp -- tmp is scratch, this is a dependency of the measurements.
+/models/
 
 # Demo state written by `metaform init` at the repository root.
 .metaform/
