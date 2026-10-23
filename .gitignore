@@ -26,7 +26,6 @@
 !/CHARTER.zh.md
 !/environment.json
 !/crates/**
-!/engine/**
 !/paper/**
 !/proofs/**
 
@@ -64,7 +63,7 @@ tmp/
 # configuration, generated files. A later match wins.
 # ---------------------------------------------------------------------------
 /target/
-engine/target/
+crates/metaform/target/
 crates/*/target/
 crates/*/Cargo.lock
 
@@ -81,6 +80,6 @@ proofs/lean-toolchain
 *.out
 *.toc
 *.png
-engine/last-test.log
+crates/metaform/last-test.log
 crates/*/last-test.log
 proofs/last-check.log

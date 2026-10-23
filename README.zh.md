@@ -13,10 +13,10 @@
 | `paper/en/`, `paper/zh/` | 双语正文。en 用 `pdflatex` 两遍，zh 用 `xelatex` 两遍（ctex） |
 | `proofs/` | Lean 4 形式化：13 条声明承载定理 1–11，不接受未证目标、无警告；`proofs/mechanization.md` 把定理映射到声明 |
 | `experiments/` | Python 实验：合成域、Lean 域、代码域、成本分解、数据总账 `RESULTS.md` |
-| `engine/` | Rust 内核 + `metaform` 命令行（`engine/scenarios/` 里有示例脚本） |
+| `crates/metaform/` | Rust 内核 + `metaform` 命令行（`crates/metaform/scenarios/` 里有示例脚本） |
 | `scripts/` | 断言门、对齐与引用检查、Lean/Rust 封装、打包 |
 
-克隆拿到的是 `crates/`、`engine/`、`paper/`、`proofs/` 四类，加上四份文档。
+克隆拿到的是 `crates/`、`paper/`、`proofs/` 三类，加上四份文档。
 `experiments/` 与 `scripts/` 是工作目录：它们在代码旁边运行、被按路径引用，但不入库，
 所以新的克隆只有代码与主张，门禁要自己重建。什么算受跟踪，以 `.gitignore` 顶部的允许清单为准。
 
@@ -33,7 +33,7 @@
 文末参考文献接触外部工作，这是常规做法；把定理映射到 Lean 声明的那张表放在
 `proofs/mechanization.md`，不再放进论文。
 
-仓库默认拒绝：`.gitignore` 以 `*` 开头，然后放行整个目录（`!/engine/**`）以及少数属于仓库的根文件。
+仓库默认拒绝：`.gitignore` 以 `*` 开头，然后放行整个目录（`!/crates/**`）以及少数属于仓库的根文件。
 允许目录里新增源文件不需要改规则，新增顶层目录才需要。同一道门会在"受跟踪文件落在所有放行规则之外"
 或"放行规则匹配不到任何文件"时失败，所以随手写的笔记或构建产物不可能再意外进入历史。
 
@@ -257,7 +257,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ## 三件套复现
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # 十一道门（lean/rust/vsa/align/refs/components/claims/secrets/checks/theory/experiments），约 40 s
+pwsh -File scripts/check-all.ps1                     # 全部门禁（lean/rust/kernel/propose/vsa/align/refs/components/claims/backlog/secrets/checks/theory/experiments）
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
 pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 188；kernel 的 12 个与 protocol 的 25 个各自一个 manifest）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
@@ -340,7 +340,7 @@ pwsh -File scripts/bootstrap.ps1 -Write   # 用观测到的值写出 scripts/loc
     `early_correct: true` 会让 `check-all` 变红（负向自检已进 `selftest-gates.ps1`）。
 14. **CLI 也会要求先验证**：`objects 3; add p 0; vote 0 3 0; vote 1 3 0; need` 的输出是
     `"action":"VERIFY"`、`"unverified":[2]`——类 `{1,2}` 的标签是从 1 继承来的，2 没被直接问过。
-15. **端到端跑通一次**：`engine/scenarios/verify.demo`（6 个测试文件、判"是否集成测试"）走完
+15. **端到端跑通一次**：`crates/metaform/scenarios/verify.demo`（6 个测试文件、判"是否集成测试"）走完
     `IDENTIFIED/VERIFY → INSUFFICIENT/PROPOSE → UNDETERMINED/ASK → IDENTIFIED/STOP`。
     `e2e_verify.py` 把这条序列与 `unverified=[4,5]` 固化进 `check-all`。
     顺带修了 `unprobed()` 顺序不稳的问题（`classes()` 走 `HashMap`）。
@@ -355,7 +355,7 @@ pwsh -File scripts/bootstrap.ps1 -Write   # 用观测到的值写出 scripts/loc
 
 19. **廉价的提议买的是词汇，不是提问**：`k` 个候选词汇中恰好一个足够时，随机抽一个成员的基线成功率为 `1/k`（`k=5` 时 0.250），组合为 0.955，代价是每淘汰一个错误候选多花 1.53 次提问（`metaform portfolio`，200 次试验）。组合从不错判扩展；它只以冲突失败，冲突从 `k=3` 的 0.025 升到 `k=10` 的 0.110，因此成功率在 `k=3` 达到峰值 0.975，到 `k=10` 回落到 0.890。
 
-20. **审稿策略基本能被它的分类体系表达，只差一处**：改动前的稿子盲给两位评审，附同一份清单。两人在 16 条中有 14 条一致（Cohen's κ = 0.67）；作者自己的标注与两人分别只一致 11 条和 9 条（κ 为负），因此这些标注不构成稳定策略，本文不采用。在两人一致的 14 条上，分类体系（摘要、数字、交叉引用、标题、图注、术语、排版、记号、措辞）仍使状态耗尽：措辞类里"proved"（被拒——探针是演绎反驳）与时态/语域（被采纳）分开，给出撞车对 (11,13) 与 (12,13)。再加一个谓词"断言强度"就足以识别规则。`engine/scenarios/review.demo` 复现这两个状态。
+20. **审稿策略基本能被它的分类体系表达，只差一处**：改动前的稿子盲给两位评审，附同一份清单。两人在 16 条中有 14 条一致（Cohen's κ = 0.67）；作者自己的标注与两人分别只一致 11 条和 9 条（κ 为负），因此这些标注不构成稳定策略，本文不采用。在两人一致的 14 条上，分类体系（摘要、数字、交叉引用、标题、图注、术语、排版、记号、措辞）仍使状态耗尽：措辞类里"proved"（被拒——探针是演绎反驳）与时态/语域（被采纳）分开，给出撞车对 (11,13) 与 (12,13)。再加一个谓词"断言强度"就足以识别规则。`crates/metaform/scenarios/review.demo` 复现这两个状态。
 ## 诚实边界
 
 - 核心数学是 FCA/ILP 的 folklore（"可定义 = 等价类之并"）。贡献是把它当**必要性判据**用，

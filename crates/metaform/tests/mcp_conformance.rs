@@ -17,6 +17,7 @@ const ENGINE: &str = env!("CARGO_BIN_EXE_metaform");
 fn workspace_tmp(tag: &str) -> PathBuf {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
+        .and_then(Path::parent)
         .expect("engine lives under the workspace root")
         .join("tmp");
     std::fs::create_dir_all(&root).expect("create workspace tmp");

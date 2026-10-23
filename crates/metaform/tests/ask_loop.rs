@@ -1,7 +1,7 @@
 //! End-to-end check of the `ask` loop, CLI only: `suggest` names an object, a person answers it, the
 //! answer is recorded, and `state need` / `suggest` see the new state.
 //!
-//! The fixture is the one `engine/tests/suggest.rs` uses for `unprobed_member`: one atom covers `{0,1,2}`,
+//! The fixture is the one `crates/metaform/tests/suggest.rs` uses for `unprobed_member`: one atom covers `{0,1,2}`,
 //! object 0 is a strong positive, object 1 a strong negative, and object 2 has never been asked. The
 //! class is mixed, so the pair (0,1) collides and `ask` names the unprobed member 2.
 //!

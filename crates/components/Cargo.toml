@@ -6,7 +6,7 @@ license = "MIT OR Apache-2.0"
 description = "Concrete proposal components for metaform: vector retrieval, structure mapping, label probing, and the readers the binaries need"
 
 [dependencies]
-metaform = { path = "../../engine" }
+metaform = { path = "../metaform" }
 metaform-runtime = { path = "../runtime" }
 metaform-vsa = { path = "../vsa" }
 metaform-sme = { path = "../sme" }

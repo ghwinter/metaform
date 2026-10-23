@@ -12,10 +12,10 @@ From now on, edit only `paper/en/main.tex`, then sync `paper/zh/main.tex`.
 | `paper/en/`, `paper/zh/` | Bilingual body text. en uses `pdflatex` twice; zh uses `xelatex` twice (ctex) |
 | `proofs/` | Lean 4 formalization: 13 declarations carrying Theorems 1–11, no admitted goal and no warnings; `proofs/mechanization.md` maps theorem to declaration |
 | `experiments/` | Python experiments: synthetic domains, Lean domain, code domain, cost breakdown, data ledger `RESULTS.md` |
-| `engine/` | Rust kernel + `metaform` command line (`engine/scenarios/` holds example scripts) |
+| `crates/metaform/` | Rust kernel + `metaform` command line (`crates/metaform/scenarios/` holds example scripts) |
 | `scripts/` | Assertion gates, alignment and reference checks, Lean/Rust wrappers, bundle builder |
 
-What a clone carries is `crates/`, `engine/`, `paper/` and `proofs/` plus the four documents.
+What a clone carries is `crates/`, `paper/` and `proofs/` plus the four documents.
 `experiments/` and `scripts/` are working directories: they run beside the code and are cited by
 path, but they are not versioned, so a fresh clone has the code and the claims and must rebuild the
 gates. The allow list at the top of `.gitignore` is the authoritative answer to what is tracked.
@@ -35,7 +35,7 @@ without a bibliography entry. The paper reaches external work only through the b
 end, which is the usual convention; the table that maps theorems to Lean declarations lives in
 `proofs/mechanization.md` instead of the paper.
 
-The tree is default-deny: `.gitignore` starts with `*` and then allows whole directories (`!/engine/**`)
+The tree is default-deny: `.gitignore` starts with `*` and then allows whole directories (`!/crates/**`)
 and the few root files that belong to the repository. A new source file inside an allowed directory
 needs no edit; a new top-level directory does. The same gate fails if a tracked file lies outside every
 allowed rule, or if an allowed rule matches nothing, so a dropped note or a build product cannot enter
@@ -325,7 +325,7 @@ code comments: no machine paths, no names of untracked material.
 ## Reproducing the three-part setup
 
 ```powershell
-pwsh -File scripts/check-all.ps1                     # eleven gates (lean/rust/vsa/align/refs/components/claims/secrets/checks/theory/experiments), about 40 s
+pwsh -File scripts/check-all.ps1                     # every gate (lean/rust/kernel/propose/vsa/align/refs/components/claims/backlog/secrets/checks/theory/experiments)
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
 pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 188; the kernel's 12 and the protocol's 25 are separate manifests)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
@@ -409,7 +409,7 @@ anything that pins what the results are (Lean version, Mathlib revision, the Rus
     `early_correct: true` turns `check-all` red (the negative self-test is in `selftest-gates.ps1`).
 14. **The CLI also asks for verification first**: `objects 3; add p 0; vote 0 3 0; vote 1 3 0; need` outputs
     `"action":"VERIFY"` and `"unverified":[2]` — the label of class `{1,2}` is inherited from 1, and 2 was never asked directly.
-15. **One end-to-end run works**: `engine/scenarios/verify.demo` (6 test files, deciding "is this an integration test") goes through
+15. **One end-to-end run works**: `crates/metaform/scenarios/verify.demo` (6 test files, deciding "is this an integration test") goes through
     `IDENTIFIED/VERIFY → INSUFFICIENT/PROPOSE → UNDETERMINED/ASK → IDENTIFIED/STOP`.
     `e2e_verify.py` freezes this sequence and `unverified=[4,5]` into `check-all`.
     While there, it also fixed the unstable order in `unprobed()` (`classes()` goes through a `HashMap`).
@@ -424,7 +424,7 @@ anything that pins what the results are (Lean version, Mathlib revision, the Rus
 
 19. **Cheap proposals buy the vocabulary, not the queries**: with `k` candidate vocabularies of which exactly one is sufficient, a baseline that draws one member succeeds `1/k` (0.250 at `k=5`) while the portfolio succeeds 0.955, paying 1.53 queries to eliminate each wrong candidate (`metaform portfolio`, 200 trials). The portfolio never decides a wrong extension; conflict is its only failure and rises from 0.025 at `k=3` to 0.110 at `k=10`, so success peaks at `k=3` (0.975) and falls back at `k=10` (0.890).
 
-20. **A review policy fits its taxonomy except in one place**: the pre-revision manuscript was given, blind, to two reviewers with the same checklist. They agreed on 14 of 16 findings (Cohen's kappa 0.67); the author's own decisions agree with them on 11 and 9 of the 16 (kappa below zero), so those labels are not a stable policy and are not used here. On the 14 agreed findings, the taxonomy (abstract, numbers, cross-references, titles, captions, terminology, typography, notation, voice) leaves the state exhausted: the voice findings split between "proved" (rejected — a probe refutes deductively) and tense or register (adopted), giving colliding pairs (11,13) and (12,13). One predicate, claim strength, is enough to identify the rule. `engine/scenarios/review.demo` reproduces both states.
+20. **A review policy fits its taxonomy except in one place**: the pre-revision manuscript was given, blind, to two reviewers with the same checklist. They agreed on 14 of 16 findings (Cohen's kappa 0.67); the author's own decisions agree with them on 11 and 9 of the 16 (kappa below zero), so those labels are not a stable policy and are not used here. On the 14 agreed findings, the taxonomy (abstract, numbers, cross-references, titles, captions, terminology, typography, notation, voice) leaves the state exhausted: the voice findings split between "proved" (rejected — a probe refutes deductively) and tense or register (adopted), giving colliding pairs (11,13) and (12,13). One predicate, claim strength, is enough to identify the rule. `crates/metaform/scenarios/review.demo` reproduces both states.
 ## Honest boundaries
 
 - The core mathematics is folklore from FCA/ILP ("definable = union of equivalence classes"). The contribution is to use it as a **necessity criterion**

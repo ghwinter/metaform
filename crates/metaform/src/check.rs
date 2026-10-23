@@ -44,6 +44,7 @@ fn src_dir() -> PathBuf {
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
+        .and_then(Path::parent)
         .expect("engine lives under the workspace root")
         .to_path_buf()
 }
@@ -112,7 +113,7 @@ pub fn layers() -> Result<String, String> {
         }
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
         let Some(own) = tier(&name) else {
-            problems.push(format!("{name}: no tier declared in engine/src/check.rs"));
+            problems.push(format!("{name}: no tier declared in crates/metaform/src/check.rs"));
             continue;
         };
         classified += 1;
@@ -189,6 +190,16 @@ pub fn tracked() -> Result<String, String> {
             continue;
         }
         bad.push(path);
+    }
+    if total == 0 {
+        // `git ls-files` run from the wrong directory still succeeds and still lists files -- just
+        // none of them. Without this, a wrong `repo_root()` turns the rule below into a rule about
+        // the empty set, which every tree satisfies. The crate moved one level down once; the next
+        // move should fail here rather than pass quietly.
+        return Err(format!(
+            "git ls-files found no markdown under {}: wrong repository root",
+            repo_root().display()
+        ));
     }
     if bad.is_empty() {
         Ok(format!("{total} tracked document(s), all formal"))

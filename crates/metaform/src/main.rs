@@ -72,7 +72,7 @@
 /// Results and protocol go to stdout; commentary goes to stderr through `tracing`.
 ///
 /// The kernel library prints nothing at all: this binary is the only place that owns the two
-/// streams, which is what keeps `engine/src` free of I/O and lets the MCP server promise that every
+/// streams, which is what keeps `crates/metaform/src` free of I/O and lets the MCP server promise that every
 /// line on stdout is protocol.
 macro_rules! out {
     ($($arg:tt)*) => {{

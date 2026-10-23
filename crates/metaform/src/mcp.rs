@@ -501,6 +501,7 @@ mod tests {
     fn scratch(tag: &str) -> PathBuf {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
+            .and_then(Path::parent)
             .expect("engine lives under the workspace root")
             .join("tmp");
         fs::create_dir_all(&root).expect("create workspace tmp");
@@ -564,7 +565,9 @@ mod tests {
 
     fn skill_dir() -> std::path::PathBuf {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
+            .parent()
+            .and_then(std::path::Path::parent)
+            .expect("engine lives under the workspace root")
             .join(".dsh")
             .join("skills")
             .join("metaform")

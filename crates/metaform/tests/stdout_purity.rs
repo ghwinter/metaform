@@ -14,6 +14,7 @@ const ENGINE: &str = env!("CARGO_BIN_EXE_metaform");
 fn project(tag: &str) -> PathBuf {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
+        .and_then(Path::parent)
         .expect("engine lives under the workspace root")
         .join("tmp");
     let dir = root.join(format!("stdout-purity-{}-{tag}", std::process::id()));
