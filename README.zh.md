@@ -91,7 +91,7 @@ metaform metrics readings --vocab <tsv> --readings <tsv>  # 补集覆盖率与�
 metaform ops                                       # 五类算子调度对照：固定顺序 vs 跳过冗余（论文 §4）
 ```
 
-宿主的注册项为 `serverName` `metaform`、transport `stdio`、command `metaform`、args `["mcp"]`、`cwd` 指向项目根、`toolCallTimeoutMs` 60000、`failOnStartupError` true；模型可见名为 `mcp__metaform__<tool>`。客户端给出任何格式合法的 `protocolVersion` 都原样回显，包括比构建版本更新的修订；只有客户端没给时，才回答 `2055-11-25`。`scripts/install-mcp.ps1` 会把它装到仓库之外的稳定前缀，检查 `--version` 与握手，并把注册项写入每个 profile 的 patch 层、逐个报告动作（`-NoRegister` 只打印注册项，`-DryRun` 只打印计划）；技能文件位于 `.dsh/skills/metaform/SKILL.md`。
+宿主的注册项为 `serverName` `metaform`、transport `stdio`、command `metaform`、args `["mcp"]`、`cwd` 指向项目根、`toolCallTimeoutMs` 60000、`failOnStartupError` true；模型可见名为 `mcp__metaform__<tool>`。客户端给出任何格式合法的 `protocolVersion` 都原样回显，包括比构建版本更新的修订；只有客户端没给时，才回答 `2025-11-25`。`scripts/install-mcp.ps1` 会把它装到仓库之外的稳定前缀，检查 `--version` 与握手，并把注册项写入每个 profile 的 patch 层、逐个报告动作（`-NoRegister` 只打印注册项，`-DryRun` 只打印计划）；技能文件位于 `.dsh/skills/metaform/SKILL.md`。
 
 台账是**只追加**的：撤销 = 追加一行同 id 的 `retracted`，折叠时后者胜。
 本仓库自己也在用：根目录下的 `.metaform/` 就是它的产物（`scripts/migrate-ledger-to-tsv.py` 从旧 JSON 迁来）。
@@ -257,7 +257,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 十一道门（lean/rust/vsa/align/refs/components/claims/secrets/checks/theory/experiments），约 40 s
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 205）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 225）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接
@@ -368,9 +368,12 @@ pwsh -File scripts/bootstrap.ps1 -Write   # 用观测到的值写出 scripts/loc
 1. **把 Lean 放进仓库。** 形式化检查借用的是一个路径属于本机的 Lake 工程，所以克隆之后能读证明，
    却不能重编译。把 lakefile 与工具链（含 Mathlib 修订）跟踪起来、生成 manifest，让 `check-lean`
    就地跑 `lake env lean`。验收：只需 `lake update` 的克隆也能报出同样的 13 条声明、零警告。
-2. **接真实模型。** 提议边界是纯的、带校验的，但到目前为止每个响应都是 mock 造的。适配器不改引擎
-   代码，只改填响应的那个文件。验收：同一个回路对着模型跑，记录接受/拒绝数与提问数，并做等预算的
-   “直接作答 vs 回路”对照。
+2. **一个强到能撞上那个失败模式的提议者。** 回路已经对着一个 3.8B 本地模型（Phi-4-mini Q4_K_M）
+   跑过，数字不大但具体：合并多次运行，见证对相对安慰剂把恢复率抬高 15–20 个点（58% 对 39%，
+   p = 0.007）；单批 19 个实例的估计落在 32%–68% 之间；六步长链的 gap 是 +3 点，而预注册的门槛是
+   15 点。适配器不是待办——它在 `experiments/local_proposer.py` 里。待办是**一个能把「相邻但不同
+   的问题」当成答案交上来的提议者**，因为只有那样计数与见证才会分开。验收：同一组四臂、等预算，
+   换一个过了这道能力地板的模型。
 3. **给 `decompose` 和 `analogize` 定型。** 现有五类管的是证据与表征；目标分解改的是目标，结构映射
    改的是关系结构，两者对度量都没有被陈述的效应，调度器无法推理。验收：每个算子一条命题、一个
    Rust 测试，并在不破坏定理 8–11 的前提下扩展算子表。

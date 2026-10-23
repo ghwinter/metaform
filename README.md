@@ -98,7 +98,7 @@ metaform metrics readings --vocab <tsv> --readings <tsv>  # complement coverage 
 metaform ops                                       # five-operator schedule comparison: fixed order vs skipping redundant steps (paper §4)
 ```
 
-The MCP server is registered host-side as `serverName` `metaform`, transport `stdio`, command `metaform`, args `["mcp"]`, `cwd` at the project root, `toolCallTimeoutMs` 60000, and `failOnStartupError` true; the model-visible names are `mcp__metaform__<tool>`. It echoes whatever well-formed `protocolVersion` the client offers, including revisions newer than the one it was built with, and answers `2055-11-25` only when the client sends none. `scripts/install-mcp.ps1` installs it to a stable prefix outside the repository, checks `--version` and the handshake, and registers the entry in each profile's patch layer, reporting the action per profile (`-NoRegister` prints the entry instead, `-DryRun` prints the plan); the skill lives at `.dsh/skills/metaform/SKILL.md`.
+The MCP server is registered host-side as `serverName` `metaform`, transport `stdio`, command `metaform`, args `["mcp"]`, `cwd` at the project root, `toolCallTimeoutMs` 60000, and `failOnStartupError` true; the model-visible names are `mcp__metaform__<tool>`. It echoes whatever well-formed `protocolVersion` the client offers, including revisions newer than the one it was built with, and answers `2025-11-25` only when the client sends none. `scripts/install-mcp.ps1` installs it to a stable prefix outside the repository, checks `--version` and the handshake, and registers the entry in each profile's patch layer, reporting the action per profile (`-NoRegister` prints the entry instead, `-DryRun` prints the plan); the skill lives at `.dsh/skills/metaform/SKILL.md`.
 
 The ledger is **append-only**: retracting means appending a `retracted` line with the same id; when
 folded, the later line wins.
@@ -325,7 +325,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # eleven gates (lean/rust/vsa/align/refs/components/claims/secrets/checks/theory/experiments), about 40 s
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 205)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 225)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain
@@ -438,10 +438,14 @@ The release stops at a validated boundary, not at a runtime. What is left, in or
    machine-local, so a clone can read the proofs but cannot recompile them. Track the lakefile and the
    toolchain (Mathlib revision included), generate the manifest, and let `check-lean` run `lake env lean`
    in place. Acceptance: a clone with only `lake update` reports the same 13 declarations, no warnings.
-2. **A real model behind the protocol.** The propose boundary is pure and validated, but every response
-   so far is fabricated by a mock. An adapter changes no engine code, only the file that fills the
-   response. Acceptance: the same loop against a model, with accepted/rejected counts and queries
-   recorded, and a budget-matched comparison of a direct answer against the loop.
+2. **A proposer strong enough to reach the failure mode.** The loop has now run against a 3.8B local
+   model (Phi-4-mini Q4_K_M), and the numbers are small and specific: pooled over runs, the witness pair
+   moves recovery 15--20 points over placebo (58% against 39%, p = 0.007); a single nineteen-instance
+   batch is worth anywhere from 32% to 68%; and a six-step chain produced a +3 point gap against a
+   pre-registered bar of 15. The adapter is not the open item -- it exists, in
+   `experiments/local_proposer.py`. The open item is a proposer that can substitute a nearby problem for
+   the one it was asked, which is the only way the count and the witness come apart. Acceptance: the
+   same four arms at equal budget on a model that clears that floor.
 3. **Types for `decompose` and `analogize`.** The five classes type evidence and representation. Goal
    decomposition changes the goal and structure mapping changes the relational structure; neither has a
    stated effect on the measure, so a scheduler cannot reason about them. Acceptance: a proposition per

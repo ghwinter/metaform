@@ -620,7 +620,12 @@ What can be said now:
 
 What cannot be said yet:
 
-- There is no real model in the loop (the protocol is pure; the responses are fabricated).
+- The loop has run against one real model, and the effects are small. A 3.8B local proposer
+  (Phi-4-mini Q4_K_M) improves recovery by 15--20 points over placebo on the witness-pair message
+  (58% against 39%, p = 0.007, pooled over runs); a single nineteen-instance batch spans 32--68%; a
+  six-step chain produced a +3 point gap against a pre-registered 15 point bar. Below a capability
+  floor the witness and the count are the same number, so the failure mode the protocol exists to
+  catch is *unmeasured* there, not absent. See `experiments/RESULTS.md` sections 29--31.
 - The tree-shaped fragment of the relational necessity criterion is decided by colour refinement with a minimised witness; general conjunctive queries (a homomorphism test) are still open.
 - There is no validation on a large real repository.
 
@@ -991,7 +996,7 @@ The single status authority is §6.1; this table is the same information viewed 
 | record and experience | exists; consulted through the experience hint, which changes ask order only |
 | predicate layer | accepts `define: {all_of\|any_of}` over existing predicates; a definition is constant on the request vocabulary's equivalence classes |
 | FCA / attribute exploration | decides which predicate to add; not wired |
-| LLM adapter | the protocol is pure; no real model in the loop |
+| LLM adapter | exists (`experiments/local_proposer.py`); run against a 3.8B local model, whose capability ceiling bounds what the numbers can show |
 | CEGAR, MDL | motivation, and a criterion stated but not wired |
 
 **Four confusions.**
