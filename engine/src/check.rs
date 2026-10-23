@@ -9,14 +9,16 @@
 //!   prints   no kernel module writes to a stream; a print anywhere else is counted, so the exception
 //!            stays visible instead of becoming the norm
 //!   layers   an engine module may only import a layer at or below its own, and an unclassified
-//!            module is a failure
+//!            module is a failure. This scan sees files in this crate's `src` only: the measure
+//!            (`metaform-kernel`) and the protocol (`metaform-propose`) are crates now, so the
+//!            compiler enforces their position and there is nothing here to check
 //!   tracked  only formal documents are tracked; research notes belong in untracked directories
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const KERNEL: &[&str] = &["lib.rs", "state.rs", "operators.rs", "propose.rs", "metrics.rs", "coverage.rs"];
+const KERNEL: &[&str] = &["lib.rs", "state.rs", "operators.rs", "metrics.rs", "coverage.rs"];
 const RUNTIME: &[&str] = &[
     "suggest.rs", "explore.rs", "apply.rs", "answer.rs", "laws.rs", "predictions.rs", "plan.rs",
     "ledger.rs", "portfolio.rs", "report.rs", "score.rs", "morphism.rs",

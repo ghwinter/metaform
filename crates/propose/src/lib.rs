@@ -74,7 +74,7 @@
 
 use std::collections::HashSet;
 
-use crate::{bit, DefOp, Definition, Explorer, Mask, Predicate, Vocabulary};
+use metaform_kernel::{bit, DefOp, Definition, Explorer, Mask, Predicate, Vocabulary};
 
 /// The protocol string that identifies this boundary.
 const PROTOCOL: &str = "metaform.propose/1";

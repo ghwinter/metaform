@@ -8,7 +8,11 @@ pub use metaform_kernel::*;
 
 /// Multi-operator typing (paper §4): five classes of steps share one measure `Φ`, and each class is checked for what it can change.
 pub mod operators;
-pub mod propose;
+
+/// `propose`: the operator protocol -- a request, a response, and the verdict that decides
+/// whether a candidate may be adopted. A crate of its own, re-exported under the old name so
+/// `metaform::propose::validate_response` keeps working.
+pub use metaform_propose as propose;
 
 /// `suggest`: enumerate Boolean definitions over the vocabulary and report why none can break a collision.
 pub mod suggest;

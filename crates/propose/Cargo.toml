@@ -1,0 +1,9 @@
+[package]
+name = "metaform-propose"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The operator protocol: a request, a response, and the verdict that decides whether a candidate may be adopted"
+
+[dependencies]
+metaform-kernel = { path = "../kernel" }
