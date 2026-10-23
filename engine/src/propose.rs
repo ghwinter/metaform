@@ -26,6 +26,19 @@
 //!      failed; the pair says where. Measured on a 4B proposer, only the pair moves it: telling the
 //!      model "splits = 0" recovers 41% of failures, naming one object on each side recovers 66%
 //!      (p = 0.009), and an explanation of why a recombination cannot work recovers 47% (p = 0.58).
+//!  11. a `falsifier` string is carried verbatim and never checked. A `falsifier` object
+//!      `{"pair": [a, b]}` is a claim the engine can settle, so it is checked:
+//!      `falsifier_bad_pair` (not two in-range distinct ids), `falsifier_not_separating` (the
+//!      extension covers both or neither, so the pair asserts nothing), and
+//!      `falsifier_already_fired` (the evidence already contradicts the label the pair implies).
+//!
+//! A falsifier is the one field that was written by everything and read by nothing: 596 recorded
+//! candidates carry one, 587 as prose. Prose stays prose -- it cannot be settled, and rejecting it
+//! now would turn a decoration into a compatibility break. A pair can be settled, and it is settled
+//! twice: here, against the evidence the request carries, and later by `check-predictions`, against
+//! labels that arrive after the candidate was adopted. The second settlement is what `apply` records
+//! in `.metaform/predictions.tsv`, and it is the half that makes the field a commitment rather than a
+//! comment.
 //!
 //! A candidate is extensional (`ids`) or defined (`define: {"all_of": [...]}` / `{"any_of": [...]}`).
 //! A definition may only name predicates that already exist in the request vocabulary; the operands are
@@ -72,6 +85,9 @@ pub struct Proposal<'a> {
     pub ids: &'a [usize],
     pub warrant: Option<&'a str>,
     pub falsifier: Option<&'a str>,
+    /// The pair this proposal stakes itself on, when the component can name one. Written as
+    /// `{"pair":[a,b]}`; `falsifier` is then `None` and the prose field stays empty.
+    pub falsifier_pair: Option<(usize, usize)>,
 }
 
 /// The label a candidate commits to for an object it was not built from (L11).
@@ -125,6 +141,10 @@ pub struct Accepted {
     pub still_colliding: Vec<(usize, usize)>,
     pub warrant: Option<String>,
     pub falsifier: Option<String>,
+    /// The pair the candidate staked itself on, when its falsifier was `{"pair":[a,b]}`. Checked at
+    /// admission (rule 11) and recorded by `apply` so `check-predictions` can settle it again
+    /// against labels the request did not carry.
+    pub falsifier_pair: Option<(usize, usize)>,
     /// `Some` when the candidate was defined (`all_of` / `any_of`); [`Accepted::ids`] is then its
     /// extension. `None` means the candidate supplied its ids directly.
     pub definition: Option<Definition>,
@@ -183,7 +203,9 @@ pub fn response_file(request_id: &str, proposals: &[Proposal<'_>]) -> String {
             if let Some(w) = p.warrant {
                 entry.push_str(&format!(",\"warrant\":{}", json_string(w)));
             }
-            if let Some(f) = p.falsifier {
+            if let Some((a, b)) = p.falsifier_pair {
+                entry.push_str(&format!(",\"falsifier\":{{\"pair\":[{a},{b}]}}"));
+            } else if let Some(f) = p.falsifier {
                 entry.push_str(&format!(",\"falsifier\":{}", json_string(f)));
             }
             entry.push('}');
@@ -885,6 +907,70 @@ fn checked_commitment(
     Ok((prediction, rival))
 }
 
+/// Parse the falsifier a candidate supplied (rule 11).
+///
+/// A string is kept verbatim and never checked: it is what 587 of the recorded candidates carry, and
+/// prose cannot be settled. An object `{"pair":[a,b]}` is a claim that can be settled, so it is
+/// checked against the extension and the evidence right here. A bare array is neither; it was
+/// silently ignored before this field had a shape, and ignoring it again keeps every recorded
+/// response replayable.
+fn parse_falsifier(
+    obj: &Json,
+    req: &Request,
+    ext: Mask,
+) -> Result<(Option<String>, Option<(usize, usize)>), &'static str> {
+    let node = match obj.get("falsifier") {
+        None | Some(Json::Null) => return Ok((None, None)),
+        Some(Json::Str(text)) => return Ok((Some(text.to_string()), None)),
+        Some(node @ Json::Obj(_)) => node,
+        Some(_) => return Ok((None, None)),
+    };
+    let Some(Json::Arr(items)) = node.get("pair") else {
+        return Err("falsifier_bad_pair");
+    };
+    if items.len() != 2 {
+        return Err("falsifier_bad_pair");
+    }
+    let mut pair = [0usize; 2];
+    for (i, item) in items.iter().enumerate() {
+        let Some(raw) = item.as_i64() else {
+            return Err("falsifier_bad_pair");
+        };
+        let Ok(id) = usize::try_from(raw) else {
+            return Err("falsifier_bad_pair");
+        };
+        if id >= req.n {
+            return Err("falsifier_bad_pair");
+        }
+        pair[i] = id;
+    }
+    let (a, b) = (pair[0], pair[1]);
+    if a == b {
+        return Err("falsifier_bad_pair");
+    }
+    // "Exactly one of the two is in my extension" is the whole content of a pair. A candidate that
+    // covers both or neither is not naming a falsifier, it is naming a question.
+    if ((ext >> a) & 1) == ((ext >> b) & 1) {
+        return Err("falsifier_not_separating");
+    }
+    // Being in the extension asserts `pos`; being out of it asserts `neg`. When the evidence already
+    // says otherwise, the candidate's own falsifier fired before it was adopted.
+    for id in [a, b] {
+        let implied_pos = (ext >> id) & 1 == 1;
+        let measured_pos = if req.pos & bit(id) != 0 {
+            Some(true)
+        } else if req.neg & bit(id) != 0 {
+            Some(false)
+        } else {
+            None
+        };
+        if measured_pos.is_some_and(|m| m != implied_pos) {
+            return Err("falsifier_already_fired");
+        }
+    }
+    Ok((None, Some((a, b))))
+}
+
 fn split_pairs(
     n: usize,
     pos: Mask,
@@ -980,7 +1066,9 @@ fn accepted_json(candidate: &Accepted) -> String {
         out.push_str(",\"warrant\":");
         out.push_str(&json_string(warrant));
     }
-    if let Some(falsifier) = &candidate.falsifier {
+    if let Some((a, b)) = candidate.falsifier_pair {
+        out.push_str(&format!(",\"falsifier\":{{\"pair\":[{a},{b}]}}"));
+    } else if let Some(falsifier) = &candidate.falsifier {
         out.push_str(",\"falsifier\":");
         out.push_str(&json_string(falsifier));
     }
@@ -1155,6 +1243,19 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
                 continue;
             }
         };
+        // Rule 11: the falsifier. A string rides along; a pair is settled now, against the evidence
+        // this request carries, and again by `check-predictions` once later labels arrive.
+        let (falsifier, falsifier_pair) = match parse_falsifier(obj, req, ext) {
+            Ok(pair) => pair,
+            Err(reason) => {
+                rejected.push(Rejected {
+                    name: name.to_string(),
+                    ids: ids.values,
+                    reason: reason.to_string(),
+                });
+                continue;
+            }
+        };
         if accepted.len() >= req.limit {
             rejected.push(Rejected {
                 name: name.to_string(),
@@ -1252,7 +1353,8 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
             separates,
             still_colliding,
             warrant: obj.get("warrant").and_then(Json::as_str).map(str::to_string),
-            falsifier: obj.get("falsifier").and_then(Json::as_str).map(str::to_string),
+            falsifier,
+            falsifier_pair,
             definition: alt.definition,
             prediction,
             rival: rival.map(|mask| ids_of(mask, req.n)),

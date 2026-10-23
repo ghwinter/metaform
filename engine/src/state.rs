@@ -13,6 +13,20 @@ use std::path::Path;
 use crate::{bit, DefOp, Definition, Explorer, Predicate, Status, Vocabulary};
 use serde::{Deserialize, Serialize};
 
+/// The falsifier a candidate staked its predicate on, stored verbatim.
+///
+/// Prose is stored as prose: it cannot be settled, and dropping it would lose the only record of what
+/// the proposer thought would refute it. A `pair` is the settled form -- it is checked against the
+/// request's evidence when the candidate is validated, and against later labels by
+/// `check-predictions`. Keeping both shapes in one field is what lets a state file written by any
+/// version keep loading.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum Falsifier {
+    Text(String),
+    Pair { pair: (usize, usize) },
+}
+
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct PredSpec {
     pub name: String,
@@ -24,6 +38,9 @@ pub struct PredSpec {
     /// old state files readable. `define` is accepted as an alias when reading.
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "define")]
     pub definition: Option<Definition>,
+    /// What the proposer said would refute this predicate. Recorded, not enforced.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub falsifier: Option<Falsifier>,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
@@ -35,7 +52,11 @@ pub struct VoteSpec {
 
 /// The state file's format version. A file without the field predates versioning and is read as
 /// version 1; a file from the future is refused rather than half-understood.
-pub const SCHEMA_VERSION: u32 = 2;
+///
+/// 3 adds `PredSpec::falsifier`. Reading a 2 file is unchanged (the field is `None`); the bump is
+/// what tells an older binary to refuse a file whose falsifier it would silently drop on the next
+/// save.
+pub const SCHEMA_VERSION: u32 = 3;
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct State {
@@ -334,7 +355,7 @@ mod tests {
     }
 
     fn spec(name: &str, ids: Vec<usize>) -> PredSpec {
-        PredSpec { name: name.into(), ids, definition: None }
+        PredSpec { name: name.into(), ids, definition: None, falsifier: None }
     }
 
     fn defined(name: &str, op: DefOp, operands: &[&str]) -> PredSpec {
@@ -345,6 +366,7 @@ mod tests {
                 op,
                 operands.iter().map(|s| s.to_string()).collect(),
             )),
+            falsifier: None,
         }
     }
 

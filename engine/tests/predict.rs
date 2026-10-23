@@ -213,8 +213,8 @@ fn apply_records_predictions_once_and_is_idempotent() {
     assert_eq!(first["skipped"], json!([]), "{first}");
 
     let want = concat!(
-        "request_id\tname\tid\tpredicted\textension\trival\tscore\n",
-        "predict-record\tonly0\t2\tpos\t0\t\t\n"
+        "request_id\tname\tid\tpredicted\textension\trival\tscore\tpair\n",
+        "predict-record\tonly0\t2\tpos\t0\t\t\t\n"
     );
     assert_eq!(
         std::fs::read_to_string(predictions_file(&dir)).expect("read predictions"),
@@ -310,7 +310,7 @@ fn check_predictions_scores_correct_and_wrong_and_is_read_only() {
         out,
         concat!(
             r#"{"checked":2,"correct":1,"#,
-            r#""wrong":[{"name":"p2","id":3,"predicted":"neg","actual":"pos"}],"open":1,"discriminating":0}"#,
+            r#""wrong":[{"name":"p2","id":3,"predicted":"neg","actual":"pos"}],"open":1,"discriminating":0,"refuted":[]}"#,
             "\n"
         ),
         "one deterministic line, scored against the kernel's strong labels"
@@ -497,8 +497,8 @@ fn rival_that_disagrees_is_accepted_and_recorded() {
     assert_eq!(applied["applied"], json!(1), "{applied}");
     // The rival column is the rival's extension: the candidate covers 0, the rival covers 0 and 2.
     let want = concat!(
-        "request_id\tname\tid\tpredicted\textension\trival\tscore\n",
-        "predict-rival-record\tonly0\t2\tpos\t0\t0,2\t\n"
+        "request_id\tname\tid\tpredicted\textension\trival\tscore\tpair\n",
+        "predict-rival-record\tonly0\t2\tpos\t0\t0,2\t\t\n"
     );
     assert_eq!(
         std::fs::read_to_string(predictions_file(&dir)).expect("read predictions"),
@@ -531,7 +531,7 @@ fn a_scored_prediction_records_its_score() {
     assert_eq!(applied["applied"], json!(1), "{applied}");
     let record = std::fs::read_to_string(dir.join(".metaform").join("predictions.tsv"))
         .expect("predictions file");
-    assert!(record.ends_with("predict-score\tonly0\t2\tpos\t0\t\t0.5\n"), "{record}");
+    assert!(record.ends_with("predict-score\tonly0\t2\tpos\t0\t\t0.5\t\n"), "{record}");
 }
 fn candidate_without_a_rival_records_an_empty_rival_column() {
     let dir = unmeasured_fixture("rival-empty");
@@ -600,7 +600,7 @@ fn five_column_predictions_file_written_by_the_old_format_still_scores() {
     assert_eq!(
         out,
         concat!(
-            r#"{"checked":1,"correct":1,"wrong":[],"open":0,"discriminating":0}"#,
+            r#"{"checked":1,"correct":1,"wrong":[],"open":0,"discriminating":0,"refuted":[]}"#,
             "\n"
         ),
         "the old five-column record must score without a parse error"
@@ -670,7 +670,7 @@ fn check_predictions_counts_discriminating_bets() {
         concat!(
             r#"{"checked":2,"correct":1,"#,
             r#""wrong":[{"name":"p2","id":3,"predicted":"neg","actual":"pos"}],"#,
-            r#""open":2,"discriminating":2}"#,
+            r#""open":2,"discriminating":2,"refuted":[]}"#,
             "\n"
         ),
         "discriminating counts checked rivaled rows, including the wrong one"

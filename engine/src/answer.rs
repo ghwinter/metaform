@@ -342,6 +342,7 @@ fn stage(
                 name: name.to_string(),
                 ids: Vec::new(),
                 definition: Some(definition),
+                falsifier: None,
             });
             if let Err(e) = st.resolve() {
                 return Err(format!("cannot adopt the definition: {e}"));

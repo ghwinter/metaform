@@ -135,7 +135,16 @@ fn write_response(
             name: &c.name,
             ids: &ids[i],
             warrant: Some(warrants[i].as_str()),
-            falsifier: Some(falsifiers[i].as_str()),
+            // An empty join is not a falsifier: emitting `"falsifier":""` would record a decoration,
+            // and this is the same mistake `experiments/proposer_arms.py` made with a real one.
+            falsifier: if falsifiers[i].is_empty() {
+                None
+            } else {
+                Some(falsifiers[i].as_str())
+            },
+            // A component states its falsifier in prose. A pair is a commitment only a proposer that
+            // can name two objects should make, and none of the components in this crate can yet.
+            falsifier_pair: None,
         })
         .collect();
     std::fs::write(path, metaform::propose::response_file(request_id, &proposals))

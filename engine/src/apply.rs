@@ -30,7 +30,7 @@ use std::path::Path;
 use crate::propose::{self, Accepted};
 use crate::suggest;
 
-use crate::state::PredSpec;
+use crate::state::{Falsifier, PredSpec};
 
 /// A failed `apply`, with the CLI exit code and (for a whole-response rejection) the verdict line
 /// that `propose` prints. The MCP entry point only uses `message`.
@@ -110,6 +110,15 @@ pub fn apply_text(
                 candidate.ids.clone()
             },
             definition: candidate.definition.clone(),
+            // The falsifier is recorded, not enforced: rule 11 in `propose` is what enforces a pair,
+            // and `check-predictions` is what settles it again against labels that arrive later.
+            // Prose is kept because it is the only record of what the proposer thought would refute
+            // the predicate, and it costs one string.
+            falsifier: match (candidate.falsifier_pair, &candidate.falsifier) {
+                (Some((a, b)), _) => Some(Falsifier::Pair { pair: (a, b) }),
+                (None, Some(text)) => Some(Falsifier::Text(text.clone())),
+                (None, None) => None,
+            },
         });
     }
     if let Err(e) = next.resolve() {

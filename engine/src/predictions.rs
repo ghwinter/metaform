@@ -35,7 +35,7 @@ use crate::bit;
 use crate::propose::{self, Accepted};
 
 /// The header line of `.metaform/predictions.tsv`.
-pub const HEADER: &str = "request_id\tname\tid\tpredicted\textension\trival\tscore";
+pub const HEADER: &str = "request_id\tname\tid\tpredicted\textension\trival\tscore\tpair";
 
 /// The header written before the `rival` column existed. It still has to be skipped as a header, not
 /// read as a malformed data row.
@@ -43,6 +43,9 @@ const LEGACY_HEADER: &str = "request_id\tname\tid\tpredicted\textension";
 
 /// The header written before the `score` column existed.
 const RIVAL_HEADER: &str = "request_id\tname\tid\tpredicted\textension\trival";
+
+/// The header written before the `pair` column existed.
+const SCORE_HEADER: &str = "request_id\tname\tid\tpredicted\textension\trival\tscore";
 
 /// The extension as a deterministic comma-separated id list (ascending, no duplicates).
 fn extension(ids: &[usize]) -> String {
@@ -115,7 +118,7 @@ pub fn record(path: &Path, request_id: &str, candidates: &[Accepted]) -> std::io
             continue;
         }
         rows.push(format!(
-            "{request_id}\t{}\t{}\t{}\t{}\t{}\t{}",
+            "{request_id}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             candidate.name,
             prediction.id,
             prediction.label.as_str(),
@@ -129,7 +132,13 @@ pub fn record(path: &Path, request_id: &str, candidates: &[Accepted]) -> std::io
                 .unwrap_or_default(),
             // The score is empty when the candidate carried none; an abstention cannot be recorded
             // without one, so a non-empty abstain always has a number beside it.
-            candidate.score.map(|s| s.to_string()).unwrap_or_default()
+            candidate.score.map(|s| s.to_string()).unwrap_or_default(),
+            // The falsifier pair, when the candidate staked itself on one. Empty for prose, which
+            // cannot be settled, and for candidates that carried no falsifier at all.
+            candidate
+                .falsifier_pair
+                .map(|(a, b)| format!("{a},{b}"))
+                .unwrap_or_default()
         ));
     }
     if rows.is_empty() {
@@ -161,14 +170,17 @@ struct Record {
     /// The rival's extension. Empty when the row named no rival, and also for every row written
     /// before the column existed, which is what `discriminating` counts.
     rival: Vec<usize>,
+    /// The falsifier pair, when the candidate staked itself on one. `None` for prose, for no
+    /// falsifier, and for every row written before the column existed.
+    pair: Option<(usize, usize)>,
 }
 
 /// Read the record. A missing file is an empty record; a malformed row is skipped, because the file
 /// is a derived record and only rows written by [`record`] are guaranteed to be well formed.
 ///
 /// A row may carry four fields (request, name, id, label), five (plus the extension), six (plus the
-/// rival), or seven (plus the score). A missing trailing column is read as empty, so a file written
-/// by any earlier version keeps loading.
+/// rival), seven (plus the score), or eight (plus the falsifier pair). A missing trailing column is
+/// read as empty, so a file written by any earlier version keeps loading.
 fn read_records(path: &Path) -> std::io::Result<Vec<Record>> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
@@ -177,7 +189,12 @@ fn read_records(path: &Path) -> std::io::Result<Vec<Record>> {
     };
     let mut out = Vec::new();
     for line in text.lines() {
-        if line.trim().is_empty() || line == HEADER || line == LEGACY_HEADER || line == RIVAL_HEADER {
+        if line.trim().is_empty()
+            || line == HEADER
+            || line == LEGACY_HEADER
+            || line == RIVAL_HEADER
+            || line == SCORE_HEADER
+        {
             continue;
         }
         let fields: Vec<&str> = line.split('\t').collect();
@@ -195,12 +212,23 @@ fn read_records(path: &Path) -> std::io::Result<Vec<Record>> {
             Some(rival) => rival,
             None => continue,
         };
+        // A pair cell holds exactly two ids. Anything else is a hand-edit, and the row keeps loading
+        // with no pair rather than taking the file down: the pair is the newest and least load-bearing
+        // column.
+        let pair = match fields.get(7).copied().unwrap_or("").trim() {
+            "" => None,
+            cell => match parse_extension(cell) {
+                Some(ids) if ids.len() == 2 => Some((ids[0], ids[1])),
+                _ => None,
+            },
+        };
         out.push(Record {
             name: fields[1].to_string(),
             id,
             predicted: fields[3].to_string(),
             extension,
             rival,
+            pair,
         });
     }
     Ok(out)
@@ -227,6 +255,7 @@ pub fn check(project: &Path) -> Result<String, String> {
     let mut open = 0usize;
     let mut discriminating = 0usize;
     let mut wrong: Vec<String> = Vec::new();
+    let mut refuted: Vec<String> = Vec::new();
     for record in &records {
         let actual = if record.id < explorer.n && sp & bit(record.id) != 0 {
             Some("pos")
@@ -259,11 +288,36 @@ pub fn check(project: &Path) -> Result<String, String> {
             }
             None => open += 1,
         }
+
+        // The falsifier pair, settled a second time. A pair asserts that the member inside the
+        // extension is positive and the member outside it is negative; a label that arrived after
+        // adoption and says otherwise is the commitment firing. Kept apart from `wrong`, which is
+        // about the single object the candidate chose to predict: a candidate can be right about its
+        // prediction and still have been wrong about the pair it named.
+        if let Some((a, b)) = record.pair {
+            for id in [a, b] {
+                let actual_pos = if id < explorer.n && sp & bit(id) != 0 {
+                    Some(true)
+                } else if id < explorer.n && sn & bit(id) != 0 {
+                    Some(false)
+                } else {
+                    None
+                };
+                if actual_pos.is_some_and(|m| m != record.extension.contains(&id)) {
+                    refuted.push(format!(
+                        "{{\"name\":{},\"pair\":[{a},{b}],\"fired_on\":{id}}}",
+                        propose::json_string(&record.name)
+                    ));
+                    break;
+                }
+            }
+        }
     }
 
     Ok(format!(
-        "{{\"checked\":{checked},\"correct\":{correct},\"wrong\":[{}],\"open\":{open},\"discriminating\":{discriminating}}}",
-        wrong.join(",")
+        "{{\"checked\":{checked},\"correct\":{correct},\"wrong\":[{}],\"open\":{open},\"discriminating\":{discriminating},\"refuted\":[{}]}}",
+        wrong.join(","),
+        refuted.join(",")
     ))
 }
 

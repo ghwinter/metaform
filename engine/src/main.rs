@@ -682,6 +682,7 @@ fn cmd_state(args: &[String]) -> i32 {
                     name: name.clone(),
                     ids: Vec::new(),
                     definition: Some(def),
+                    falsifier: None,
                 });
                 if let Err(e) = st.resolve() {
                     eprintln!("metaform state add: {e}");
@@ -700,6 +701,7 @@ fn cmd_state(args: &[String]) -> i32 {
                     name: name.clone(),
                     ids: ids.clone(),
                     definition: None,
+                    falsifier: None,
                 });
                 let _ = st.save(&path);
                 out!("{{\"ok\":true,\"name\":\"{name}\",\"ids\":{}}}", state::ids_json(&ids));
