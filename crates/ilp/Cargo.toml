@@ -6,6 +6,9 @@ license = "MIT OR Apache-2.0"
 description = "Relational rule learning for metaform: clauses, conjunctive queries, and a top-down learner"
 
 [dependencies]
+# The JSON boundary of the `ilp_learn` tool. `serde_json` is infrastructure, not an algorithm
+# library: the kernel stays dependency-free, and this crate stays free of any external project.
+serde_json = "1.0.154"
 
 [[bin]]
 name = "ilp_demo"
@@ -14,3 +17,7 @@ path = "src/bin/ilp_demo.rs"
 [[bin]]
 name = "relational_demo"
 path = "src/bin/relational_demo.rs"
+
+[[bin]]
+name = "ilp_learn"
+path = "src/bin/ilp_learn.rs"

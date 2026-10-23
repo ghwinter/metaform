@@ -22,6 +22,7 @@ pwsh -File scripts/check-all.ps1
 | `propose` | the operator protocol's own tests (25) |
 | `store` | the four on-disk artefacts' own tests (14) |
 | `vsa` | the hyperdimensional component's own tests (19) |
+| `ilp` | the inductive learner's own tests (17) |
 | `refs` | no path, file name or link that the repository does not contain |
 | `components` | the proposal components build, and three proposers are judged by one validator |
 | `claims` | every claim about the program still has a command that supports it |

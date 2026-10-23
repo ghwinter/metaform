@@ -281,6 +281,32 @@ pub fn learn(
     None
 }
 
+/// The candidate a proposer hands to the kernel: the extension of the first clause that covers every
+/// positive and no negative.
+///
+/// The extension is over the **whole** domain, not over the objects the examples mentioned. That is
+/// the part a language model cannot do by itself: it has to say which of the objects it never saw
+/// belong to the concept, and enumerating them is exactly where it stops. A learner can, because
+/// the rule it found is a rule over the background facts.
+///
+/// Returns `None` when no clause within the bound separates the evidence. That is a normal answer
+/// and not a failure: it is "this language cannot say it", and there is nothing for the kernel to
+/// judge.
+pub fn learn_extension(
+    target: &str,
+    positives: &[Atom],
+    negatives: &[Atom],
+    bg: &Background,
+    max_body: usize,
+    max_vars: u32,
+    domain: &[u32],
+) -> Option<(Clause, Vec<u32>)> {
+    let clause = learn(target, 1, positives, negatives, bg, max_body, max_vars)?;
+    let ext = extension(&clause, bg, domain);
+    let ids: Vec<u32> = ext.into_iter().filter_map(|args| args.first().copied()).collect();
+    Some((clause, ids))
+}
+
 /// Helper: a ground atom over constants.
 pub fn ground(pred: &str, args: &[u32]) -> Atom {
     Atom { pred: pred.to_string(), args: args.iter().map(|&c| Term::Const(c)).collect() }
@@ -701,6 +727,49 @@ pub fn separating_pattern(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_learned_clause_is_extended_over_the_whole_domain() {
+        // One-place attributes over five objects. The positive example is the only object with both
+        // attributes; the negative one has the second attribute alone. The clause the learner finds
+        // is "the first attribute", and its extension has to name every object it holds of -- the
+        // ones nobody mentioned included. That enumeration is the part a model cannot do, and it is
+        // what makes the learner a proposer rather than a lookup.
+        let mut bg = Background::new(vec![
+            Signature { name: "a0".to_string(), arity: 1 },
+            Signature { name: "a1".to_string(), arity: 1 },
+        ]);
+        for id in [0, 1, 4] {
+            bg.fact("a0", &[id]);
+        }
+        for id in [2, 3, 4] {
+            bg.fact("a1", &[id]);
+        }
+        let pos = vec![ground("target", &[4])];
+        let neg = vec![ground("target", &[2])];
+        let domain: Vec<u32> = (0..5).collect();
+        let (clause, ids) =
+            learn_extension("target", &pos, &neg, &bg, 2, 1, &domain).expect("a rule exists here");
+        assert_eq!(clause.body.len(), 1, "the shortest separating body is one literal");
+        assert_eq!(ids, vec![0, 1, 4], "the extension covers the objects the rule holds of");
+        // The objects nobody mentioned are in it, and the negative example is not.
+        assert!(ids.contains(&0) && ids.contains(&1));
+        assert!(!ids.contains(&2) && !ids.contains(&3));
+    }
+
+    #[test]
+    fn an_unlearnable_case_returns_nothing_rather_than_a_guess() {
+        // Every object has the same attribute, so nothing separates the evidence. "Nothing" is the
+        // answer: a proposer that returned a set here would be reporting a guess as a rule.
+        let mut bg = Background::new(vec![Signature { name: "a0".to_string(), arity: 1 }]);
+        for id in 0..4 {
+            bg.fact("a0", &[id]);
+        }
+        let pos = vec![ground("target", &[0])];
+        let neg = vec![ground("target", &[1])];
+        let domain: Vec<u32> = (0..4).collect();
+        assert!(learn_extension("target", &pos, &neg, &bg, 2, 1, &domain).is_none());
+    }
 
     #[test]
     fn a_body_longer_than_the_available_literals_returns_none_instead_of_panicking() {
