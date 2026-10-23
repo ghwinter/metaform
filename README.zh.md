@@ -259,7 +259,7 @@ target\debug\metaform-runtime.exe run --state crates\runtime\fixtures\state.txt 
 ```powershell
 pwsh -File scripts/check-all.ps1                     # 全部门禁（lean/rust/kernel/propose/vsa/align/refs/components/claims/backlog/secrets/checks/theory/experiments）
 pwsh -File scripts/check-lean.ps1                    # 只跑 Lean（有 warning 即失败）
-pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 188；kernel 的 12 个与 protocol 的 25 个各自一个 manifest）
+pwsh -File scripts/check-rust.ps1                    # 只跑 Rust（通过数必须 == 174；kernel 12、propose 25、store 14 各自一个 manifest）
 pwsh -File scripts/selftest-gates.ps1                # 负向自检：让每套门各红一次
 python scripts/align-papers.py                       # 双语结构/数字对齐 + 形式化对应表 ↔ Lean 源
 python scripts/check-references.py                   # 不许出现仓库里不存在的路径、文件名或链接

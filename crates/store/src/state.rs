@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::{bit, DefOp, Definition, Explorer, Predicate, Status, Vocabulary};
+use metaform_kernel::{bit, DefOp, Definition, Explorer, Predicate, Status, Vocabulary};
 use serde::{Deserialize, Serialize};
 
 /// The falsifier a candidate staked its predicate on, stored verbatim.

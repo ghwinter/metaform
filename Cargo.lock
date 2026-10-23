@@ -49,6 +49,7 @@ version = "0.6.0"
 dependencies = [
  "metaform-kernel",
  "metaform-propose",
+ "metaform-store",
  "serde",
  "serde_json",
  "tracing",
@@ -95,6 +96,16 @@ dependencies = [
 [[package]]
 name = "metaform-sme"
 version = "0.6.0"
+
+[[package]]
+name = "metaform-store"
+version = "0.6.0"
+dependencies = [
+ "metaform-kernel",
+ "metaform-propose",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "metaform-vsa"

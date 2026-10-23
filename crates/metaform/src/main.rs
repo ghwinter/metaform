@@ -760,6 +760,22 @@ fn cmd_state(args: &[String]) -> i32 {
     }
 }
 
+fn cmd_check_predictions(args: &[String]) -> i32 {
+    // This wrapper lives here rather than in the crate that owns the file: `metaform-store` reads and
+    // writes the four artefacts under `.metaform/` and does not parse a command line. A persistence
+    // crate with a `--project` flag would be a store that knows how it is invoked.
+    match predictions::check(&project_root(args)) {
+        Ok(line) => {
+            out!("{line}");
+            0
+        }
+        Err(e) => {
+            eprintln!("metaform check-predictions: {e}");
+            2
+        }
+    }
+}
+
 fn cmd_plan(args: &[String]) -> i32 {
     let root = project_root(args).join(".metaform");
     let Some(st) = load_state(&root.join("state.json"), "plan") else {
@@ -900,7 +916,7 @@ fn main() {
         }
         Some("check-predictions") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
-            std::process::exit(predictions::cmd(&v));
+            std::process::exit(cmd_check_predictions(&v));
         }
         Some("translate") => {
             let v: Vec<String> = std::env::args().skip(1).collect();

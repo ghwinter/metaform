@@ -31,8 +31,8 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use crate::bit;
-use crate::propose::{self, Accepted};
+use metaform_kernel::bit;
+use metaform_propose::{self as propose, Accepted};
 
 /// The header line of `.metaform/predictions.tsv`.
 pub const HEADER: &str = "request_id\tname\tid\tpredicted\textension\trival\tscore\tpair";
@@ -319,21 +319,4 @@ pub fn check(project: &Path) -> Result<String, String> {
         wrong.join(","),
         refuted.join(",")
     ))
-}
-
-/// `metaform check-predictions --project <dir>`
-///
-/// Read-only; see [`check`].
-pub fn cmd(args: &[String]) -> i32 {
-    let root = crate::project_root(args);
-    match check(&root) {
-        Ok(line) => {
-            println!("{line}");
-            0
-        }
-        Err(e) => {
-            eprintln!("metaform check-predictions: {e}");
-            2
-        }
-    }
 }

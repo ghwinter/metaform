@@ -29,20 +29,12 @@ pub mod portfolio;
 /// Vocabulary change as a morphism: fidelity, gain, and the collision a merge can hide.
 pub mod morphism;
 
-/// Evidence ledger: append-only TSV rows folded by id.
-pub mod ledger;
-
 /// Coverage + purity + re-ask budget for one state.
 pub mod plan;
 
-/// Persisted scenario state (`<project>/.metaform/state.json`).
-pub mod state;
-
-/// Held-out predictions recorded by `apply` and scored by `check-predictions`.
-pub mod predictions;
-
-/// Persisted law theory (`<project>/.metaform/laws.tsv`).
-pub mod laws;
+/// The four files a project keeps in its `.metaform` directory, as one crate: state, laws, ledger,
+/// predictions. Re-exported module by module, so `metaform::state::State` keeps its name.
+pub use metaform_store::{laws, ledger, predictions, state};
 
 /// The `explore --emit-questions` -> `answer` loop.
 pub mod answer;

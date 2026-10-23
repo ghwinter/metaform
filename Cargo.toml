@@ -4,6 +4,7 @@ members = [
     "crates/metaform",
     "crates/kernel",
     "crates/propose",
+    "crates/store",
     "crates/runtime",
     "crates/components",
     "crates/vsa",

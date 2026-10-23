@@ -18,10 +18,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const KERNEL: &[&str] = &["lib.rs", "state.rs", "operators.rs", "metrics.rs", "coverage.rs"];
+const KERNEL: &[&str] = &["lib.rs", "operators.rs", "metrics.rs", "coverage.rs"];
 const RUNTIME: &[&str] = &[
-    "suggest.rs", "explore.rs", "apply.rs", "answer.rs", "laws.rs", "predictions.rs", "plan.rs",
-    "ledger.rs", "portfolio.rs", "report.rs", "score.rs", "morphism.rs",
+    "suggest.rs", "explore.rs", "apply.rs", "answer.rs", "plan.rs", "portfolio.rs", "report.rs",
+    "score.rs", "morphism.rs",
 ];
 const INTERFACE: &[&str] = &["main.rs", "mcp.rs", "check.rs"];
 

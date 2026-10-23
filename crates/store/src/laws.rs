@@ -20,7 +20,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use crate::canonical_names;
+use metaform_kernel::canonical_names;
 
 /// The required first line of a non-empty theory file.
 pub const HEADER: &str = "source\tkind\tpremise\tconclusion\tnote";
