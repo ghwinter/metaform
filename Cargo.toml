@@ -16,3 +16,23 @@ members = [
 version = "0.6.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+
+# ---------------------------------------------------------------------------
+# Build profile: keep the newest artefacts, not every intermediate one.
+#
+# The build directory was 7.0 GB, of which the per-crate incremental cache was 3.6 GB -- more than
+# half the disk for a cache that is discarded on the next dependency change anyway. This repository
+# is a research artefact whose value is the source and the numbers, not the speed of a rebuild that
+# happens once a day; a full rebuild is about fifteen seconds.
+#
+# `debug = 1` keeps line tables, so a panic still prints file:line, and drops the variable and type
+# metadata that made the compiled-dependency store 2.9 GB. A backtrace without locals is enough to
+# find the failing test.
+# ---------------------------------------------------------------------------
+[profile.dev]
+incremental = false
+debug = 1
+
+[profile.test]
+incremental = false
+debug = 1
