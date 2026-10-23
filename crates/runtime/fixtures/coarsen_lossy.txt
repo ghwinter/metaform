@@ -1,0 +1,9 @@
+# Coarsening fixture: objects 0 and 1 hold exactly the same attributes, so the vector encoding
+# merges them, but `p` holds for 0 and not for 1. The merge is the one an atom check has to catch.
+objects 4
+request_id coarsen-lossy
+vocab p 0 2
+attr a 0 1 2
+attr b 0 1
+pos 0
+neg 2

@@ -111,7 +111,7 @@ fn record_lines(state_hash: u64, step: &Step, ctx: &metaform_runtime::Context) -
 }
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  metaform-runtime retrieve  --state <file> --out <response.json> [--dim N] [--seed N] [--limit N]\n  metaform-runtime analogize --state <file> --systems <file> --out <response.json> [--limit N]"
+        "usage:\n  metaform-runtime retrieve  --state <file> --out <response.json> [--dim N] [--seed N] [--limit N]\n  metaform-runtime analogize --state <file> --systems <file> --out <response.json> [--limit N]\n  metaform-runtime coarsen   --state <file> [--threshold F] [--dim N] [--seed N]"
     );
     std::process::exit(2);
 }
@@ -159,6 +159,7 @@ fn main() {
     let known = [
         "--state", "--out", "--systems", "--proposals", "--record", "--use-record", "--max-steps", "--probe",
         "--dim", "--seed", "--limit", "--max-arity", "--ilp", "--ilp-body", "--budget", "--rows", "--truth",
+        "--threshold",
     ];
     for arg in rest {
         if arg.starts_with("--") && !known.contains(&arg.as_str()) {
@@ -189,6 +190,38 @@ fn main() {
     let ctx = state.as_ref().map(|s| s.context()).unwrap_or_else(|| {
         metaform_runtime::context(0, Default::default(), Vec::new())
     });
+    // `coarsen` is not an operator: it proposes a map on objects, and what that map costs is a
+    // judgment about the current vocabulary. So it prints the judgment instead of a candidate list,
+    // and the kernel -- not the component -- is what makes the call.
+    if command == "coarsen" {
+        let threshold: f32 = match arg(rest, "--threshold") {
+            Some(value) => match value.parse() {
+                Ok(t) => t,
+                Err(_) => {
+                    eprintln!("--threshold expects a number, got `{value}`");
+                    std::process::exit(2);
+                }
+            },
+            None => 1.0,
+        };
+        let dim = arg(rest, "--dim").and_then(|v| v.parse().ok()).unwrap_or(2048);
+        let seed = arg(rest, "--seed").and_then(|v| v.parse().ok()).unwrap_or(7);
+        println!(
+            "{}",
+            metaform_components::coarsen::judge(
+                ctx.objects,
+                &ctx.attributes,
+                &ctx.vocabulary,
+                ctx.pos,
+                ctx.neg,
+                dim,
+                seed,
+                threshold
+            )
+        );
+        return;
+    }
+
     let limit: usize = arg(rest, "--limit").and_then(|v| v.parse().ok()).unwrap_or(3);
 
     let result = match command {

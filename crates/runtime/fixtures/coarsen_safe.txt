@@ -1,0 +1,9 @@
+# Coarsening fixture: objects 0 and 1 hold exactly the same attributes, and the vocabulary
+# already puts them on the same side. Merging them must cost nothing.
+objects 4
+request_id coarsen-safe
+vocab p 0 1
+attr a 0 1 2
+attr b 0 1
+pos 0
+neg 2

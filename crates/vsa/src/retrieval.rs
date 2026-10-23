@@ -93,6 +93,53 @@ fn object_vector(attrs_of_object: &[usize], attr_vectors: &[Hypervector<MBAT>]) 
     Hypervector::bundle_sum(&parts)
 }
 
+/// The object encoding the retriever uses, over the attribute vectors generated from `dim` and
+/// `seed`: an object is the bundle of the attributes that hold for it.
+///
+/// Exposed because a caller that *judges* the encoding -- rather than proposing from it -- has to
+/// judge the same one. A second encoder would make two measurements that look comparable and are not.
+pub fn object_vectors(
+    objects: usize,
+    attributes: &[(String, u64)],
+    dim: usize,
+    seed: u64,
+) -> Vec<Hypervector<MBAT>> {
+    encode(objects, attributes, dim, seed).0
+}
+
+/// The object vectors and the attribute vectors they were built from. One generation, so the two
+/// arrays cannot drift apart.
+fn encode(
+    objects: usize,
+    attributes: &[(String, u64)],
+    dim: usize,
+    seed: u64,
+) -> (Vec<Hypervector<MBAT>>, Vec<Hypervector<MBAT>>) {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let attr_vectors: Vec<Hypervector<MBAT>> =
+        Hypervector::<MBAT>::generate_many_with(dim, attributes.len(), &mut rng);
+
+    // No attribute at all: every object gets the same fixed vector, which is the honest encoding of
+    // "nothing distinguishes them" -- and it is what the empty-bundle fallback in `object_vector`
+    // would produce if there were an attribute to take the width from.
+    if attr_vectors.is_empty() {
+        return (vec![Hypervector::from_vec(vec![1.0; dim]); objects], attr_vectors);
+    }
+
+    // An object is the bundle of the attributes that hold for it.
+    let mut vectors: Vec<Hypervector<MBAT>> = Vec::with_capacity(objects);
+    for i in 0..objects {
+        let present: Vec<usize> = attributes
+            .iter()
+            .enumerate()
+            .filter(|(_, (_, ext))| (ext >> i) & 1 == 1)
+            .map(|(a, _)| a)
+            .collect();
+        vectors.push(object_vector(&present, &attr_vectors));
+    }
+    (vectors, attr_vectors)
+}
+
 /// Runs the experiment and returns the two arms.
 pub fn run(cfg: Config) -> Report {
     let mut rng = StdRng::seed_from_u64(cfg.seed);
@@ -262,26 +309,8 @@ pub fn rank_for_pair(
     seed: u64,
     max_arity: usize,
 ) -> Vec<Ranked> {
-    use crate::mbat::MBAT;
-    let mut rng = StdRng::seed_from_u64(seed);
-    let attr_vectors: Vec<Hypervector<MBAT>> =
-        Hypervector::<MBAT>::generate_many_with(dim, attributes.len(), &mut rng);
-
-    // An object is the bundle of the attributes that hold for it.
-    let mut object_vectors: Vec<Hypervector<MBAT>> = Vec::with_capacity(objects);
-    for i in 0..objects {
-        let present: Vec<Hypervector<MBAT>> = attributes
-            .iter()
-            .enumerate()
-            .filter(|(_, (_, ext))| (ext >> i) & 1 == 1)
-            .map(|(a, _)| attr_vectors[a].clone())
-            .collect();
-        object_vectors.push(if present.is_empty() {
-            Hypervector::from_vec(vec![1.0; dim])
-        } else {
-            Hypervector::bundle_sum(&present)
-        });
-    }
+    // One encoder for the whole crate: the vectors judged here are the vectors the retriever uses.
+    let (object_vectors, attr_vectors) = encode(objects, attributes, dim, seed);
 
     let query = Hypervector::bundle_sum(&[
         object_vectors[positive].negate(),

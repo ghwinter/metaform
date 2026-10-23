@@ -6,6 +6,7 @@
 //!
 //! The rule is the same as in the kernel: a component proposes, the kernel decides.
 
+pub mod coarsen;
 pub mod probe_labels;
 pub mod scenarios;
 pub mod sme_op;
