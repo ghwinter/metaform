@@ -327,7 +327,7 @@ code comments: no machine paths, no names of untracked material.
 ```powershell
 pwsh -File scripts/check-all.ps1                     # every gate (lean/rust/kernel/propose/vsa/align/refs/components/claims/backlog/secrets/checks/theory/experiments)
 pwsh -File scripts/check-lean.ps1                    # Lean only (any warning fails)
-pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 174; kernel 12, propose 25, store 14 are separate manifests)
+pwsh -File scripts/check-rust.ps1                    # Rust only (pass count must == 175; kernel 12, propose 25, store 14 are separate manifests)
 pwsh -File scripts/selftest-gates.ps1                # negative self-test: make each gate go red once
 python scripts/align-papers.py                       # bilingual structure/number alignment + mechanization map ↔ Lean source
 python scripts/check-references.py                   # no path, file name or link that the repository does not contain

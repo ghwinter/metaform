@@ -776,6 +776,51 @@ fn cmd_check_predictions(args: &[String]) -> i32 {
     }
 }
 
+/// `metaform propose --request <path> --response <path>`
+///
+/// Exit 2 only when the request itself cannot be used. A malformed, mistargeted or refused response
+/// is a successful validation that prints its verdict, because the verdict is the product here.
+///
+/// The wrapper lives in the binary, not in `metaform-propose`: the crate is a pure function from two
+/// byte strings to one, and a crate that also parsed `--request` would need to know how it is called.
+fn cmd_propose(args: &[String]) -> i32 {
+    let (request_path, response_path) = match (
+        flag_value(args, "--request"),
+        flag_value(args, "--response"),
+    ) {
+        (Ok(Some(request)), Ok(Some(response))) => (request, response),
+        (Err(e), _) | (_, Err(e)) => {
+            eprintln!("metaform propose: {e}");
+            return 2;
+        }
+        _ => {
+            eprintln!("usage: metaform propose --request <request.json> --response <response.json>");
+            return 2;
+        }
+    };
+    let request_text = match std::fs::read_to_string(&request_path) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("metaform propose: cannot read request file `{request_path}`: {e}");
+            return 2;
+        }
+    };
+    // A missing or unreadable response is a protocol failure, not a CLI failure: the empty string is
+    // a response the validator can reject, and its rejection is a verdict worth printing.
+    let response_text = std::fs::read_to_string(&response_path).unwrap_or_default();
+
+    match metaform::propose::validate_response(&request_text, &response_text) {
+        Ok(verdict) => {
+            out!("{}", metaform::propose::verdict_json(&verdict));
+            0
+        }
+        Err(e) => {
+            eprintln!("metaform propose: invalid request in `{request_path}`: {e}");
+            2
+        }
+    }
+}
+
 fn cmd_plan(args: &[String]) -> i32 {
     let root = project_root(args).join(".metaform");
     let Some(st) = load_state(&root.join("state.json"), "plan") else {
@@ -908,7 +953,7 @@ fn main() {
         }
         Some("propose") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
-            std::process::exit(metaform::propose::cmd(&v));
+            std::process::exit(cmd_propose(&v));
         }
         Some("apply") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
@@ -1165,16 +1210,57 @@ fn main() {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    /// `propose` reads two files and prints one line. It must not create `.metaform/`, a ledger, or
+    /// any other side file: a command that owns no state cannot corrupt the state it was asked to
+    /// inspect, and this is the property that makes it safe to run against a live project.
+    #[test]
+    fn propose_writes_nothing_but_its_verdict() {
+        let dir = std::env::temp_dir().join(format!("metaform-propose-cli-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let request = dir.join("request.json");
+        let response = dir.join("response.json");
+        std::fs::write(
+            &request,
+            r#"{"protocol":"metaform.propose/1","request_id":"r-1","objects":3,"vocabulary":[],"evidence":{"pos":[0],"neg":[1]},"limit":8}"#,
+        )
+        .expect("write request");
+        std::fs::write(
+            &response,
+            r#"{"protocol":"metaform.propose/1","request_id":"r-1","candidates":[{"name":"only0","ids":[0]}]}"#,
+        )
+        .expect("write response");
 
+        let args: Vec<String> = [
+            "propose",
+            "--request",
+            request.to_str().expect("utf-8 path"),
+            "--response",
+            response.to_str().expect("utf-8 path"),
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
 
+        assert_eq!(cmd_propose(&args), 0, "a usable request and response exit 0");
+        assert_eq!(cmd_propose(&args), 0, "and they do it twice");
 
+        let mut names: Vec<String> = std::fs::read_dir(&dir)
+            .expect("read temp dir")
+            .map(|entry| entry.expect("dir entry").file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        assert_eq!(
+            names,
+            vec!["request.json".to_string(), "response.json".to_string()],
+            "propose must not write any file"
+        );
+        assert!(!dir.join(".metaform").exists(), "propose must not create a state directory");
 
-
-
-
-
-
-
-
-
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

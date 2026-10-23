@@ -1372,10 +1372,6 @@ fn evaluate(req: &Request, response_text: &str) -> Verdict {
     }
 }
 
-fn validate(req: &Request, response_text: &str) -> String {
-    verdict_json(&evaluate(req, response_text))
-}
-
 /// Parse a request and validate a response against it.
 ///
 /// `Err` means the request file itself is unusable (a CLI error). A malformed, mistargeted, or
@@ -1386,64 +1382,18 @@ pub fn validate_response(request_text: &str, response_text: &str) -> Result<Verd
 }
 
 // ---------------------------------------------------------------------------
-// CLI entry point
-// ---------------------------------------------------------------------------
-
-/// Read both files, validate, print one line. Exit 2 only when the request itself cannot be used.
-fn cmd_run(request_path: &str, response_path: &str) -> i32 {
-    let request_text = match std::fs::read_to_string(request_path) {
-        Ok(text) => text,
-        Err(e) => {
-            eprintln!("metaform propose: cannot read request file `{request_path}`: {e}");
-            return 2;
-        }
-    };
-    let req = match parse_request(&request_text) {
-        Ok(req) => req,
-        Err(e) => {
-            eprintln!("metaform propose: invalid request in `{request_path}`: {e}");
-            return 2;
-        }
-    };
-
-    // A missing or unreadable response is a protocol failure, not a CLI failure.
-    let response_text = std::fs::read_to_string(response_path).unwrap_or_default();
-    println!("{}", validate(&req, &response_text));
-    0
-}
-
-fn arg_value(args: &[String], flag: &str) -> Option<String> {
-    args.iter()
-        .position(|a| a == flag)
-        .and_then(|i| args.get(i + 1))
-        .cloned()
-}
-
-/// `metaform propose --request <path> --response <path>`
-pub fn cmd(args: &[String]) -> i32 {
-    match (arg_value(args, "--request"), arg_value(args, "--response")) {
-        (Some(request), Some(response)) => cmd_run(&request, &response),
-        _ => {
-            eprintln!("usage: metaform propose --request <request.json> --response <response.json>");
-            2
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::{Path, PathBuf};
 
     const REQ_VALID: &str = r#"{"protocol":"metaform.propose/1","request_id":"r-1","objects":3,"vocabulary":[],"evidence":{"pos":[0],"neg":[1]},"limit":8,"ask":"..."}"#;
     const RESP_VALID: &str = r#"{"protocol":"metaform.propose/1","request_id":"r-1","candidates":[{"name":"only0","ids":[0],"warrant":"object 0 is a positive","falsifier":"a negative class-mate"}]}"#;
 
     fn output(request: &str, response: &str) -> String {
-        validate(&parse_request(request).expect("test request must parse"), response)
+        verdict_json(&validate_response(request, response).expect("test request must parse"))
     }
 
     #[test]
@@ -1868,39 +1818,11 @@ mod tests {
 
     #[test]
     fn propose_is_pure() {
-        let dir = temp_dir("purity");
-        let req_path = dir.join("request.json");
-        let resp_path = dir.join("response.json");
-        std::fs::write(&req_path, REQ_VALID).expect("write request");
-        std::fs::write(&resp_path, RESP_VALID).expect("write response");
-        let before = file_names(&dir);
-
-        let first = validate(&parse_request(REQ_VALID).unwrap(), RESP_VALID);
-        let second = validate(&parse_request(REQ_VALID).unwrap(), RESP_VALID);
+        // The function is a function: the same bytes in give the same bytes out, with no clock, no
+        // map iteration order and no serializer settings in between. The other half of this test --
+        // that the command line creates no side file -- moved to the binary with the command line.
+        let first = verdict_json(&validate_response(REQ_VALID, RESP_VALID).unwrap());
+        let second = verdict_json(&validate_response(REQ_VALID, RESP_VALID).unwrap());
         assert_eq!(first, second, "the same inputs must produce the same output string");
-
-        // Run the CLI path twice as well: it must not create `.metaform/` or any side file.
-        assert_eq!(cmd_run(req_path.to_str().unwrap(), resp_path.to_str().unwrap()), 0);
-        assert_eq!(cmd_run(req_path.to_str().unwrap(), resp_path.to_str().unwrap()), 0);
-        assert_eq!(file_names(&dir), before, "propose must not write any file");
-        assert!(!dir.join(".metaform").exists(), "propose must not create a state directory");
-
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    fn temp_dir(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("metaform-propose-{}-{tag}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("create temp dir");
-        dir
-    }
-
-    fn file_names(dir: &Path) -> Vec<String> {
-        let mut names: Vec<String> = std::fs::read_dir(dir)
-            .expect("read temp dir")
-            .map(|entry| entry.expect("dir entry").file_name().to_string_lossy().into_owned())
-            .collect();
-        names.sort();
-        names
     }
 }
