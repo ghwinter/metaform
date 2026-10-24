@@ -26,6 +26,7 @@
 !/CHARTER.md
 !/CHARTER.zh.md
 !/environment.json
+!/LAYOUT.tsv
 !/crates/**
 !/paper/**
 !/proofs/**

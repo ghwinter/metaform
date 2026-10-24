@@ -443,6 +443,60 @@ fn crate_edges_from_workspace() -> Result<String, String> {
 }
 
 /// Tracked prose must be a formal document.
+/// The top level must match `LAYOUT.tsv`: every declared path exists, and every entry that exists is
+/// declared. The second half is the one that matters -- it is what stops a new directory from appearing
+/// six months from now with nobody deciding which zone it belongs to.
+pub fn layout() -> Result<String, String> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .ok_or("cannot locate the workspace root")?;
+    let file = root.join("LAYOUT.tsv");
+    let text = std::fs::read_to_string(&file)
+        .map_err(|e| format!("cannot read {}: {e}", file.display()))?;
+    let declared: Vec<String> = text
+        .lines()
+        .filter(|l| !l.trim_start_matches('\u{feff}').starts_with('#') && !l.trim().is_empty())
+        .filter(|l| !l.trim_start_matches('\u{feff}').starts_with("path\t"))
+        .filter_map(|l| l.split('\t').next().map(|s| s.trim().to_string()))
+        .filter(|s| !s.is_empty())
+        .collect();
+    let mut present: Vec<String> = Vec::new();
+    for entry in std::fs::read_dir(root).map_err(|e| format!("cannot read the root: {e}"))? {
+        let entry = entry.map_err(|e| format!("cannot read an entry: {e}"))?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name == ".git" {
+            continue;
+        }
+        present.push(name);
+    }
+    present.sort();
+    let missing: Vec<&String> = declared
+        .iter()
+        .filter(|d| !root.join(d.as_str()).exists())
+        .collect();
+    let undeclared: Vec<&String> = present.iter().filter(|p| !declared.contains(p)).collect();
+    if !missing.is_empty() || !undeclared.is_empty() {
+        let mut out = String::new();
+        for m in missing {
+            out.push_str(&format!("declared in LAYOUT.tsv but absent: {m}\n"));
+        }
+        for u in undeclared {
+            out.push_str(&format!("present but not declared in LAYOUT.tsv: {u}\n"));
+        }
+        return Err(out);
+    }
+    Ok(format!(
+        "{} entries, all declared, in {} zones",
+        declared.len(),
+        text.lines()
+            .filter(|l| !l.starts_with('#') && !l.trim().is_empty() && !l.starts_with("path\t"))
+            .filter_map(|l| l.split('\t').nth(1).map(str::to_string))
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+    ))
+}
+
 pub fn tracked() -> Result<String, String> {
     const ALLOWED: &[&str] = &[
         "README.md",
@@ -451,6 +505,7 @@ pub fn tracked() -> Result<String, String> {
         "CHARTER.zh.md",
         "experiments/RESULTS.md",
         "experiments/RESULTS.zh.md",
+        "LAYOUT.tsv",
     ];
     const PREFIXES: &[&str] = &[".dsh/skills/", "proofs/", "docs/"];
     let output = Command::new("git")
@@ -502,6 +557,7 @@ pub fn cmd(args: &[String]) -> i32 {
             ("layers", layers()),
             ("tracked", tracked()),
             ("members", crate::inspect::members(&[])),
+            ("layout", layout()),
         ],
         "prints" => vec![("prints", prints())],
         "layers" => vec![("layers", layers())],
@@ -511,9 +567,10 @@ pub fn cmd(args: &[String]) -> i32 {
         "fresh" => vec![("fresh", crate::inspect::fresh(&tail))],
         "absent" => vec![("absent", crate::inspect::absent(&tail))],
         "members" => vec![("members", crate::inspect::members(&tail))],
+        "layout" => vec![("layout", layout())],
         other => {
             eprintln!(
-                "unknown check `{other}`; expected prints, layers, tracked, members, text, count, fresh, absent, or all"
+                "unknown check `{other}`; expected prints, layers, tracked, layout, members, text, count, fresh, absent, or all"
             );
             return 2;
         }

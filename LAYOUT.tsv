@@ -1,0 +1,45 @@
+# The layout: what lives at the top level, in which zone, and what may point where.
+#
+# One row per top-level entry. zones:
+#   product    what ships; changes with a release
+#   evidence   what the gates read and what the results are written into; append-only in spirit
+#   materials  external material kept in place (weights, reference repositories, archived literature)
+#   notes      half-permanent prose, replaced rather than appended
+#   agent      tooling state for the agent that works here
+#   scratch    deletable at any moment; tmp is the only scratch area
+#
+# may_product_reference: may a file in the product zone mention this path? A product file may point at
+# evidence (a result has to be citable) but not at materials, agent state or scratch -- those do not
+# exist in a clone, so a reference to them is a broken reference that happens to resolve on this
+# machine.
+path	zone	owner	tracked	may_product_reference	note
+crates	product	code	yes	yes	the product: kernel, proposal, store, runtime, components
+docs	product	manual	yes	yes	the handbook a caller reads
+paper	product	paper	yes	yes	the article
+proofs	product	proof	yes	yes	Lean sources; the .lake build cache under it is not tracked
+README.md	product	manual	yes	yes	entry page
+README.zh.md	product	manual	yes	yes	entry page, Chinese
+CHARTER.md	product	charter	yes	yes	the design, the claims and their falsifiers
+CHARTER.zh.md	product	charter	yes	yes	the same, Chinese
+Cargo.toml	product	build	yes	yes	workspace manifest
+Cargo.lock	product	build	yes	yes	locked dependency graph
+LICENSE-APACHE	product	legal	yes	yes	licence
+LICENSE-MIT	product	legal	yes	yes	licence
+environment.json	product	build	yes	yes	the toolchain this was built with
+.gitignore	product	build	yes	yes	what is not tracked, and why
+.gitattributes	product	build	yes	yes	line endings per file type
+LAYOUT.tsv	product	build	yes	yes	this file
+experiments	evidence	measurement	no	yes	results, registers, pre-registrations and one-off scripts; reusable code belongs in experiments/lib
+scripts	evidence	measurement	no	yes	the gates themselves
+models	materials	external	no	no	local weights and the inference runtime
+.repo	materials	external	no	no	reference repositories, read only
+.library	materials	external	no	no	archived literature and extracted text
+notes	notes	thinking	no	no	prose that is replaced rather than appended
+research	notes	thinking	no	no	theory drafts
+tmp	scratch	any	no	no	the only scratch area; cleaned by hand
+target	scratch	build	no	no	build output
+dist	scratch	build	no	no	packaged binaries
+.dsh	agent	tooling	no	no	agent skills for this repository
+.workbuddy	agent	state	no	no	agent memory and plans
+.local	agent	tooling	no	no	notes about this machine
+.metaform	agent	state	no	no	the project's own state, ledger and concept register
