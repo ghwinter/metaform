@@ -48,6 +48,9 @@ pub mod mcp;
 pub mod metrics;
 pub mod check;
 
+/// `metaform suspect`: which labels are too thin to be treated as settled.
+pub mod suspect;
+
 /// `metaform axes`: what the current vocabulary leaves open.
 pub mod axes;
 

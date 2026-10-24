@@ -28,7 +28,7 @@ const RUNTIME: &[&str] = &[
     "suggest.rs", "explore.rs", "apply.rs", "answer.rs", "plan.rs", "portfolio.rs", "report.rs",
     "score.rs", "morphism.rs",
 ];
-const INTERFACE: &[&str] = &["main.rs", "mcp.rs", "check.rs", "inspect.rs", "concept.rs", "axes.rs"];
+const INTERFACE: &[&str] = &["main.rs", "mcp.rs", "check.rs", "inspect.rs", "concept.rs", "axes.rs", "suspect.rs"];
 
 /// The crate layering, bottom first: a member may depend only on a member listed before it.
 ///

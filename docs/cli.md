@@ -42,6 +42,7 @@ metaform concept list   --project .                # every concept in force, as 
 metaform concept show   --project . --id C1        # one concept, as JSON
 metaform concept retract --project . --id C1 --reason "..."   # withdraw it; the earlier row stays readable
 metaform axes list    --project . [--max-arity 2]  # what the current vocabulary leaves open: the equivalence classes, the candidate readings that agree with the evidence, and how many of them are new rather than reworded
+metaform suspect list --project . [--theta 3] [--one-visit 3]  # which labels a single round decided, and therefore which ones a second visit could overturn
 metaform state init  --project . --n 4            # persist the scenario to .metaform/state.json
 metaform state add   --project . --name p --define all-of:a,b  # store p = a AND b as a definition
 metaform state vote  --project . --id 0 --yes 3 --no 0
@@ -96,6 +97,18 @@ reworded.
 It does not compute the axis-equivalence rate of `CHARTER.md` 6.10 over the *stated elements*, because
 a stated element is an object while an axis reads a set; that layer needs concept families, which the
 repository does not have yet.
+
+## `suspect`
+
+`state need` reports two things: objects the vote gap will not decide, and objects never asked. Neither
+catches the label that cost the most on 2026-10-24 -- **asked once, decided by a wide margin, and
+wrong**. In the `noisy` family the corrupted object carried a clean 3:0, which is stronger evidence than
+a correct label carries, and nine candidates built on it were admitted.
+
+`suspect list` reports those labels: decided, but by a single visit. It is a list rather than a verdict
+because the tool cannot re-ask -- the oracle is not in the tool -- and the whole point is that the
+second visit is what decides. What it changes is that "this might be wrong" becomes a queryable fact
+instead of a suspicion nobody can act on.
 
 ## `suggest`
 
