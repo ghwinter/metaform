@@ -140,7 +140,7 @@ fn stdio_transcript_matches_the_host_conformance_sequence() {
     assert_eq!(replies[1]["result"]["serverInfo"]["name"], "metaform");
     assert!(replies[1]["result"]["capabilities"]["tools"].is_object());
 
-    // 3. tools/list is the complete eleven-tool set.
+    // 3. tools/list is the complete twelve-tool set.
     let names: Vec<&str> = replies[2]["result"]["tools"]
         .as_array()
         .expect("tools is an array")
@@ -159,6 +159,7 @@ fn stdio_transcript_matches_the_host_conformance_sequence() {
             "apply_response",
             "check_predictions",
             "translate",
+            "concept_add",
             "explore_questions",
             "answer_questions",
         ]

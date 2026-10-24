@@ -32,8 +32,9 @@ pub mod morphism;
 /// Coverage + purity + re-ask budget for one state.
 pub mod plan;
 
-/// The four files a project keeps in its `.metaform` directory, as one crate: state, laws, ledger,
-/// predictions. Re-exported module by module, so `metaform::state::State` keeps its name.
+/// The five files a project keeps in its `.metaform` directory, as one crate: state, laws, ledger,
+/// predictions, and the concepts the repository has absorbed. Re-exported module by module, so
+/// `metaform::state::State` keeps its name.
 pub use metaform_store::{laws, ledger, predictions, state};
 
 /// The `explore --emit-questions` -> `answer` loop.
@@ -46,6 +47,9 @@ pub mod apply;
 pub mod mcp;
 pub mod metrics;
 pub mod check;
+
+/// `metaform concept`: register what the repository has absorbed, with its evidence.
+pub mod concept;
 /// `check` subcommands that assert something about repository files: `text`, `count`, `fresh`,
 /// `absent`, `members`.
 pub mod inspect;

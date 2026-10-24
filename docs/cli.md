@@ -37,6 +37,10 @@ metaform ledger list    --project . --all        # TSV, folded by id to the late
 metaform ledger retract --project . --id L2 --reason "oracle answered wrong"
 metaform ledger cases   --project .              # confirmed objects with no conflicts
 metaform ledger conflicts --project .            # direction conflicts: {"conflicts":[...]}
+metaform concept add    --project . --kind vsa --name "MBAT binding" --claim "..." --evidence "..."  # register what the repository absorbed
+metaform concept list   --project .                # every concept in force, as JSON
+metaform concept show   --project . --id C1        # one concept, as JSON
+metaform concept retract --project . --id C1 --reason "..."   # withdraw it; the earlier row stays readable
 metaform state init  --project . --n 4            # persist the scenario to .metaform/state.json
 metaform state add   --project . --name p --define all-of:a,b  # store p = a AND b as a definition
 metaform state vote  --project . --id 0 --yes 3 --no 0
@@ -60,7 +64,13 @@ metaform ops                                       # five-operator schedule comp
 ```
 
 The ledger is **append-only**: retracting means appending a `retracted` line with the same id; when
-folded, the later line wins. This repository uses it too: the `.metaform/` directory at the root is
+folded, the later line wins.
+
+`.metaform/concepts.tsv` is the fifth file a project keeps, and it answers a different question: not what the
+project knows about its objects, but **what the repository has absorbed from outside** -- a concept, the
+claim this repository makes about it, and the evidence for that claim. It is append-only and retractable
+in the same way. **Evidence is mandatory**: `concept add` refuses a concept with an empty `--evidence`,
+because a concept with no evidence is a note, and notes are what this repository complains about losing. This repository uses it too: the `.metaform/` directory at the root is
 its output (migrated from the old JSON by `scripts/migrate-ledger-to-tsv.py`).
 
 The MCP server is registered host-side as `serverName` `metaform`, transport `stdio`, command

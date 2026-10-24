@@ -905,7 +905,7 @@ fn main() {
         Some("-h" | "--help") => {
             out!("metaform {}", env!("CARGO_PKG_VERSION"));
             out!("usage: metaform <command> [options]  (no argument: interactive script)");
-            out!("commands: init, state, ledger, plan, report, score, ops, portfolio, mcp,");
+            out!("commands: init, state, ledger, concept, plan, report, score, ops, portfolio, mcp,");
             out!("          suggest, explore, coverage, answer, apply, check-predictions, propose,");
             out!("          translate, check");
             out!("MCP: metaform mcp  (newline-delimited JSON-RPC over stdio)");
@@ -918,6 +918,10 @@ fn main() {
         Some("ledger") => {
             let v: Vec<String> = std::env::args().skip(1).collect();
             std::process::exit(cmd_ledger(&v));
+        }
+        Some("concept") => {
+            let v: Vec<String> = std::env::args().skip(1).collect();
+            std::process::exit(metaform::concept::cmd(&v));
         }
         Some("state") => {
             let v: Vec<String> = std::env::args().skip(1).collect();

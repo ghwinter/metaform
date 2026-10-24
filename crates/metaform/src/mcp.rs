@@ -31,6 +31,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
+use crate::concept;
 use crate::{answer, apply, explore, laws, ledger, morphism, plan, predictions, state, suggest};
 
 /// The protocol revisions this server was built against, kept as the table the echo test walks.
@@ -283,6 +284,29 @@ fn tool_translate(args: &Value) -> Result<String, String> {
     morphism::analyse_spec(&text, max)
 }
 
+/// Register a concept the repository has absorbed, with the evidence for the claim.
+///
+/// This is the tool an agent uses to say "I have taken something in". It is deliberately the only
+/// way in: a concept registered anywhere else is a paragraph, and paragraphs get ignored.
+fn tool_concept_add(args: &Value) -> Result<String, String> {
+    let root = args.get("project").and_then(Value::as_str).unwrap_or(".");
+    let text = |key: &str| {
+        args.get(key)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
+    concept::add(
+        std::path::Path::new(root),
+        &text("kind"),
+        &text("name"),
+        &text("claim"),
+        &text("evidence"),
+        &text("by"),
+        &text("note"),
+    )
+}
+
 fn tools() -> Value {
     json!([
         {
@@ -377,6 +401,23 @@ fn tools() -> Value {
             }
         },
         {
+            "name": "concept_add",
+            "description": "Register a concept the repository has absorbed from outside: what it is called, what this repository believes about it, and the evidence (a hash, a path, or a command). Evidence is required -- a concept without evidence is a note, and notes get ignored. Rows are append-only and can be withdrawn by id, so a wrong claim leaves a trace.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "kind": {"description": "Family the concept came from: vsa, ilp, sme, axis, or anything else", "type": "string"},
+                    "name": {"description": "The concept's name", "type": "string"},
+                    "claim": {"description": "One sentence: what this repository believes about it", "type": "string"},
+                    "evidence": {"description": "Where the belief comes from: a hash, a path, or a command. Required.", "type": "string"},
+                    "project": {"description": "Project root directory; defaults to .", "type": "string"},
+                    "by": {"description": "Who registered it", "type": "string"},
+                    "note": {"description": "Anything else worth keeping", "type": "string"}
+                },
+                "required": ["kind", "name", "claim", "evidence"]
+            }
+        },
+        {
             "name": "explore_questions",
             "description": "Read-only: run attribute exploration over the current state and laws, returning {status,questions:[{id,premise,conclusion,text}]}.",
             "inputSchema": {
@@ -414,6 +455,7 @@ fn call_tool(name: &str, args: &Value) -> Result<String, String> {
         "apply_response" => tool_apply_response(args),
         "check_predictions" => tool_check_predictions(args),
         "translate" => tool_translate(args),
+        "concept_add" => tool_concept_add(args),
         "explore_questions" => tool_explore_questions(args),
         "answer_questions" => tool_answer_questions(args),
         other => Err(format!("unknown tool: {other}")),
@@ -734,7 +776,7 @@ mod tests {
     }
 
     #[test]
-    fn tools_list_exposes_exactly_eleven_tools() {
+    fn tools_list_exposes_exactly_twelve_tools() {
         let req = json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"});
         let resp = handle(&req).unwrap();
         let names: Vec<String> = resp["result"]["tools"]
@@ -755,6 +797,7 @@ mod tests {
                 "apply_response",
                 "check_predictions",
                 "translate",
+                "concept_add",
                 "explore_questions",
                 "answer_questions",
             ]

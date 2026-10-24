@@ -20,7 +20,7 @@ pwsh -File scripts/check-all.ps1
 | `rust` | the pass count must == 198, 0 failed, 0 ignored |
 | `kernel` | the measure's own tests, against its own manifest (12) |
 | `propose` | the operator protocol's own tests (25) |
-| `store` | the four on-disk artefacts' own tests (14) |
+| `store` | the five on-disk artefacts' own tests (18) |
 | `vsa` | the hyperdimensional component's own tests (19) |
 | `ilp` | the inductive learner's own tests (17) |
 | `refs` | no path, file name or link that the repository does not contain |

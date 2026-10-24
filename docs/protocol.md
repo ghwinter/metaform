@@ -75,6 +75,20 @@ evidence (it drops the other positives) or decides nothing about the unmeasured 
 is refused before adoption. `{"legality": {}}` is itself an error: an experiment that believes it has
 turned the rule on when it has not is worse than one that never turned it on.
 
+## Registering what was absorbed
+
+`concept_add` is how an agent says "I have taken something in": the concept's name, the claim this
+repository makes about it, and where that claim comes from. It is the **only** way in -- a concept
+recorded anywhere else is a paragraph, and paragraphs get ignored.
+
+The refusal is the point. A concept without evidence is not registered; the error says why. A concept
+that turns out to be wrong is withdrawn by id, which appends a row rather than editing one, so the
+history of what was believed, and when it was abandoned, stays readable.
+
+This is the difference between a note and a record, and it is the reason the repository keeps
+concepts in a file with a schema instead of in prose: the file can be checked, folded, retracted and
+cited, and the prose cannot.
+
 ## Two bookkeeping rules
 
 **What is not a finding belongs in the criterion.** A check that lists what counts as a problem must
