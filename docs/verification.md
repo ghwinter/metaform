@@ -17,7 +17,7 @@ pwsh -File scripts/check-all.ps1
 
 | check | what it asserts |
 |---|---|
-| `rust` | the pass count must == 198, 0 failed, 0 ignored |
+| `rust` | the pass count must == 200, 0 failed, 0 ignored |
 | `kernel` | the measure's own tests, against its own manifest (12) |
 | `propose` | the operator protocol's own tests (25) |
 | `store` | the five on-disk artefacts' own tests (18) |

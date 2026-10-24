@@ -41,6 +41,7 @@ metaform concept add    --project . --kind vsa --name "MBAT binding" --claim "..
 metaform concept list   --project .                # every concept in force, as JSON
 metaform concept show   --project . --id C1        # one concept, as JSON
 metaform concept retract --project . --id C1 --reason "..."   # withdraw it; the earlier row stays readable
+metaform axes list    --project . [--max-arity 2]  # what the current vocabulary leaves open: the equivalence classes, the candidate readings that agree with the evidence, and how many of them are new rather than reworded
 metaform state init  --project . --n 4            # persist the scenario to .metaform/state.json
 metaform state add   --project . --name p --define all-of:a,b  # store p = a AND b as a definition
 metaform state vote  --project . --id 0 --yes 3 --no 0
@@ -81,6 +82,20 @@ with, and answers `2025-11-25` only when the client sends none. `scripts/install
 to a stable prefix outside the repository, checks `--version` and the handshake, and registers the
 entry in each profile's patch layer, reporting the action per profile (`-NoRegister` prints the entry
 instead, `-DryRun` prints the plan); the skill lives at `.dsh/skills/metaform/SKILL.md`.
+
+## `axes`
+
+The closed-world complaint is that the user's enumeration is a sample drawn from a set they never
+stated, and a model that treats the enumeration as the set has an empty complement. `axes list` makes
+the grid the current vocabulary already implies countable: the equivalence classes, the candidate
+readings generated from the vocabulary (each predicate, each conjunction of two, each complement), and
+three numbers -- how many of those readings agree with the evidence, how many differ from every
+predicate in force (the candidates for "what you did not say"), and how many are the same distinctions
+reworded.
+
+It does not compute the axis-equivalence rate of `CHARTER.md` 6.10 over the *stated elements*, because
+a stated element is an object while an axis reads a set; that layer needs concept families, which the
+repository does not have yet.
 
 ## `suggest`
 

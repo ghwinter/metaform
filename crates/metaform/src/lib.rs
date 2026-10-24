@@ -48,6 +48,9 @@ pub mod mcp;
 pub mod metrics;
 pub mod check;
 
+/// `metaform axes`: what the current vocabulary leaves open.
+pub mod axes;
+
 /// `metaform concept`: register what the repository has absorbed, with its evidence.
 pub mod concept;
 /// `check` subcommands that assert something about repository files: `text`, `count`, `fresh`,
