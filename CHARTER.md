@@ -112,6 +112,24 @@ A shorter version is worth keeping separately:
 > inducer that only ever returns its "least bad" clause will, under a thin vocabulary, hand back a
 > structurally complete rule stated with full confidence.
 
+### 1.7 What this device cannot do
+
+The engine is a judge, not a solver, and its limits belong next to its claims rather than in a
+footnote.
+
+**It cannot add capability.** [evidence] On seventeen omission tasks the local 3.8B model failed to
+produce compiling Rust in eight to eleven of them -- type errors, not omissions (RESULTS 36). Asked for a
+predicate over a 36-object world it answered with the two objects under discussion (RESULTS 37). A judge
+repairs neither: both are the proposer's failures, and no criterion changes what the proposer can do.
+
+**It cannot see outside the evidence, and it cannot decide what was meant.** Those are 6.10's boundary
+and are not restated here.
+
+What it can do is narrow and testable: make the difference between "stated" and "unstated" visible, keep
+the bets that cross that difference, and refuse to continue when the current vocabulary cannot express
+the answer. **How large a share of the failures this device addresses is not assumed here -- 6.12
+measures it.**
+
 ## 2. Thirteen claims
 
 Each claim has four parts: statement, grounds, design consequence, falsifier. A claim whose falsifier
@@ -482,6 +500,15 @@ The literature has to be stated precisely: a model attached to a **single** symb
 inducer, an interpreter) has reproducible gains; a model attached to a **full set** of structural operators
 and scheduled by a controller has no verified precedent. That says the work is not redundant — and that
 there is no roadmap to copy.
+
+**The vacancy narrowed on 2026-10-24, and it moved.** Palomar is an external acceptance registry: it
+reviews formalised mathematics against a published rubric, and that rubric makes *notability* a hard
+gate -- a submission whose statement cannot be expressed in the language is rejected regardless of the
+other scores. That is this charter's criterion, already institutionalised, applied to a different
+subject. What Palomar does not do is sit inside an agent's loop over a long task, and what it has no
+answer for is a component that turns "the language is insufficient" into a proposed predicate a kernel
+can check. The remaining vacancy is therefore narrower than 5.2 originally claimed: **nobody has made the
+insufficiency criterion an instrument inside a working agent.**
 
 ### 5.3 Abandoned routes and refuted practices
 
@@ -858,6 +885,18 @@ person's one-word answer is a scarce input rather than an interaction-design cho
 What this does not do: it does not add knowledge, and it cannot see outside the evidence. It can
 only make the difference between "stated" and "unstated" visible, and price the bets that cross it.
 
+Two rules this registry makes explicit and this charter did not.
+
+**What is not a finding belongs in the criterion.** A review that lists what counts as a problem must
+also list what does not: evidence the reviewer could not reach, harmless limitations, and repeated
+findings are not findings -- they go into private notes. A criterion that omits this collects noise as
+if it were signal, and then the noise is quoted as evidence.
+
+**A correction inherits; it does not re-judge.** The registry's correction record keeps the baseline
+review and its scores and changes only the fields that moved. This charter's ledger already appends
+rather than overwrites, which is the same discipline: withdrawing a claim must not silently re-open the
+judgement that accepted it.
+
 ### 6.11 The engine is the first example of what it asks for
 
 If a project is meant to build good architecture with this engine in the loop, the engine has to be
@@ -889,6 +928,25 @@ minimalism:
 
 What this forbids: an import that points outward, a module with no tier, a component that is both a
 facility and an entity, and a feature whose only evidence is that it ran once.
+
+### 6.12 Six hard readings of "smarter"
+
+"Smarter" is not a measurement until it is split. 6.9 fixes the metrics; this fixes what the system is
+for. Six readings, each with a check that can fail, and the state of each on 2026-10-24.
+
+| # | reading | the check that decides it | state |
+|---|---|---|---|
+| S1 | the combination beats the bare model | same tasks, same budget, difference in handling rate | **open** -- the inductive proposer *matches* the model (10 of 10 accepted, 40 splits) but does not beat it |
+| S2 | the criterion is what does the work | same proposer, with and without the vote-gap gate, on corrupted evidence | **open** -- the gate has never been switched off on purpose |
+| S3 | the unstated cell can be graded, and a part can raise the rate | mechanical grader, >= 17 tasks per arm, >= 8 events | **2 / 15** (RESULTS 36), with a capability floor underneath |
+| S4 | a long task does not rot | after N steps the ledger still names what is done, what was refuted, what is next | **open**; the nearest external evidence is a squash commit that erased a status migration |
+| S5 | it accumulates across tasks | proposals per task fall over a task family | **open** (M3) |
+| S6 | the outside part is on the cheap side | the combination costs less than the model's own inference at equal quality | **held** -- the proposer costs milliseconds against 15--20 s of generation |
+
+**One number decides which reading counts.** The decision model that is most accurate on isolated
+questions solved 69.5% of real agent tasks, and delegating choices without a fitted confidence threshold
+cost 19.0 points of success. Single-step accuracy is therefore not a proxy for "smarter": 6.9's metrics
+have to be read on long tasks, and any reading that only moves single-step numbers has to say so.
 
 ## 7. Boundary
 
