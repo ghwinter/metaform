@@ -53,6 +53,22 @@ The third line above is the only one that can accept anything, and accepting is 
 `experiments/proposer_arms.py` gives one state to three proposers (random, retrieval, and the
 proposals a language model wrote) and reports what each found, judged by the same kernel.
 
+### Three gates, three different failures
+
+The three ways a candidate can be wrong need three different instruments, and the measurement of
+2026-10-24 says which is which:
+
+| failure | instrument | evidence |
+|---|---|---|
+| the candidate contradicts the evidence | **semantic consistency** (rule 12) | ten contradictory candidates: accepted ten times out of ten without it, refused ten times out of ten with it |
+| the evidence is too thin to decide | **the vote gap** (`theta`, `pending`) | not yet measured against a proposer |
+| **the evidence itself is wrong** | **a probe that never read the evidence** | nine accepted candidates, all wrong about one flipped label, and no amount of comparison with that evidence would have caught it |
+
+The third row is why the vector retriever stays in the loop even when the proposer is the inducer: a
+similarity search is the only source in the loop that did not read the labels, so it is the only one
+that can *suspect* a label. A criterion that only compares against the evidence cannot see the
+evidence being wrong, because corrupted evidence agrees with its own corruption.
+
 ### The inductive learner became a proposer
 
 `crates/ilp` used to be a demonstration of a relational learner. It now answers the question the
