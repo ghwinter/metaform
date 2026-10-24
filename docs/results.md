@@ -52,13 +52,23 @@ this page and the program cannot drift apart silently.
 19. **Cheap proposals buy the vocabulary, not the queries**: with `k` candidate vocabularies of which exactly one is sufficient, a baseline that draws one member succeeds `1/k` (0.250 at `k=5`) while the portfolio succeeds 0.955, paying 1.53 queries to eliminate each wrong candidate (`metaform portfolio`, 200 trials). The portfolio never decides a wrong extension; conflict is its only failure and rises from 0.025 at `k=3` to 0.110 at `k=10`, so success peaks at `k=3` (0.975) and falls back at `k=10` (0.890).
 20. **A review policy fits its taxonomy except in one place**: the pre-revision manuscript was given, blind, to two reviewers with the same checklist. They agreed on 14 of 16 findings (Cohen's kappa 0.67); the author's own decisions agree with them on 11 and 9 of the 16 (kappa below zero), so those labels are not a stable policy and are not used here. On the 14 agreed findings, the taxonomy (abstract, numbers, cross-references, titles, captions, terminology, typography, notation, voice) leaves the state exhausted: the voice findings split between "proved" (rejected — a probe refutes deductively) and tense or register (adopted), giving colliding pairs (11,13) and (12,13). One predicate, claim strength, is enough to identify the rule. `crates/metaform/scenarios/review.demo` reproduces both states.
 
+21. **The capability floor is a precondition, not a footnote**: on seventeen omission tasks the local model produced Rust that does not compile in eight to eleven of them -- type errors, not omissions -- and of the six runs that did compile, only one handled the omitted case (2/15, Wilson [3.7%, 31%]). A judge cannot repair a proposer that cannot write the function, so the share of failures this device addresses has to be measured before the device is credited with any.
+22. **Naming is not handling**: asked to name the region a specification leaves undefined, the model succeeded in 13 of 17 tasks. The regions were visible to it; it had no reason to look at them. This is a salience problem, and it is cheap to fix with a schema -- a fixed slot that must be filled, independent of the topic.
+23. **A deterministic proposer can match the model**: asked for a predicate over a 36-object world, the model answered with the two objects under discussion and was refused six times out of six; a self-implemented inductive learner, given the same vocabulary and the same evidence, produced candidates the kernel could not tell apart from the model's (10 of 10 accepted, 40 splits, cost 29.8 against 27.6). Proposing need not be a language model's job; the open question is whether the criterion is doing any work, which has never been tested by switching the vote-gap gate off.
+
 ## What the loop has actually run against
 
 The proposer is a 3.8B local model, Phi-4-mini Q4_K_M, behind `experiments/local_proposer.py`. Pooled
 over runs, the witness pair moves recovery 15–20 points over placebo (58% against 39%, p = 0.007); a
 single nineteen-instance batch is worth anywhere from 32% to 68%; and a six-step chain produced a +3
-point gap against a pre-registered bar of 15. The numbers are small and specific on purpose: the
-adapter is not the open item.
+point gap against a pre-registered bar of 15.
+
+**As of 2026-10-24 the model has also been run where it matters most, and two limits showed up.**
+It names the unstated region in 13 of 17 omission tasks but handles it in 1 of the 6 that compile, and it
+cannot write a predicate over a 36-object world -- it answers with the pair under discussion. A
+deterministic inductive proposer, given the same evidence, does produce the global extension the model
+cannot. So the open item is no longer the adapter: it is whether the criterion, rather than the
+proposer, is what makes the difference.
 
 ## Honest boundaries
 

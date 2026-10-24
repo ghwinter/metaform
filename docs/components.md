@@ -9,7 +9,7 @@ up, which is why the layering does not need a hand-maintained list:
 | `crates/kernel` | nothing: it is the measure | the vocabulary, the equivalence classes it induces, the status they license |
 | `crates/vsa` | predicates whose vector similarity to a positive/negative contrast is high | MBAT binding and bundling, `retrieve` |
 | `crates/sme` | predicates inferred by mapping one relational system onto another | structure mapping, `analogize` |
-| `crates/ilp` | clauses whose extension covers the positives and no negative | relational learning, `ilp_demo` |
+| `crates/ilp` | clauses whose extension covers the positives and no negative -- **and is now a proposer, not a demonstration** | relational learning, `ilp_demo`, `ilp_learn` (JSON in, extension out) |
 | `crates/runtime` | nothing: it is the kernel | protocol, validation, controller, record, `Operator` |
 | `crates/components` | the concrete operators and the CLI | `VsaRetriever`, `SmeAnalogizer`, `ProbeLabels`, `metaform-runtime` |
 
@@ -52,6 +52,21 @@ k2_0      a4        0 5 10 11
 The third line above is the only one that can accept anything, and accepting is still not adopting:
 `experiments/proposer_arms.py` gives one state to three proposers (random, retrieval, and the
 proposals a language model wrote) and reports what each found, judged by the same kernel.
+
+### The inductive learner became a proposer
+
+`crates/ilp` used to be a demonstration of a relational learner. It now answers the question the
+kernel cannot: given background knowledge, positives and negatives, **what is the extension over every
+object** -- not over the objects the examples mentioned. `learn_extension` returns that extension and
+`ilp_learn` wraps it in JSON, so a proposer can be a program.
+
+On the proposer bench it reaches a hit rate of 0.9 against the vector retriever's 0.1, and the kernel's
+own numbers are identical to the model's: ten of ten accepted, forty splits. Its cost is milliseconds
+against fifteen to twenty seconds of generation.
+
+Two costs are stated rather than smoothed over. It has **no vote-gap gate**, so one flipped label takes
+it from 0.9 to 0.0; and the model arm of that family replays candidates recorded earlier, so it never
+faced the corruption the learner faced. The comparison is not fair yet, and the pre-registration says so.
 
 ## Where the layering is enforced
 

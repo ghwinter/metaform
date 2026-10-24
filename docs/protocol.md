@@ -75,6 +75,19 @@ evidence (it drops the other positives) or decides nothing about the unmeasured 
 is refused before adoption. `{"legality": {}}` is itself an error: an experiment that believes it has
 turned the rule on when it has not is worse than one that never turned it on.
 
+## Two bookkeeping rules
+
+**What is not a finding belongs in the criterion.** A check that lists what counts as a problem must
+also list what does not: evidence the checker could not reach, harmless limitations, and repeated
+findings are not findings -- they go into private notes. A criterion that omits this collects noise as
+if it were signal, and then the noise is quoted as evidence.
+
+**A correction inherits; it does not re-judge.** A withdrawal keeps the baseline judgement and its
+scores and changes only the fields that moved. This repository's ledger already appends rather than
+overwrites, which is the same discipline: withdrawing a claim must not silently re-open the judgement
+that accepted it. The revision a piece of evidence is bound to matters for the same reason -- a
+re-checked claim is not the same claim, and a bound revision says which one it was.
+
 ## Recording predictions, and settling them
 
 `apply` records every adopted prediction in `.metaform/predictions.tsv`: one header line plus one
