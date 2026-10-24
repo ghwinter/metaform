@@ -540,7 +540,27 @@ mod tests {
     use super::*;
     use std::fs;
 
-    fn scratch(tag: &str) -> PathBuf {
+    /// A scratch project that removes itself when the test ends.
+///
+/// The helpers name the directory after the process id, so the tests could run in parallel, but
+/// nothing removed them afterwards: every run left one directory behind and the workspace filled
+/// up. The guard ends that.
+struct Scratch(PathBuf);
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+impl std::ops::Deref for Scratch {
+    type Target = std::path::Path;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+fn scratch(tag: &str) -> Scratch {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .and_then(Path::parent)
@@ -550,7 +570,7 @@ mod tests {
         let dir = root.join(format!("mcp-{}-{}", std::process::id(), tag));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join(".metaform")).expect("create scratch project");
-        dir
+        Scratch(dir)
     }
 
     fn write_state(project: &Path, value: Value) {
@@ -566,7 +586,7 @@ mod tests {
     }
 
     /// n objects, the listed predicates, then object 0 strong-positive and object 1 strong-negative.
-    fn collision_fixture(tag: &str) -> PathBuf {
+    fn collision_fixture(tag: &str) -> Scratch {
         let project = scratch(tag);
         write_state(
             &project,

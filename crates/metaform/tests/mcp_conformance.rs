@@ -14,7 +14,27 @@ use serde_json::{json, Value};
 
 const ENGINE: &str = env!("CARGO_BIN_EXE_metaform");
 
-fn workspace_tmp(tag: &str) -> PathBuf {
+/// A scratch project that removes itself when the test ends.
+///
+/// The helpers name the directory after the process id, so the tests could run in parallel, but
+/// nothing removed them afterwards: every run left one directory behind and the workspace filled
+/// up. The guard ends that.
+struct Scratch(PathBuf);
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+impl std::ops::Deref for Scratch {
+    type Target = std::path::Path;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+fn workspace_tmp(tag: &str) -> Scratch {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(Path::parent)
@@ -24,7 +44,7 @@ fn workspace_tmp(tag: &str) -> PathBuf {
     let dir = root.join(format!("mcp-conformance-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join(".metaform")).expect("create scratch project");
-    dir
+    Scratch(dir)
 }
 
 #[test]
@@ -197,7 +217,7 @@ fn stdio_transcript_matches_the_host_conformance_sequence() {
     assert_eq!(replies[6]["error"]["code"], -32700);
     assert!(replies[6].get("result").is_none());
 
-    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&*project);
 }
 
 #[test]
