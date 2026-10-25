@@ -195,7 +195,7 @@ impl Explorer {
     /// and `no - yes >= theta` as strong negatives. The more noise, the larger `theta` should be (see RESULTS §3.11:
     /// in the full loop, at ε=0.1 the θ=1 setting succeeds only 25% of the time, while θ=3 reaches 98%).
     ///
-    /// Three rules (aligned with `experiments/noisy_loop.py`):
+    /// Three rules (aligned with `experiments/noise/noisy_loop.py`):
     /// 1. Collision first: a class has both a strong positive and a strong negative → `Insufficient`.
     /// 2. Weak votes block: a class still holds a member that 'voted but did not reach θ' → not decided, return `Undetermined`.
     ///    Otherwise 'one strong label + one weak objection' would be silently accepted, yielding a wrong extension.
