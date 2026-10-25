@@ -96,23 +96,23 @@ the code comments: no machine paths, no names of untracked material.
 ## Reproducing the measurements
 
 ```powershell
-python experiments/verify_claims.py                 # paper-number regression (tolerance 0.06)
-python experiments/theory_audit.py --engine target/debug/metaform.exe   # theorem falsification + engine consistency
-python experiments/ledger.py list --all             # counterexample ledger (add/amend/retract, suspend, with evidence and history)
-python experiments/ledger.py show L2               # inspect one entry: source, answer, votes, change history
-python experiments/ledger.py corroborate --apply    # merge weak evidence for the same object via noisy-OR
-python experiments/ledger.py conflicts              # direction conflicts + re-ask queue (sorted by gap, includes json)
-python experiments/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
-python experiments/domain_b.py                      # Lean as oracle, about 3 s
-python experiments/domain_c.py                      # real code invariants
-python experiments/domain_cost.py                   # cost breakdown
-python experiments/domain_more_data.py              # empirical version of Theorem 5
-python experiments/greedy_cover.py                  # greedy cover vs optimal vs random
-python experiments/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # noisy oracle
+python experiments/gates/verify_claims.py                 # paper-number regression (tolerance 0.06)
+python experiments/gates/theory_audit.py --engine target/debug/metaform.exe   # theorem falsification + engine consistency
+python experiments/costs/ledger.py list --all             # counterexample ledger (add/amend/retract, suspend, with evidence and history)
+python experiments/costs/ledger.py show L2               # inspect one entry: source, answer, votes, change history
+python experiments/costs/ledger.py corroborate --apply    # merge weak evidence for the same object via noisy-OR
+python experiments/costs/ledger.py conflicts              # direction conflicts + re-ask queue (sorted by gap, includes json)
+python experiments/worlds/domain_a.py --n 300 --objects 12 --attrs 8 --k 2
+python experiments/worlds/domain_b.py                      # Lean as oracle, about 3 s
+python experiments/worlds/domain_c.py                      # real code invariants
+python experiments/worlds/domain_cost.py                   # cost breakdown
+python experiments/worlds/domain_more_data.py              # empirical version of Theorem 5
+python experiments/costs/greedy_cover.py                  # greedy cover vs optimal vs random
+python experiments/noise/noisy_oracle.py --attrs 4 --objects 12 --examples 8   # noisy oracle
 target\debug\metaform.exe ops                 # five operators' schedule comparison + 200 random self-checks
 target\debug\metaform.exe crates\metaform\scenarios\review.demo   # the necessity criterion applied to a review policy
-python experiments/proposer.py --case domain_c --emit                    # see the request sent to the model
-python experiments/proposer.py --case domain_c --responses experiments/responses_domain_c.json \
+python experiments/proposers/proposer.py --case domain_c --emit                    # see the request sent to the model
+python experiments/proposers/proposer.py --case domain_c --responses experiments/responses_domain_c.json \
     --pool-out pool.txt --scenario-out case.demo                          # generate a metaform scenario and candidate pool
 ```
 
@@ -121,7 +121,7 @@ PATH is a Store stub rather than a working interpreter, set the variable once pe
 
 ```powershell
 $env:METAFORM_PYTHON = '<full path to python.exe>'
-& $env:METAFORM_PYTHON experiments\domain_a.py
+& $env:METAFORM_PYTHON experiments\worlds\domain_a.py
 ```
 
 A fresh clone has no machine paths, so the repository declares what it needs instead of shipping one

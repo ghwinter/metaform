@@ -50,7 +50,7 @@ k2_0      a4        0 5 10 11
 ```
 
 The third line above is the only one that can accept anything, and accepting is still not adopting:
-`experiments/proposer_arms.py` gives one state to three proposers (random, retrieval, and the
+`experiments/proposers/proposer_arms.py` gives one state to three proposers (random, retrieval, and the
 proposals a language model wrote) and reports what each found, judged by the same kernel.
 
 ### Three gates, three different failures

@@ -1054,7 +1054,7 @@ The single status authority is §6.1; this table is the same information viewed 
 | record and experience | exists; consulted through the experience hint, which changes ask order only |
 | predicate layer | accepts `define: {all_of\|any_of}` over existing predicates; a definition is constant on the request vocabulary's equivalence classes |
 | FCA / attribute exploration | decides which predicate to add; not wired |
-| LLM adapter | exists (`experiments/local_proposer.py`); run against a 3.8B local model, whose capability ceiling bounds what the numbers can show |
+| LLM adapter | exists (`experiments/proposers/local_proposer.py`); run against a 3.8B local model, whose capability ceiling bounds what the numbers can show |
 | CEGAR, MDL | motivation, and a criterion stated but not wired |
 
 **Four confusions.**

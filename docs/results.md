@@ -1,7 +1,7 @@
 # Results, boundaries, and the remaining route
 
 Every number below is reproduced by a command in `docs/verification.md` or by `check-all`. The
-sentences that state a number are also the ones `experiments/verify_claims.py` parses, so the paper,
+sentences that state a number are also the ones `experiments/gates/verify_claims.py` parses, so the paper,
 this page and the program cannot drift apart silently.
 
 ## Conclusions (checkable)
@@ -61,7 +61,7 @@ this page and the program cannot drift apart silently.
 
 ## What the loop has actually run against
 
-The proposer is a 3.8B local model, Phi-4-mini Q4_K_M, behind `experiments/local_proposer.py`. Pooled
+The proposer is a 3.8B local model, Phi-4-mini Q4_K_M, behind `experiments/proposers/local_proposer.py`. Pooled
 over runs, the witness pair moves recovery 15–20 points over placebo (58% against 39%, p = 0.007); a
 single nineteen-instance batch is worth anywhere from 32% to 68%; and a six-step chain produced a +3
 point gap against a pre-registered bar of 15.

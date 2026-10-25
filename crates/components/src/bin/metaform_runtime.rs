@@ -136,7 +136,7 @@ fn write_response(
             ids: &ids[i],
             warrant: Some(warrants[i].as_str()),
             // An empty join is not a falsifier: emitting `"falsifier":""` would record a decoration,
-            // and this is the same mistake `experiments/proposer_arms.py` made with a real one.
+            // and this is the same mistake `experiments/proposers/proposer_arms.py` made with a real one.
             falsifier: if falsifiers[i].is_empty() {
                 None
             } else {
